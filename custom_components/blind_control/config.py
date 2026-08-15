@@ -382,6 +382,20 @@ class BlindControlConfig:
             for key in (*INPUT_BINDING_KEYS, *LEGACY_BINDING_KEYS)
         }
 
+    def freshness_timer_seconds(self) -> float:
+        """Return a bounded cadence that observes the shortest age-limited field."""
+
+        max_ages = [
+            policy.max_age_seconds
+            for key in (*INPUT_BINDING_KEYS, *LEGACY_BINDING_KEYS)
+            if (
+                policy := self.binding_policy(key, legacy=key in LEGACY_BINDING_KEYS)
+            ).max_age_seconds
+            is not None
+        ]
+        shortest = min(max_ages, default=self.observation_freshness_seconds)
+        return max(0.1, min(300.0, shortest / 2))
+
     @classmethod
     def from_mapping(cls, raw: Mapping[str, object] | None) -> BlindControlConfig:
         """Load persisted config without accepting unsafe or unknown profiles."""

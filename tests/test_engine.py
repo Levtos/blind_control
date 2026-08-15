@@ -165,6 +165,8 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertEqual(first.trace.override.context_key.as_dict()["activity_context"], "screen")
         self.assertFalse(ended.trace.override.active)
         self.assertEqual(ended.trace.override.reason, "override_context_changed")
+        self.assertFalse(runtime.observe_cover_position(80, source="same_position", now=23).active)
+        self.assertTrue(runtime.observe_cover_position(70, source="new_position", now=24).active)
 
     def test_apply_disabled_cannot_be_bypassed_by_manual_override(self) -> None:
         config = replace(BlindControlConfig.defaults(), apply_enabled=False)
@@ -413,6 +415,9 @@ class SolarAndLifecycleTests(unittest.TestCase):
         runtime.observe_cover_position(80, source="foreign_position", now=20)
         self.assertTrue(runtime.override.active)
         self.assertEqual(runtime.override.baseline, 20)
+        runtime.clear_override()
+        self.assertFalse(runtime.observe_cover_position(80, source="same_position", now=21).active)
+        self.assertTrue(runtime.observe_cover_position(70, source="new_position", now=22).active)
         runtime.clear_override()
         runtime.on_configuration_change(80)
         self.assertFalse(runtime.override.active)

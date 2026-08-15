@@ -167,6 +167,8 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("customElements.define('blind-control-panel'", main)
         self.assertIn("set hass(value", main)
         self.assertIn("props: { hass: this.hassContext }", main)
+        self.assertIn("app.css?inline", main)
+        self.assertIn("data-blind-control-style", main)
         self.assertNotIn("window.parent", transport)
         self.assertIn("hass.connection", transport)
         self.assertIn("async_register_static_paths", panel)
@@ -176,7 +178,10 @@ class DocumentationTests(unittest.TestCase):
         self.assertTrue(bundle.is_file())
         bundle_source = bundle.read_text(encoding="utf-8")
         self.assertIn("blind-control-panel", bundle_source)
+        self.assertIn("data-blind-control-style", bundle_source)
         self.assertNotIn("sampleSnapshot", bundle_source)
+        self.assertFalse((PACKAGE / "frontend" / "index.html").exists())
+        self.assertFalse(any(path.suffix == ".css" for path in (PACKAGE / "frontend").rglob("*")))
 
     def test_ux_contains_all_binding_fields_and_live_household_projection(self) -> None:
         ux = (PACKAGE / "ux_contract.py").read_text(encoding="utf-8")

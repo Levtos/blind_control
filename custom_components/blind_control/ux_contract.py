@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from .config import BlindControlConfig
+from .config import INPUT_BINDING_KEYS, LEGACY_BINDING_KEYS, BlindControlConfig
+from .contracts import redact_diagnostic_value
 from .shadow import ShadowSnapshot
 
 UX_CONTRACT_VERSION = "blind_control.ux.v1"
@@ -17,7 +18,14 @@ def build_ux_snapshot(snapshot: ShadowSnapshot, config: BlindControlConfig) -> d
     """
 
     trace = snapshot.trace
-    input_values = snapshot.inputs
+    trace_projection = redact_diagnostic_value(trace.as_dict())
+    debug_payload = snapshot.debug_payload()
+    input_values = debug_payload.get("inputs", {})
+
+    if not isinstance(trace_projection, dict):
+        trace_projection = {}
+    if not isinstance(input_values, dict):
+        input_values = {}
 
     def input_value(key: str):
         observation = input_values.get(key, {})
@@ -47,19 +55,19 @@ def build_ux_snapshot(snapshot: ShadowSnapshot, config: BlindControlConfig) -> d
             },
             "safety_status": trace.safety.status,
             "apply_status": trace.apply.status,
-            "override": trace.override.as_dict(),
+            "override": trace_projection.get("override", {}),
             "shadow_only": snapshot.shadow_only,
             "actuation_executed": snapshot.actuation_executed,
             "write_path_reachable": snapshot.write_path_reachable,
         },
         "diagnosis": {
-            "candidates": [candidate.as_dict() for candidate in trace.candidates],
-            "paused_requirements": [item.as_dict() for item in trace.paused_requirements],
-            "solar": trace.solar.as_dict(),
-            "reasons": list(trace.reasons),
-            "inputs": snapshot.inputs,
-            "diffs": [diff.as_dict() for diff in snapshot.diffs],
-            "legacy_evidence": snapshot.legacy_evidence.as_dict(),
+            "candidates": trace_projection.get("candidates", []),
+            "paused_requirements": trace_projection.get("paused_requirements", []),
+            "solar": trace_projection.get("solar", {}),
+            "reasons": trace_projection.get("reasons", list(trace.reasons)),
+            "inputs": input_values,
+            "diffs": debug_payload.get("diffs", []),
+            "legacy_evidence": debug_payload.get("legacy_evidence", {}),
         },
         "settings": {
             "axis_inverted": config.axis_inverted,
@@ -67,8 +75,16 @@ def build_ux_snapshot(snapshot: ShadowSnapshot, config: BlindControlConfig) -> d
             "window_tilt": config.window_tilt,
             "automation_enabled": config.automation_enabled,
             "apply_enabled": config.apply_enabled,
-            "input_bindings": dict(config.input_bindings),
-            "legacy_bindings": dict(config.legacy_bindings),
+            "input_bindings": {key: "" for key in INPUT_BINDING_KEYS},
+            "legacy_bindings": {key: "" for key in LEGACY_BINDING_KEYS},
+            "binding_status": {
+                "input_bindings": {
+                    key: key in dict(config.input_bindings) for key in INPUT_BINDING_KEYS
+                },
+                "legacy_bindings": {
+                    key: key in dict(config.legacy_bindings) for key in LEGACY_BINDING_KEYS
+                },
+            },
             "observation_freshness_seconds": config.observation_freshness_seconds,
             "binding_freshness": config.binding_freshness_mapping(),
             "profiles": {name: profile.as_dict() for name, profile in config.profiles},
@@ -92,5 +108,5 @@ def build_ux_snapshot(snapshot: ShadowSnapshot, config: BlindControlConfig) -> d
                 "position_tolerance": config.position_tolerance,
             },
         },
-        "debug_payload": snapshot.debug_payload(),
+        "debug_payload": debug_payload,
     }

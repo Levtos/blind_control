@@ -37,6 +37,7 @@ def register_websocket_commands(hass: object) -> None:
         return
 
     @websocket_api.websocket_command(GET_SNAPSHOT_SCHEMA)
+    @websocket_api.require_admin
     @websocket_api.async_response
     async def _get_snapshot(hass, connection, msg) -> None:
         entry = _entry_for_message(hass, msg)
@@ -70,9 +71,7 @@ def register_websocket_commands(hass: object) -> None:
             return
         try:
             current = _entry_config(entry)
-            merged = current.to_mapping()
-            merged.update(options)
-            config = BlindControlConfig.from_mapping(merged)
+            config = BlindControlConfig.from_mapping(_merge_options(current, options))
         except (TypeError, ValueError, KeyError) as error:
             connection.send_error(msg["id"], "invalid_options", str(error))
             return
@@ -82,6 +81,23 @@ def register_websocket_commands(hass: object) -> None:
     websocket_api.async_register_command(hass, _get_snapshot)
     websocket_api.async_register_command(hass, _update_options)
     setattr(hass, _REGISTERED_ATTRIBUTE, True)
+
+
+def _merge_options(current: BlindControlConfig, options: Mapping[str, Any]) -> dict[str, object]:
+    """Merge partial UX binding edits without replacing unseen private bindings."""
+
+    merged = current.to_mapping()
+    for key, value in options.items():
+        if key in {"input_bindings", "legacy_bindings"}:
+            if not isinstance(value, Mapping):
+                raise TypeError(f"{key} must be a mapping")
+            existing = merged.get(key, {})
+            if not isinstance(existing, Mapping):
+                raise TypeError(f"{key} must be a mapping")
+            merged[key] = {**existing, **value}
+        else:
+            merged[key] = value
+    return merged
 
 
 def _entry_for_message(hass: object, msg: Mapping[str, Any]):

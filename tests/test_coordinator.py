@@ -60,14 +60,16 @@ class FakeEventRegistry:
     def __init__(self):
         self.state_callbacks = []
         self.time_callbacks = []
+        self.intervals = []
         self.unsubscribed = 0
 
     def track_state_change(self, _hass, _entity_ids, callback):
         self.state_callbacks.append(callback)
         return self._unsubscribe
 
-    def track_time_interval(self, _hass, callback, _interval):
+    def track_time_interval(self, _hass, callback, interval):
         self.time_callbacks.append(callback)
+        self.intervals.append(interval)
         return self._unsubscribe
 
     def _unsubscribe(self):
@@ -132,7 +134,9 @@ class CoordinatorTests(unittest.TestCase):
             "binary_sensor.cover_available": FakeState("on", updated_at=self.now),
             "binary_sensor.cover_ready": FakeState("on", updated_at=self.now),
             "cover.observer": FakeState(
-                "closed", attributes={"current_position": 42}, updated_at=self.now
+                "closed",
+                attributes={"current_position": 42, "device_timestamp": self.now},
+                updated_at=self.now,
             ),
             "sensor.sun_geometry": FakeState(
                 "on",
@@ -184,7 +188,9 @@ class CoordinatorTests(unittest.TestCase):
         old_states = {
             **self.states,
             "cover.observer": FakeState(
-                "closed", attributes={"current_position": 42}, updated_at=old
+                "closed",
+                attributes={"current_position": 42, "device_timestamp": old},
+                updated_at=self.now,
             ),
         }
         stale_inputs = build_inputs_from_states(old_states, self.config, now=self.now)
@@ -200,6 +206,36 @@ class CoordinatorTests(unittest.TestCase):
         )
         self.assertFalse(missing_inputs.cover_position.usable)
         self.assertEqual(missing_inputs.cover_position.reason, "required_timestamp_missing")
+
+    def test_cover_freshness_uses_device_timestamp_not_ha_state_time(self) -> None:
+        old_device_timestamp = self.now - timedelta(
+            seconds=self.config.observation_freshness_seconds + 1
+        )
+        device_state = FakeState(
+            "closed",
+            attributes={"current_position": 42, "device_timestamp": old_device_timestamp},
+            updated_at=self.now,
+        )
+        inputs = build_inputs_from_states(
+            {**self.states, "cover.observer": device_state}, self.config, now=self.now
+        )
+
+        self.assertFalse(inputs.cover_position.usable)
+        self.assertEqual(
+            inputs.cover_position.reason, "bound_entity_state_exceeded_freshness_window"
+        )
+        self.assertEqual(inputs.cover_position.updated_at, old_device_timestamp)
+
+        source_now = FakeState(
+            "closed",
+            attributes={"current_position": 42, "device_timestamp": self.now},
+            updated_at=old_device_timestamp,
+        )
+        fresh_inputs = build_inputs_from_states(
+            {**self.states, "cover.observer": source_now}, self.config, now=self.now
+        )
+        self.assertTrue(fresh_inputs.cover_position.usable)
+        self.assertEqual(fresh_inputs.cover_position.updated_at, self.now)
 
     def test_freshness_contract_is_owner_and_field_specific(self) -> None:
         config = BlindControlConfig.from_mapping(
@@ -231,6 +267,7 @@ class CoordinatorTests(unittest.TestCase):
             snapshot = await coordinator.async_start()
             self.assertEqual(len(registry.state_callbacks), 1)
             self.assertEqual(len(registry.time_callbacks), 1)
+            self.assertEqual(registry.intervals[0], timedelta(seconds=60))
             self.states["sensor.bio_state"].state = "sleeping"
             registry.state_callbacks[0](None)
             await hass.tasks[-1]
@@ -245,6 +282,30 @@ class CoordinatorTests(unittest.TestCase):
             self.assertFalse(coordinator.snapshot.write_path_reachable)
             coordinator.stop()
             self.assertEqual(registry.unsubscribed, 2)
+
+        with fake_home_assistant_event_modules() as registry:
+            asyncio.run(exercise())
+
+    def test_coordinator_timer_uses_shortest_field_freshness(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {
+                "binding_freshness": {
+                    "outdoor_lux": {
+                        "max_age_seconds": 10,
+                        "require_timestamp": True,
+                        "owner": "solar_owner",
+                    }
+                }
+            }
+        )
+
+        async def exercise() -> None:
+            coordinator = ShadowCoordinator(
+                FakeHass({}), FakeEntry(), config, ShadowRuntime(config)
+            )
+            await coordinator.async_start()
+            self.assertEqual(registry.intervals[0], timedelta(seconds=5))
+            coordinator.stop()
 
         with fake_home_assistant_event_modules() as registry:
             asyncio.run(exercise())

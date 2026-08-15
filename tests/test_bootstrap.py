@@ -309,7 +309,13 @@ class BootstrapTests(unittest.TestCase):
                 "custom_components.blind_control.websocket_api"
             )
             hass = _FakeHomeAssistant()
-            entry = _FakeConfigEntry("entry-1")
+            entry = _FakeConfigEntry(
+                "entry-1",
+                data={
+                    "input_bindings": {"bio_state": "sensor.private_bio"},
+                    "legacy_bindings": {"active_mode": "sensor.private_legacy"},
+                },
+            )
             asyncio.run(module.async_setup(hass, {}))
             asyncio.run(module.async_setup_entry(hass, entry))
             hass.config_entries.async_entries = lambda _domain: [entry]
@@ -337,6 +343,7 @@ class BootstrapTests(unittest.TestCase):
             }
             self.assertIn("options", required)
             self.assertIn("entry_id", optional)
+            self.assertTrue(get_handler.requires_admin)
             self.assertTrue(update_handler.requires_admin)
 
             denied = _FakeConnection(is_admin=False)
@@ -344,21 +351,46 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(denied.errors[0][1], "unauthorized")
             self.assertEqual(hass.config_entries.updates, [])
 
+            denied_read = _FakeConnection(is_admin=False)
+            asyncio.run(get_handler(hass, denied_read, {"id": 2, "entry_id": "entry-1"}))
+            self.assertEqual(denied_read.errors[0][1], "unauthorized")
+            self.assertEqual(denied_read.results, [])
+
             allowed = _FakeConnection(is_admin=True)
             asyncio.run(
                 update_handler(
                     hass,
                     allowed,
-                    {"id": 2, "entry_id": "entry-1", "options": {"apply_enabled": False}},
+                    {
+                        "id": 3,
+                        "entry_id": "entry-1",
+                        "options": {
+                            "apply_enabled": False,
+                            "input_bindings": {"activity_state": "sensor.new_activity"},
+                        },
+                    },
                 )
             )
             self.assertEqual(len(hass.config_entries.updates), 1)
             self.assertFalse(hass.config_entries.updates[0][1]["apply_enabled"])
+            self.assertEqual(
+                hass.config_entries.updates[0][1]["input_bindings"],
+                {
+                    "bio_state": "sensor.private_bio",
+                    "activity_state": "sensor.new_activity",
+                },
+            )
 
-            read_only = _FakeConnection(is_admin=False)
-            asyncio.run(get_handler(hass, read_only, {"id": 3, "entry_id": "entry-1"}))
-            self.assertEqual(read_only.results[0][0], 3)
-            self.assertEqual(read_only.results[0][1]["version"], "blind_control.ux.v1")
+            read_only = _FakeConnection(is_admin=True)
+            asyncio.run(get_handler(hass, read_only, {"id": 4, "entry_id": "entry-1"}))
+            self.assertEqual(read_only.results[0][0], 4)
+            projection = read_only.results[0][1]
+            self.assertEqual(projection["version"], "blind_control.ux.v1")
+            serialized = json.dumps(projection)
+            self.assertNotIn("sensor.private_bio", serialized)
+            self.assertNotIn("sensor.private_legacy", serialized)
+            self.assertNotIn("sensor.new_activity", serialized)
+            self.assertTrue(projection["settings"]["binding_status"]["input_bindings"]["bio_state"])
 
     def test_config_flow_is_singleton_and_persists_shadow_configuration(self) -> None:
         if importlib.util.find_spec("homeassistant") is None:

@@ -30,6 +30,11 @@ export type BindingFreshness = {
   owner: string;
 };
 
+export type BindingStatus = {
+  input_bindings: Record<string, boolean>;
+  legacy_bindings: Record<string, boolean>;
+};
+
 export type UxSettings = {
   axis_inverted: boolean;
   window_azimuth: number;
@@ -38,6 +43,7 @@ export type UxSettings = {
   apply_enabled: boolean;
   input_bindings: Record<string, string>;
   legacy_bindings: Record<string, string>;
+  binding_status: BindingStatus;
   observation_freshness_seconds: number;
   binding_freshness: Record<string, BindingFreshness>;
   profiles: Record<string, PositionProfile>;

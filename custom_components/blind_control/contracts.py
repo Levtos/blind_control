@@ -23,6 +23,46 @@ class InputQuality(StrEnum):
     DEGRADED = "degraded"
 
 
+_SAFE_DIAGNOSTIC_SOURCES = frozenset({"unbound", "legacy_mapping"})
+
+
+def redact_source(source: object) -> object:
+    """Keep only source categories in public diagnostics, never topology values."""
+
+    if source is None:
+        return None
+    if isinstance(source, str) and source in _SAFE_DIAGNOSTIC_SOURCES:
+        return source
+    return "owner_bound"
+
+
+def redact_diagnostic_value(value: object, *, key: str | None = None) -> object:
+    """Redact source/entity values recursively while preserving diagnostic shape."""
+
+    normalized = key.lower() if key else ""
+    if normalized in {"source", "sources"} or normalized.endswith("_source"):
+        if isinstance(value, (list, tuple)):
+            return [redact_source(item) for item in value]
+        return redact_source(value)
+    if normalized in {"entity_id", "entity_ids", "input_bindings", "legacy_bindings"}:
+        if isinstance(value, Mapping):
+            return {
+                str(item_key): ("configured" if item_value else None)
+                for item_key, item_value in value.items()
+            }
+        if isinstance(value, (list, tuple)):
+            return ["configured" for _ in value]
+        return "configured" if value else value
+    if isinstance(value, Mapping):
+        return {
+            str(item_key): redact_diagnostic_value(item_value, key=str(item_key))
+            for item_key, item_value in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [redact_diagnostic_value(item, key=key) for item in value]
+    return value
+
+
 class OpeningState(StrEnum):
     """Opening values understood by the technical safety boundary."""
 
@@ -141,12 +181,12 @@ class InputObservation[T]:
 
         return cls(source=source, reason=reason)
 
-    def as_dict(self) -> dict[str, object]:
+    def as_dict(self, *, redact_source_value: bool = False) -> dict[str, object]:
         """Return a safe, JSON-compatible diagnostic projection."""
 
         return {
             "value": self.value,
-            "source": self.source,
+            "source": redact_source(self.source) if redact_source_value else self.source,
             "quality": self.quality.value,
             "reason": self.reason,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
@@ -205,10 +245,13 @@ class BlindControlInputs:
 
         return cls()
 
-    def as_dict(self) -> dict[str, object]:
+    def as_dict(self, *, redact_source_value: bool = False) -> dict[str, object]:
         """Return all input fields for a redaction-free, topology-free snapshot."""
 
-        return {item.name: getattr(self, item.name).as_dict() for item in fields(self)}
+        return {
+            item.name: getattr(self, item.name).as_dict(redact_source_value=redact_source_value)
+            for item in fields(self)
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,10 +285,13 @@ class LegacyEvidence:
             configured=True,
         )
 
-    def as_dict(self) -> dict[str, object]:
+    def as_dict(self, *, redact_source_value: bool = False) -> dict[str, object]:
         return {
             "configured": self.configured,
-            "fields": {key: observation.as_dict() for key, observation in self.observations},
+            "fields": {
+                key: observation.as_dict(redact_source_value=redact_source_value)
+                for key, observation in self.observations
+            },
         }
 
     def as_mapping(self) -> dict[str, InputObservation[object]]:

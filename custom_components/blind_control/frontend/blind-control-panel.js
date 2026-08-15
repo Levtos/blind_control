@@ -10,43 +10,6 @@ var __privateAdd = (obj, member, value) => member.has(obj) ? __typeError("Cannot
 var __privateSet = (obj, member, value, setter) => (__accessCheck(obj, member, "write to private field"), setter ? setter.call(obj, value) : member.set(obj, value), value);
 var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "access private method"), method);
 var _a, _anchor, _hydrate_open, _props, _children, _effect, _main_effect, _pending_effect, _failed_effect, _offscreen_fragment, _local_pending_count, _pending_count, _pending_count_update_queued, _dirty_effects, _maybe_dirty_effects, _effect_pending, _effect_pending_subscriber, _Boundary_instances, hydrate_resolved_content_fn, hydrate_failed_content_fn, create_reset_fn, hydrate_pending_content_fn, render_fn, resolve_fn, run_fn, update_pending_count_fn, handle_error_fn, _started, _prev, _next, _commit_callbacks, _discard_callbacks, _pending, _blocking_pending, _deferred, _roots, _new_effects, _dirty_effects2, _maybe_dirty_effects2, _skipped_branches, _unskipped_branches, _decrement_queued, _Batch_instances, is_deferred_fn, process_fn, traverse_fn, find_earlier_batch_fn, merge_fn, defer_effects_fn, commit_fn, unlink_fn, _b, _batches, _onscreen, _offscreen, _outroing, _transition, _commit, _discard, _c;
-(function polyfill() {
-  const relList = document.createElement("link").relList;
-  if (relList && relList.supports && relList.supports("modulepreload")) {
-    return;
-  }
-  for (const link2 of document.querySelectorAll('link[rel="modulepreload"]')) {
-    processPreload(link2);
-  }
-  new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      if (mutation.type !== "childList") {
-        continue;
-      }
-      for (const node of mutation.addedNodes) {
-        if (node.tagName === "LINK" && node.rel === "modulepreload")
-          processPreload(node);
-      }
-    }
-  }).observe(document, { childList: true, subtree: true });
-  function getFetchOpts(link2) {
-    const fetchOpts = {};
-    if (link2.integrity) fetchOpts.integrity = link2.integrity;
-    if (link2.referrerPolicy) fetchOpts.referrerPolicy = link2.referrerPolicy;
-    if (link2.crossOrigin === "use-credentials")
-      fetchOpts.credentials = "include";
-    else if (link2.crossOrigin === "anonymous") fetchOpts.credentials = "omit";
-    else fetchOpts.credentials = "same-origin";
-    return fetchOpts;
-  }
-  function processPreload(link2) {
-    if (link2.ep)
-      return;
-    link2.ep = true;
-    const fetchOpts = getFetchOpts(link2);
-    fetch(link2.href, fetchOpts);
-  }
-})();
 const DEV = false;
 var is_array = Array.isArray;
 var index_of = Array.prototype.indexOf;
@@ -4157,6 +4120,7 @@ function App($$anchor, $$props) {
     if (!get(draftSettings)) return;
     const value = event.currentTarget.value.trim();
     get(draftSettings)[kind][key] = value;
+    get(draftSettings).binding_status[kind][key] = value.length > 0;
   }
   function updateNumber(key, event) {
     if (!get(draftSettings)) return;
@@ -4569,7 +4533,7 @@ function App($$anchor, $$props) {
             var _a2, _b2, _c2;
             set_text(text_41, `${$0 ?? ""} `);
             set_value(input_8, get(editableSettings).input_bindings[get(key)] ?? "");
-            set_text(text_42, `${((_a2 = get(editableSettings).binding_freshness[get(key)]) == null ? void 0 : _a2.owner) ?? "unassigned" ?? ""} · ${((_b2 = get(editableSettings).binding_freshness[get(key)]) == null ? void 0 : _b2.max_age_seconds) === null ? "stateful" : `${((_c2 = get(editableSettings).binding_freshness[get(key)]) == null ? void 0 : _c2.max_age_seconds) ?? "—"} s`}`);
+            set_text(text_42, `${get(editableSettings).binding_status.input_bindings[get(key)] ? "konfiguriert" : "nicht konfiguriert"} · ${((_a2 = get(editableSettings).binding_freshness[get(key)]) == null ? void 0 : _a2.owner) ?? "unassigned" ?? ""} · ${((_b2 = get(editableSettings).binding_freshness[get(key)]) == null ? void 0 : _b2.max_age_seconds) === null ? "stateful" : `${((_c2 = get(editableSettings).binding_freshness[get(key)]) == null ? void 0 : _c2.max_age_seconds) ?? "—"} s`}`);
           },
           [() => labelFor(get(key))]
         );
@@ -4588,7 +4552,7 @@ function App($$anchor, $$props) {
             var _a2, _b2;
             set_text(text_43, `Legacy · ${$0 ?? ""} `);
             set_value(input_9, get(editableSettings).legacy_bindings[get(key)] ?? "");
-            set_text(text_44, `${((_a2 = get(editableSettings).binding_freshness[get(key)]) == null ? void 0 : _a2.owner) ?? "legacy_policy" ?? ""} · ${((_b2 = get(editableSettings).binding_freshness[get(key)]) == null ? void 0 : _b2.max_age_seconds) ?? "—" ?? ""} s`);
+            set_text(text_44, `${get(editableSettings).binding_status.legacy_bindings[get(key)] ? "konfiguriert" : "nicht konfiguriert"} · ${((_a2 = get(editableSettings).binding_freshness[get(key)]) == null ? void 0 : _a2.owner) ?? "legacy_policy" ?? ""} · ${((_b2 = get(editableSettings).binding_freshness[get(key)]) == null ? void 0 : _b2.max_age_seconds) ?? "—" ?? ""} s`);
           },
           [() => labelFor(get(key))]
         );
@@ -4652,6 +4616,14 @@ async function updateOptions(hass, settings) {
     ...settings.calibration_defaults
   };
   delete options.calibration_defaults;
+  delete options.binding_status;
+  for (const key of ["input_bindings", "legacy_bindings"]) {
+    const configured = Object.fromEntries(
+      Object.entries(settings[key]).filter(([, value]) => value.trim().length > 0)
+    );
+    delete options[key];
+    if (Object.keys(configured).length > 0) options[key] = configured;
+  }
   await hass.connection.sendMessagePromise({
     type: "blind_control/update_options",
     options
@@ -4727,6 +4699,127 @@ function Shell($$anchor, $$props) {
   pop();
 }
 delegate(["click"]);
+const panelCss = `:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #12151b;
+  color: #edf1f7;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; min-width: 320px; background: #12151b; }
+
+button, input { font: inherit; }
+
+button { cursor: pointer; }
+
+.panel-root { max-width: 1180px; margin: 0 auto; padding: 32px; }
+.transport-state { margin: 14vh auto; max-width: 680px; padding: 32px; }
+.error-state { border: 1px solid #765b30; border-radius: 12px; background: #30291f; }
+.app-header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 28px; }
+.eyebrow { color: #92a0b5; font-size: 11px; font-weight: 700; letter-spacing: .14em; margin: 0 0 8px; }
+h1, h2, h3, p { margin-top: 0; }
+h1 { font-size: clamp(25px, 4vw, 38px); letter-spacing: -.03em; margin-bottom: 6px; }
+h2 { font-size: 19px; letter-spacing: -.015em; margin-bottom: 0; }
+h3 { font-size: 14px; margin: 22px 0 12px; }
+.subtitle, .muted, .hint { color: #92a0b5; }
+.subtitle { margin-bottom: 0; }
+.header-status { border: 1px solid #384356; border-radius: 999px; color: #b7c3d6; display: flex; align-items: center; gap: 9px; padding: 9px 13px; white-space: nowrap; }
+.status-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.status-dot.blocked { background: #e5a84b; box-shadow: 0 0 0 4px #e5a84b1c; }
+.status-dot.ready { background: #67d49a; box-shadow: 0 0 0 4px #67d49a1c; }
+.status-dot.warning { background: #e5a84b; box-shadow: 0 0 0 4px #e5a84b1c; }
+.status-dot.error { background: #ef7373; box-shadow: 0 0 0 4px #ef73731c; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid #2c3442; margin-bottom: 24px; }
+.tab { background: transparent; border: 0; color: #92a0b5; padding: 12px 14px; border-bottom: 2px solid transparent; }
+.tab:hover, .tab.active { color: #edf1f7; border-bottom-color: #6fb3ff; }
+.content-grid, .diagnosis-layout, .settings-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.diagnosis-layout, .settings-layout { grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr); }
+.card { background: #1a1f28; border: 1px solid #2c3442; border-radius: 12px; padding: 22px; box-shadow: 0 12px 30px #080a0f30; }
+.span-2 { grid-column: span 2; }
+.hero-card { background: linear-gradient(140deg, #202a38, #1a1f28 60%); }
+.card-heading, .candidate-top, .metric-strip, .profile-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.badge { background: #273243; border: 1px solid #40516a; border-radius: 999px; color: #c9d5e7; font-size: 11px; font-weight: 700; letter-spacing: .08em; padding: 5px 9px; text-transform: uppercase; }
+.badge.blocked, .badge.warning { background: #49371f; border-color: #765b30; color: #f0c477; }
+.badge.ready { background: #1f4937; border-color: #397d5c; color: #9ce2b9; }
+.badge.error { background: #4b2529; border-color: #87444b; color: #ffaaaa; }
+.target-row { margin: 30px 0 24px; display: flex; align-items: baseline; gap: 12px; }
+.target-value { font-size: clamp(48px, 9vw, 76px); font-weight: 700; letter-spacing: -.07em; }
+.metric-strip { border-top: 1px solid #354051; padding-top: 16px; align-items: flex-start; }
+.metric-strip div { display: grid; gap: 5px; min-width: 0; }
+.metric-strip span, dt, .profile-header { color: #92a0b5; font-size: 12px; }
+.metric-strip strong { color: #edf1f7; font-size: 13px; overflow-wrap: anywhere; }
+.facts { display: grid; gap: 13px; margin: 25px 0 20px; }
+.facts div { display: flex; justify-content: space-between; gap: 18px; border-bottom: 1px solid #2c3442; padding-bottom: 10px; }
+dd { margin: 0; color: #d7e0ed; text-align: right; }
+.callout { background: #252c38; border-left: 3px solid #6fb3ff; color: #c9d5e7; font-size: 13px; margin: 0; padding: 11px 13px; }
+.candidate-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 20px; }
+.candidate { background: #202630; border: 1px solid #303b4d; border-radius: 8px; padding: 13px; min-width: 0; }
+.candidate.active { border-color: #527ca6; background: #202e3d; }
+.candidate.paused { border-color: #735b34; background: #30291f; }
+.candidate p { color: #b4c0d1; font-size: 12px; line-height: 1.45; margin: 10px 0; }
+.candidate small { color: #7f8da1; display: block; font-size: 11px; overflow-wrap: anywhere; }
+.candidate-top strong { font-size: 13px; }
+.candidate-top span { color: #edf1f7; font-size: 14px; font-weight: 700; white-space: nowrap; }
+.empty-state { color: #92a0b5; }
+.side-stack { display: grid; gap: 16px; align-content: start; }
+.trace-list { display: grid; gap: 8px; margin-top: 20px; }
+.trace-list .candidate { border-radius: 8px; }
+.plain-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+.plain-list li { display: flex; justify-content: space-between; gap: 18px; color: #c6d0df; font-size: 13px; }
+.plain-list span { color: #92a0b5; text-align: right; }
+.source-list { display: grid; gap: 9px; margin-top: 16px; }
+.source-list div { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 12px; align-items: center; border-bottom: 1px solid #2c3442; padding-bottom: 9px; }
+.source-list span { color: #b7c3d6; font-size: 12px; }
+code { color: #91c8ff; font-size: 11px; overflow-wrap: anywhere; text-align: right; }
+details { margin-top: 16px; }
+summary { color: #b7c3d6; cursor: pointer; font-size: 13px; }
+pre { background: #12171e; border: 1px solid #2c3442; border-radius: 8px; color: #b9d8f4; font-size: 11px; line-height: 1.5; margin: 12px 0 0; max-height: 300px; overflow: auto; padding: 12px; white-space: pre-wrap; }
+.form-grid, .calibration-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }
+label { color: #b7c3d6; display: grid; gap: 7px; font-size: 12px; }
+input[type='number'] { background: #12171e; border: 1px solid #3a4657; border-radius: 8px; color: #edf1f7; min-height: 40px; padding: 8px 10px; width: 100%; }
+input:focus-visible, button:focus-visible { outline: 3px solid #6fb3ff; outline-offset: 2px; }
+.toggle { align-items: center; display: flex; gap: 8px; min-height: 40px; }
+.toggle input { accent-color: #6fb3ff; width: 18px; height: 18px; }
+.hint { font-size: 12px; line-height: 1.5; margin: 18px 0 0; }
+.quiet-button { background: transparent; border: 1px solid #3a4657; border-radius: 8px; color: #b7c3d6; padding: 8px 11px; }
+.quiet-button:hover { border-color: #6fb3ff; color: #edf1f7; }
+.primary-button { background: #6fb3ff; border: 1px solid #8bc5ff; border-radius: 8px; color: #101820; padding: 8px 11px; font-weight: 700; }
+.primary-button:disabled { cursor: not-allowed; opacity: .55; }
+.button-row { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.binding-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 20px; }
+input[type='text'] { background: #12171e; border: 1px solid #3a4657; border-radius: 8px; color: #edf1f7; min-height: 40px; padding: 8px 10px; width: 100%; }
+.ready { color: #9ce2b9; }
+.warning { color: #f0c477; }
+.error { color: #ffaaaa; }
+.profile-table { margin-top: 20px; }
+.profile-row { border-bottom: 1px solid #2c3442; display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(90px, .6fr)); padding: 10px 0; }
+.profile-row strong { color: #d7e0ed; font-size: 13px; }
+.profile-row input { min-height: 34px; }
+.profile-header { border-bottom-color: #465469; font-weight: 700; padding-top: 0; }
+
+@media (max-width: 820px) {
+  .panel-root { padding: 22px 16px; }
+  .app-header { display: grid; }
+  .content-grid, .diagnosis-layout, .settings-layout { grid-template-columns: 1fr; }
+  .span-2 { grid-column: auto; }
+  .candidate-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 520px) {
+  .candidate-grid, .form-grid, .calibration-grid, .binding-grid { grid-template-columns: 1fr; }
+  .metric-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .metric-strip div:last-child { grid-column: span 2; }
+  .plain-list li { display: grid; gap: 4px; }
+  .plain-list span { text-align: left; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
+`;
 class BlindControlPanel extends HTMLElement {
   constructor() {
     super(...arguments);
@@ -4755,10 +4848,18 @@ class BlindControlPanel extends HTMLElement {
   }
   mountWhenReady() {
     if (!this.isConnected || !this.hassContext || this.app) return;
+    this.ensureStyles();
     this.app = mount(Shell, {
       target: this,
       props: { hass: this.hassContext }
     });
+  }
+  ensureStyles() {
+    if (this.querySelector("style[data-blind-control-style]")) return;
+    const style = document.createElement("style");
+    style.dataset.blindControlStyle = "";
+    style.textContent = panelCss;
+    this.prepend(style);
   }
 }
 customElements.define("blind-control-panel", BlindControlPanel);

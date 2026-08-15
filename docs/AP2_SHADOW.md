@@ -47,10 +47,14 @@ Die Default-Policy trennt stabile Contract-Zustände von zeitkritischer
 Telemetrie: Core-State-Werte werden nicht allein wegen ihres HA-Alters stale,
 während Solar-, Wetter-, Temperatur- und Coverpositionswerte eine
 feldspezifische Zeit-Evidence benötigen. Opening-/Readiness-Felder benötigen
-mindestens einen Geräte-/Contract-Zeitstempel, und fehlende geforderte
-Timestamps bleiben konservativ `stale`. Jede Policy trägt Owner, zulässiges
-Maximalalter und `require_timestamp`; einzelne Felder können diese Defaults
-explizit überschreiben.
+mindestens einen zulässigen Contract-Zeitstempel, und fehlende geforderte
+Timestamps bleiben konservativ `stale`. Für `cover_position` wird ausschließlich
+ein Source-/Device-Zeitstempel aus den Attributen `device_timestamp`,
+`source_timestamp`, `measurement_timestamp` oder `observed_at` verwendet;
+HA-`last_updated`/`last_changed` genügt dort nicht. Jede Policy trägt Owner,
+zulässiges Maximalalter und `require_timestamp`; einzelne Felder können diese
+Defaults explizit überschreiben. Der Beobachtungstimer läuft höchstens mit der
+Hälfte des kürzesten konfigurierten feldweisen Maximalalters.
 
 `activity_state = none` ist ein gültiger kanonischer Inaktivitätswert. Nur die
 HA-Sentinels `unknown` und `unavailable` werden global verworfen.
@@ -167,8 +171,12 @@ Anzeige, speichert Änderungen über `blind_control/update_options` und enthält
 keinen `sampleSnapshot`-Produktpfad. Status-Badges stammen aus dem Snapshot,
 Coverposition und Haushalt werden in der Übersicht gezeigt, und alle Input-
 und Legacy-Bindings bleiben im OptionsFlow-Formular sichtbar, auch wenn sie
-noch leer sind. Die Copy-Aktion schreibt die redigierte Debug-Evidence in die
-Clipboard-API.
+noch leer sind; konfigurierte Binding-Werte werden in der Snapshot-Projektion
+nicht zurückgegeben, sondern nur als konfiguriert/nicht konfiguriert markiert.
+Der Snapshot-Read und Options-Update sind admin-geschützt. Source-, Legacy- und
+Entity-Werte werden in der öffentlichen Projektion und in der Copy-Aktion
+wertbasiert redigiert; die Copy-Aktion schreibt diese redigierte Debug-Evidence
+in die Clipboard-API.
 
 ## 8. Implementiert und offen
 

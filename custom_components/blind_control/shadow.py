@@ -13,6 +13,7 @@ from .contracts import (
     LegacyEvidence,
     ManualOverride,
     OverrideContextKey,
+    redact_diagnostic_value,
 )
 from .cooldown import CooldownTracker
 from .engine import DecisionEngine
@@ -56,10 +57,18 @@ class ShadowSnapshot:
     def debug_payload(self) -> dict[str, object]:
         """Return the copyable diagnostic payload without private topology."""
 
-        payload = self.as_dict()
-        payload["inputs"] = {
-            key: value for key, value in self.inputs.items() if not _is_sensitive_key(key)
-        }
+        redacted = redact_diagnostic_value(self.as_dict())
+        payload = redacted if isinstance(redacted, dict) else {}
+        inputs = payload.get("inputs", {})
+        payload["inputs"] = (
+            {
+                key: value
+                for key, value in inputs.items()
+                if isinstance(key, str) and not _is_sensitive_key(key)
+            }
+            if isinstance(inputs, dict)
+            else {}
+        )
         return payload
 
 

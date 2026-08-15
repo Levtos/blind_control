@@ -120,6 +120,7 @@
     if (!draftSettings) return;
     const value = (event.currentTarget as HTMLInputElement).value.trim();
     draftSettings[kind][key] = value;
+    draftSettings.binding_status[kind][key] = value.length > 0;
   }
 
   function updateNumber(key: 'window_azimuth' | 'window_tilt', event: Event): void {
@@ -324,14 +325,14 @@
             <label>
               {labelFor(key)}
               <input type="text" value={editableSettings.input_bindings[key] ?? ''} onchange={(event) => updateBinding('input_bindings', key, event)} />
-              <small>{editableSettings.binding_freshness[key]?.owner ?? 'unassigned'} · {editableSettings.binding_freshness[key]?.max_age_seconds === null ? 'stateful' : `${editableSettings.binding_freshness[key]?.max_age_seconds ?? '—'} s`}</small>
+              <small>{editableSettings.binding_status.input_bindings[key] ? 'konfiguriert' : 'nicht konfiguriert'} · {editableSettings.binding_freshness[key]?.owner ?? 'unassigned'} · {editableSettings.binding_freshness[key]?.max_age_seconds === null ? 'stateful' : `${editableSettings.binding_freshness[key]?.max_age_seconds ?? '—'} s`}</small>
             </label>
           {/each}
           {#each legacyBindingKeys as key}
             <label>
               Legacy · {labelFor(key)}
               <input type="text" value={editableSettings.legacy_bindings[key] ?? ''} onchange={(event) => updateBinding('legacy_bindings', key, event)} />
-              <small>{editableSettings.binding_freshness[key]?.owner ?? 'legacy_policy'} · {editableSettings.binding_freshness[key]?.max_age_seconds ?? '—'} s</small>
+              <small>{editableSettings.binding_status.legacy_bindings[key] ? 'konfiguriert' : 'nicht konfiguriert'} · {editableSettings.binding_freshness[key]?.owner ?? 'legacy_policy'} · {editableSettings.binding_freshness[key]?.max_age_seconds ?? '—'} s</small>
             </label>
           {/each}
         </div>

@@ -166,7 +166,7 @@ class ShadowCoordinator:
             async_track_time_interval(
                 self.hass,
                 self._time_changed,
-                timedelta(seconds=max(5, min(300, self.config.observation_freshness_seconds / 2))),
+                timedelta(seconds=self.config.freshness_timer_seconds()),
             )
         )
         return snapshot
@@ -256,7 +256,7 @@ def _observation_for_entity(
             source=entity_id,
             quality=quality,
             reason="bound_entity_state_not_usable",
-            updated_at=_updated_at(state),
+            updated_at=_updated_at(key, state),
         )
     raw_value = _attribute_value(key, state, raw_state)
     try:
@@ -266,9 +266,9 @@ def _observation_for_entity(
             source=entity_id,
             quality=InputQuality.DEGRADED,
             reason="bound_entity_value_parse_error",
-            updated_at=_updated_at(state),
+            updated_at=_updated_at(key, state),
         )
-    updated_at = _updated_at(state)
+    updated_at = _updated_at(key, state)
     quality, reason = _freshness(updated_at, now, freshness)
     return InputObservation(
         value=value,
@@ -307,13 +307,43 @@ def _convert_value(key: str, value: object) -> object:
     return str(value)
 
 
-def _updated_at(state: object) -> datetime | None:
+def _updated_at(key: str, state: object) -> datetime | None:
+    if key == "cover_position":
+        return _device_timestamp(state)
+    return _ha_updated_at(state)
+
+
+def _ha_updated_at(state: object) -> datetime | None:
     value = getattr(state, "last_updated", None) or getattr(state, "last_changed", None)
-    if value is None:
-        return None
-    if value.tzinfo is None:
-        return value.replace(tzinfo=UTC)
-    return value.astimezone(UTC)
+    return _as_utc_datetime(value)
+
+
+def _device_timestamp(state: object) -> datetime | None:
+    """Read source/device evidence, never HA state-change time, for cover position."""
+
+    attributes = getattr(state, "attributes", {}) or {}
+    for name in ("device_timestamp", "source_timestamp", "measurement_timestamp", "observed_at"):
+        if name in attributes:
+            timestamp = _as_utc_datetime(attributes[name])
+            if timestamp is not None:
+                return timestamp
+    return None
+
+
+def _as_utc_datetime(value: object) -> datetime | None:
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=UTC)
+        return parsed.astimezone(UTC)
+    return None
 
 
 def _freshness(

@@ -8,6 +8,7 @@ export default defineConfig({
     emptyOutDir: true,
     minify: false,
     rollupOptions: {
+      input: 'src/main.ts',
       output: {
         entryFileNames: 'blind-control-panel.js',
         chunkFileNames: 'assets/[name]-[hash].js',

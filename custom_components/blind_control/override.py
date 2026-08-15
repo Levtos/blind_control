@@ -121,8 +121,11 @@ class OverrideTracker:
         return self._override
 
     def clear(self, reason: str = "cleared") -> ManualOverride:
-        """Clear a visible override while retaining the last known baseline."""
+        """Clear and rebase on the last observed foreign position."""
 
+        if self._override.active and self._override.observed_position is not None:
+            self.baseline = self._override.observed_position
+            self.initialized = True
         self._override = ManualOverride.inactive(reason)
         return self._override
 
