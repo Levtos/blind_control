@@ -8,8 +8,9 @@ decision engine into a versioned trace and Shadow snapshot for Issue
 
 The old `benni_blind_policy` integration remains the sole rollbackable
 productive Apply owner. AP2 does not install, reload, disable, migrate, rename,
-or drive a cover. Shadow configuration/options are allowed; no cover platform,
-service, listener, or actuator path exists here.
+or drive a cover. Shadow configuration/options and read-only observation
+listeners are allowed; no cover platform, service-call, or actuator path exists
+here.
 
 Read the documents in this order:
 
@@ -28,10 +29,11 @@ Read the documents in this order:
 - versioned owner-bound input, decision, diagnostic, UX, and Shadow contracts
 - deterministic Solar Exposure, compatible minimum composition, exclusive
   Waking, Opening Safety, Override tracking, and latest-target cooldown state
-- setup creates an initial read-only Shadow snapshot and no input/observation
-  listeners, services, or actuator path
-- no entities, WebSocket commands, frontend command surface, Apply, cover
-  movement, productive migration, or live installation
+- setup starts the owner-bound read-only ShadowCoordinator and publishes a
+  snapshot through a read-only WebSocket projection; no actuator service or
+  device command path exists
+- no entities, frontend device-command surface, Apply, cover movement,
+  productive migration, or live installation
 - no hardcoded productive entity IDs in product Python code
 
 The work remains technical/testing until the Draft PR is reviewed and merged.
