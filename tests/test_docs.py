@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "custom_components" / "blind_control"
 DOCS = ROOT / "docs"
+FRONTEND = ROOT / "frontend"
 
 
 class DocumentationTests(unittest.TestCase):
@@ -18,6 +19,7 @@ class DocumentationTests(unittest.TestCase):
             "INVENTORY.md",
             "CONTRACTS.md",
             "MIGRATION.md",
+            "AP2_SHADOW.md",
         ):
             self.assertTrue((DOCS / filename).is_file(), filename)
 
@@ -44,6 +46,21 @@ class DocumentationTests(unittest.TestCase):
         ):
             self.assertIn(term, lastenheft)
 
+        ap2 = (DOCS / "AP2_SHADOW.md").read_text(encoding="utf-8")
+        for term in (
+            "blind_control.shadow.v1",
+            "shadow_only = true",
+            "write_path_reachable = false",
+            "waking",
+            "cloud_shadow",
+            "Owner-/Freshness",
+            "blind-control-panel.js",
+            "activity_state = none",
+            "override_context_changed",
+            "Not Live",
+        ):
+            self.assertIn(term, ap2)
+
     def test_contract_document_contains_versioned_examples_and_decisions(self) -> None:
         source = (DOCS / "CONTRACTS.md").read_text(encoding="utf-8")
         for term in (
@@ -56,6 +73,9 @@ class DocumentationTests(unittest.TestCase):
             "cover.wohnbereich_thermo_verdunklungsrollo",
             "unknown",
             "reject",
+            "max_age_seconds",
+            "require_timestamp",
+            "waking_context_superseded",
         ):
             self.assertIn(term, source)
 
@@ -115,10 +135,72 @@ class DocumentationTests(unittest.TestCase):
             DOCS / "INVENTORY.md",
             DOCS / "CONTRACTS.md",
             DOCS / "MIGRATION.md",
+            DOCS / "AP2_SHADOW.md",
         ):
             source = path.read_text(encoding="utf-8")
             for target in link_pattern.findall(source):
                 self.assertTrue((path.parent / target).exists(), f"{path}: {target}")
+
+    def test_frontend_is_contract_driven_and_has_no_secret_surface(self) -> None:
+        package = json.loads((FRONTEND / "package.json").read_text(encoding="utf-8"))
+        self.assertIn("svelte", package["devDependencies"])
+        self.assertIn("vite", package["devDependencies"])
+        self.assertTrue((FRONTEND / "src" / "lib" / "contracts.ts").is_file())
+        source = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (FRONTEND / "src").rglob("*")
+            if path.is_file() and path.suffix in {".ts", ".svelte", ".css"}
+        )
+        self.assertNotIn("SUPERVISOR_TOKEN", source)
+        self.assertNotIn("localStorage", source)
+        self.assertNotIn("sampleSnapshot", source)
+        self.assertIn("blind_control/get_snapshot", source)
+        self.assertIn("blind_control/update_options", source)
+        self.assertIn("navigator.clipboard", source)
+        self.assertIn("statusTone", source)
+
+    def test_frontend_is_an_installable_ha_panel_with_official_context(self) -> None:
+        main = (FRONTEND / "src" / "main.ts").read_text(encoding="utf-8")
+        css = (FRONTEND / "src" / "app.css").read_text(encoding="utf-8")
+        transport = (FRONTEND / "src" / "lib" / "transport.ts").read_text(encoding="utf-8")
+        panel = (PACKAGE / "panel.py").read_text(encoding="utf-8")
+
+        self.assertIn("customElements.define('blind-control-panel'", main)
+        self.assertIn("set hass(value", main)
+        self.assertIn("props: { hass: this.hassContext }", main)
+        self.assertIn("app.css?inline", main)
+        self.assertIn("data-blind-control-style", main)
+        self.assertIn("attachShadow({ mode: 'open' })", main)
+        self.assertIn("target: this.panelRoot", main)
+        self.assertIn(":host", css)
+        self.assertNotIn(":root", css)
+        self.assertNotRegex(css, r"(^|[},])\s*body\s*[{,]")
+        self.assertNotIn("window.parent", transport)
+        self.assertIn("hass.connection", transport)
+        self.assertIn("async_register_static_paths", panel)
+        self.assertIn("async_register_built_in_panel", panel)
+        self.assertIn("js_url", panel)
+        bundle = PACKAGE / "frontend" / "blind-control-panel.js"
+        self.assertTrue(bundle.is_file())
+        bundle_source = bundle.read_text(encoding="utf-8")
+        self.assertIn("blind-control-panel", bundle_source)
+        self.assertIn("data-blind-control-style", bundle_source)
+        self.assertNotIn("sampleSnapshot", bundle_source)
+        self.assertFalse((PACKAGE / "frontend" / "index.html").exists())
+        self.assertFalse(any(path.suffix == ".css" for path in (PACKAGE / "frontend").rglob("*")))
+
+    def test_ux_contains_all_binding_fields_and_live_household_projection(self) -> None:
+        ux = (PACKAGE / "ux_contract.py").read_text(encoding="utf-8")
+        app = (FRONTEND / "src" / "App.svelte").read_text(encoding="utf-8")
+        for term in (
+            '"cover_position"',
+            '"household"',
+            "inputBindingKeys",
+            "legacyBindingKeys",
+            "editableSettings.input_bindings[key] ?? ''",
+            "editableSettings.legacy_bindings[key] ?? ''",
+        ):
+            self.assertIn(term, ux + app)
 
 
 if __name__ == "__main__":

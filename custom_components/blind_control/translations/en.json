@@ -3,7 +3,21 @@
     "step": {
       "user": {
         "title": "Blind Control",
-        "description": "AP1 creates a non-actuating bootstrap entry. Source binding, policy, and apply decisions are documented before implementation."
+        "description": "AP2 creates a configurable, non-actuating Shadow entry. It computes inputs, decisions, traces, and snapshots without a device-write path."
+      }
+    },
+    "error": {
+      "invalid_configuration": "Check the position, geometry, and calibration values."
+    },
+    "abort": {
+      "already_configured": "Blind Control is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Blind Control Shadow settings",
+        "description": "Changes recompute the Shadow snapshot and never create a cover-write path."
       }
     }
   }

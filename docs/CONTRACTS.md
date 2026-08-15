@@ -31,7 +31,7 @@ Aktivierungsfreigabe. Ein Feld ohne Owner-/Freshness-Nachweis bleibt
 | Waking | `sensor.benni_core_state_bio_state`, value `waking`, Waking Lifecycle | Core State | exclusive Waking mode | 100 % default until `awake`; no separate prewake source | übernommen |
 | Living Opening | `opening.v1`; living contact candidates in Core Contracts Matrix v1 | Opening/technical owner open | Safety/Climate/Blind | positive closed evidence only; unknown/stale/unavailable/conflict blocks; no silent open fallback | ungeklärt / Blocker |
 | Cover device state | `cover.wohnbereich_thermo_verdunklungsrollo`, `technical_device.v1` evidence | device/Core Contracts evidence | diagnostics only | real device or non-retained event evidence; state vocabulary open | Evidence-only / Blocker |
-| Cover position | same cover, `attributes.current_position`, special evidence-only record | device owner open | diagnostics/apply safety later | device timestamp required; HA-only state change is not enough; missing/stale position unknown | ungeklärt / Blocker |
+| Cover position | same cover, `attributes.current_position`, special evidence-only record | device owner open | diagnostics/apply safety later | Source-/device timestamp from `device_timestamp`/`source_timestamp`/`measurement_timestamp`/`observed_at` required; HA-only state change is not enough; missing/stale position unknown | ungeklärt / Blocker |
 | Cover availability | derived availability gate in `technical_device.v1` | Core Contracts gate; failure set open | Apply readiness later | safe default false only for availability; exact failure set open | ungeklärt / Blocker |
 | External illuminance | Evidence candidate `sensor.garden_light_sensor_illuminance`, `weather_environment.v1` | source owner/timestamp open | blind Solar Exposure later | informational candidate, no old Lux hard gate, no hold-last-as-fresh | ungeklärt / Blocker |
 | Sun elevation / raw sun | old config recorded `sun.sun`; no approved new contract binding | sun/source owner open | Solar Exposure later | no own raw sun truth; stale/missing blocks solar judgment | ungeklärt / Blocker |
@@ -92,3 +92,41 @@ missing/stale: position=unknown, no target inference, no apply
 - [Core-Contracts-Architektur](https://github.com/Levtos/benni-core-contracts/blob/main/docs/architecture.md), [Source-Binding-Matrix v1](https://github.com/Levtos/benni-core-contracts/blob/main/docs/source-binding-matrix-v1.md) und [Published Opening Contract v1](https://github.com/Levtos/benni-core-contracts/blob/main/docs/published-opening-contract-v1.md);
 - die historische [benni_blind_policy-Implementierung](https://github.com/Levtos/benni_blind_policy) sowie die gelesenen Issues [#4](https://github.com/Levtos/benni_blind_policy/issues/4), [#6](https://github.com/Levtos/benni_blind_policy/issues/6), [#8](https://github.com/Levtos/benni_blind_policy/issues/8), [#9](https://github.com/Levtos/benni_blind_policy/issues/9), [#10](https://github.com/Levtos/benni_blind_policy/issues/10), [#11](https://github.com/Levtos/benni_blind_policy/issues/11), [#12](https://github.com/Levtos/benni_blind_policy/issues/12) und [#13](https://github.com/Levtos/benni_blind_policy/issues/13);
 - die historischen Releases [v0.8.2](https://github.com/Levtos/benni_blind_policy/releases/tag/v0.8.2), [v0.8.3](https://github.com/Levtos/benni_blind_policy/releases/tag/v0.8.3) und [v0.8.4](https://github.com/Levtos/benni_blind_policy/releases/tag/v0.8.4).
+
+## 6. AP2-Contracts
+
+Der frühe AP2-Slice versioniert zusätzlich:
+
+| Contract | Inhalt | Sicherheitsgrenze |
+| --- | --- | --- |
+| `blind_control.decision.v1` | Kandidaten, Gewinner, pausierte Äste, fachliches Ziel, Safety, Apply-Intent | kein ausführbarer Gerätepfad |
+| `blind_control.shadow.v1` | Inputs, Trace, Legacy-Diffs und Shadow-Flags | `shadow_only=true`, `actuation_executed=false`, `write_path_reachable=false` |
+| `blind_control.ux.v1` | laufende Snapshot-Projektion für Übersicht, Diagnose und OptionsFlow-Einstellungen | kein Geräte-/Cover-Command und kein Service-Pfad |
+
+Alle externen Inputwerte werden als `InputObservation` mit `source`,
+`quality`, `reason` und optionalem Zeitbezug übergeben. Nur `fresh` ist für
+positive fachliche oder technische Aussagen verwendbar. Die Fachmodule
+erzeugen keine externe Rohwahrheit und enthalten keine produktiven Entity-IDs.
+Die laufende HA-Anbindung liest ausschließlich über owner-konfigurierte
+Bindings; fehlende oder stale Inputs bleiben sichtbar und werden nicht als
+positive Werte ersetzt. Die UX erhält den aktuellen `blind_control.ux.v1`
+Snapshot über den read-only WebSocket-Read-Pfad; Konfigurationsänderungen
+werden ausschließlich als validierte ConfigEntry-/OptionsFlow-Daten gespeichert.
+
+AP2 konkretisiert die Freshness feldweise: stabile Core-State-Contracts sind
+nicht allein wegen eines alten `last_updated`-Werts stale; zeitkritische
+Telemetrie und die Coverposition verwenden eine eigene Maximalalter-Policy und
+benötigen die geforderte Timestamp-Evidence. Fehlende erforderliche Zeit-
+Evidence bleibt `stale`. Jede Bindung führt Owner, `max_age_seconds` und
+`require_timestamp` im effektiven Options-/UX-Contract.
+
+`activity_state = none` ist ein gültiger kanonischer Inaktivitätswert. Nur
+`unknown` und `unavailable` sind globale HA-Sentinels; die fachliche
+Gültigkeit übriger Strings bleibt feldspezifisch.
+
+Der aktive Fremd-Override erhält einen deterministischen Context-Key aus den
+explizit festgelegten Bio-, Activity-Gruppen-, Day-, Household- und Opening-
+Feldern. Innerhalb desselben Keys bleibt der Override aktiv; ein Key-Wechsel
+endet ihn mit `override_context_changed`, der Eintritt in kanonisches Waking
+mit `waking_context_superseded`. Das ist ein Lifecycle-Ereignis, kein
+heuristischer Zustandsersatz.

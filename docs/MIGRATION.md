@@ -74,3 +74,26 @@ Vor einem technischen Shadow-Slice müssen mindestens vorliegen:
 6. getrennte UX-/Frontend-Entscheidung nach ADR 0001.
 
 Bis dahin bleibt der AP1-Stand **Not Live**.
+
+## 6. AP2-Shadow-Vertical-Slice
+
+AP2 erweitert den Rahmen um eine installierbare, weiterhin nicht-aktive
+Shadow-Fachschicht. Der Pfad ist:
+
+```text
+ConfigEntry / OptionsFlow
+  -> owner-bound InputObservation
+  -> Solar Exposure / DecisionEngine
+  -> DecisionTrace / Safety / Apply-Intent
+  -> ShadowSnapshot / optionaler Legacy-Diff
+```
+
+Der Snapshot markiert `shadow_only=true`, `actuation_executed=false` und
+`write_path_reachable=false`. ConfigEntry-/OptionsFlow-Speicherung ist nur
+Konfigurationsspeicherung; es existiert kein Geräte-Schreibpfad.
+
+AP2 übernimmt die Migrationsdefaults für Normal-/Invertiert-Positionen und
+macht die kalibrierbaren Temperatur-, Lux-, Strahlungs-, Confidence-, Trend-,
+Cooldown- und Toleranzwerte explizit konfigurierbar. Die fachliche
+Interpretation, Owner-/Freshness-Grenzen und bekannte offene Bindings sind in
+[AP2_SHADOW.md](AP2_SHADOW.md) festgehalten.

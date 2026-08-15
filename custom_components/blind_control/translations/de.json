@@ -3,7 +3,21 @@
     "step": {
       "user": {
         "title": "Blind Control",
-        "description": "AP1 erstellt einen nicht-aktiven Bootstrap-Eintrag. Quellenbindung, Policy- und Apply-Entscheidungen werden vor der Implementierung dokumentiert."
+        "description": "AP2 erstellt einen konfigurierbaren, nicht-aktiven Shadow-Eintrag. Inputs, Entscheidungen, Trace und Snapshot werden ohne Geräte-Schreibpfad berechnet."
+      }
+    },
+    "error": {
+      "invalid_configuration": "Positions-, Geometrie- und Kalibrierwerte prüfen."
+    },
+    "abort": {
+      "already_configured": "Blind Control ist bereits konfiguriert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Blind-Control-Shadow-Einstellungen",
+        "description": "Änderungen berechnen den Shadow-Snapshot neu und erzeugen niemals einen Cover-Schreibpfad."
       }
     }
   }
