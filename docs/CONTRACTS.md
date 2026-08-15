@@ -92,3 +92,18 @@ missing/stale: position=unknown, no target inference, no apply
 - [Core-Contracts-Architektur](https://github.com/Levtos/benni-core-contracts/blob/main/docs/architecture.md), [Source-Binding-Matrix v1](https://github.com/Levtos/benni-core-contracts/blob/main/docs/source-binding-matrix-v1.md) und [Published Opening Contract v1](https://github.com/Levtos/benni-core-contracts/blob/main/docs/published-opening-contract-v1.md);
 - die historische [benni_blind_policy-Implementierung](https://github.com/Levtos/benni_blind_policy) sowie die gelesenen Issues [#4](https://github.com/Levtos/benni_blind_policy/issues/4), [#6](https://github.com/Levtos/benni_blind_policy/issues/6), [#8](https://github.com/Levtos/benni_blind_policy/issues/8), [#9](https://github.com/Levtos/benni_blind_policy/issues/9), [#10](https://github.com/Levtos/benni_blind_policy/issues/10), [#11](https://github.com/Levtos/benni_blind_policy/issues/11), [#12](https://github.com/Levtos/benni_blind_policy/issues/12) und [#13](https://github.com/Levtos/benni_blind_policy/issues/13);
 - die historischen Releases [v0.8.2](https://github.com/Levtos/benni_blind_policy/releases/tag/v0.8.2), [v0.8.3](https://github.com/Levtos/benni_blind_policy/releases/tag/v0.8.3) und [v0.8.4](https://github.com/Levtos/benni_blind_policy/releases/tag/v0.8.4).
+
+## 6. AP2-Contracts
+
+Der frühe AP2-Slice versioniert zusätzlich:
+
+| Contract | Inhalt | Sicherheitsgrenze |
+| --- | --- | --- |
+| `blind_control.decision.v1` | Kandidaten, Gewinner, pausierte Äste, fachliches Ziel, Safety, Apply-Intent | kein ausführbarer Gerätepfad |
+| `blind_control.shadow.v1` | Inputs, Trace, Legacy-Diffs und Shadow-Flags | `shadow_only=true`, `actuation_executed=false`, `write_path_reachable=false` |
+| `blind_control.ux.v1` | read-only Übersicht, Diagnose und Einstellungen | keine Command-/Service-Oberfläche |
+
+Alle externen Inputwerte werden als `InputObservation` mit `source`,
+`quality`, `reason` und optionalem Zeitbezug übergeben. Nur `fresh` ist für
+positive fachliche oder technische Aussagen verwendbar. Die Fachmodule
+erzeugen keine externe Rohwahrheit und enthalten keine produktiven Entity-IDs.

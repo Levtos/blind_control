@@ -40,3 +40,15 @@ jobs:
 
       - name: Check whitespace
         run: git diff --check
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+
+      - name: Check frontend contract UI
+        working-directory: frontend
+        run: npm run check
+
+      - name: Build frontend bundle
+        working-directory: frontend
+        run: npm run build

@@ -2,18 +2,25 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
+from .config import BlindControlConfig
+from .contracts import BlindControlInputs
+from .shadow import ShadowRuntime, ShadowSnapshot
+
 
 @dataclass(frozen=True, slots=True)
 class BlindControlRuntimeData:
-    """Runtime state owned by one loaded Blind Control ConfigEntry."""
+    """Shadow state owned by one loaded Blind Control ConfigEntry."""
 
-    phase: str = "bootstrap"
+    phase: str = "shadow"
+    config: BlindControlConfig = field(default_factory=BlindControlConfig.defaults)
+    shadow: ShadowRuntime = field(default_factory=ShadowRuntime)
+    snapshot: ShadowSnapshot | None = None
 
 
 type BlindControlConfigEntry = ConfigEntry[BlindControlRuntimeData]
@@ -26,9 +33,19 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: BlindControlConfigEntry) -> bool:
-    """Load one bootstrap ConfigEntry without creating entities or listeners."""
+    """Load one non-actuating entry and retain its initial shadow snapshot."""
 
-    entry.runtime_data = BlindControlRuntimeData()
+    config = BlindControlConfig.from_mapping(
+        {**getattr(entry, "data", {}), **getattr(entry, "options", {})}
+    )
+    shadow = ShadowRuntime(config)
+    entry.runtime_data = BlindControlRuntimeData(
+        config=config,
+        shadow=shadow,
+        snapshot=shadow.evaluate(BlindControlInputs.empty()),
+    )
+    if hasattr(entry, "add_update_listener") and hasattr(entry, "async_on_unload"):
+        entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     return True
 
 
@@ -36,3 +53,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: BlindControlConfigEntry
     """Unload one bootstrap entry without integration-owned cleanup."""
 
     return True
+
+
+async def _async_options_updated(hass: HomeAssistant, entry: BlindControlConfigEntry) -> None:
+    """Recreate the read-only snapshot after an OptionsFlow change."""
+
+    await hass.config_entries.async_reload(entry.domain, entry.entry_id)

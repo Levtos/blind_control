@@ -99,3 +99,22 @@ Owner-/Contract-Matrix verändert oder wenn eine Quelle nur aus alter YAML,
 einem veralteten README, einem Snapshot oder einem Entity-Alias abgeleitet
 werden könnte. Das offene Ergebnis wird in [CONTRACTS.md](CONTRACTS.md) und
 [MIGRATION.md](MIGRATION.md) als Gate dokumentiert.
+
+## 7. AP2-Fortschreibung
+
+Der frühe AP2-Slice implementiert die Fachschicht als HA-unabhängige Module:
+`contracts.py` (owner-bound observations), `solar.py` (window-specific
+exposure), `engine.py` (decision tree), `override.py`, `cooldown.py` und
+`shadow.py`. `ux_contract.py` stellt den versionierten read-only Contract für
+spätere Übersicht, Diagnose und Einstellungen bereit.
+
+`async_setup_entry` erstellt ausschließlich einen initialen
+`ShadowSnapshot`. Es gibt weiterhin kein Plattform-Forwarding, keinen
+Input-/Observation-Listener, keinen Service und keinen Aktuatorzugriff. Der
+standardmäßige OptionsFlow-Update-Listener lädt bei Konfigurationsänderungen
+nur die read-only Auswertung neu. Ein technischer Shadow-Target ist eine
+Diagnose-/Apply-Intent-Aussage, keine ausführbare Home-Assistant-Aktion.
+
+Die vollständige AP2-Implementierungs- und Owner-/Freshness-Beschreibung steht
+in [AP2_SHADOW.md](AP2_SHADOW.md). Nicht belegte externe Bindings bleiben
+Blocker und werden nicht aus historischen IDs rekonstruiert.

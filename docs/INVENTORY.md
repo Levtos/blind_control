@@ -184,3 +184,11 @@ keinen der genannten Consumer.
   Consumer-Vertrag;
 - Parität von Legacy-Storage/Override-/Apply-Lifecycle;
 - vollständiges Consumer-Inventar vor Shadow/Cutover.
+
+## 11. AP2-Stand
+
+Der erste AP2-Batch ist in [AP2_SHADOW.md](AP2_SHADOW.md) beschrieben. Die
+neuen Fachmodule konsumieren nur generische owner-bound Observations und
+veröffentlichen einen read-only Shadow-/UX-Snapshot. Die in diesem Inventar
+als ungeklärt markierten externen Bindings bleiben ungeklärt; AP2 ersetzt sie
+nicht durch Alias- oder Recompute-Logik.

@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "custom_components" / "blind_control"
 DOCS = ROOT / "docs"
+FRONTEND = ROOT / "frontend"
 
 
 class DocumentationTests(unittest.TestCase):
@@ -18,6 +19,7 @@ class DocumentationTests(unittest.TestCase):
             "INVENTORY.md",
             "CONTRACTS.md",
             "MIGRATION.md",
+            "AP2_SHADOW.md",
         ):
             self.assertTrue((DOCS / filename).is_file(), filename)
 
@@ -43,6 +45,18 @@ class DocumentationTests(unittest.TestCase):
             "124° OSO",
         ):
             self.assertIn(term, lastenheft)
+
+        ap2 = (DOCS / "AP2_SHADOW.md").read_text(encoding="utf-8")
+        for term in (
+            "blind_control.shadow.v1",
+            "shadow_only = true",
+            "write_path_reachable = false",
+            "waking",
+            "cloud_shadow",
+            "Owner-/Freshness",
+            "Not Live",
+        ):
+            self.assertIn(term, ap2)
 
     def test_contract_document_contains_versioned_examples_and_decisions(self) -> None:
         source = (DOCS / "CONTRACTS.md").read_text(encoding="utf-8")
@@ -115,10 +129,24 @@ class DocumentationTests(unittest.TestCase):
             DOCS / "INVENTORY.md",
             DOCS / "CONTRACTS.md",
             DOCS / "MIGRATION.md",
+            DOCS / "AP2_SHADOW.md",
         ):
             source = path.read_text(encoding="utf-8")
             for target in link_pattern.findall(source):
                 self.assertTrue((path.parent / target).exists(), f"{path}: {target}")
+
+    def test_frontend_is_contract_driven_and_has_no_secret_surface(self) -> None:
+        package = json.loads((FRONTEND / "package.json").read_text(encoding="utf-8"))
+        self.assertIn("svelte", package["devDependencies"])
+        self.assertIn("vite", package["devDependencies"])
+        self.assertTrue((FRONTEND / "src" / "lib" / "contracts.ts").is_file())
+        source = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (FRONTEND / "src").rglob("*")
+            if path.is_file() and path.suffix in {".ts", ".svelte", ".css"}
+        )
+        self.assertNotIn("SUPERVISOR_TOKEN", source)
+        self.assertNotIn("localStorage", source)
 
 
 if __name__ == "__main__":
