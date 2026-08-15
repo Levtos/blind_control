@@ -1,0 +1,10 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Blind Control",
+        "description": "AP1 creates a non-actuating bootstrap entry. Source binding, policy, and apply decisions are documented before implementation."
+      }
+    }
+  }
+}

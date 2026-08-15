@@ -1,0 +1,10 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Blind Control",
+        "description": "AP1 erstellt einen nicht-aktiven Bootstrap-Eintrag. Quellenbindung, Policy- und Apply-Entscheidungen werden vor der Implementierung dokumentiert."
+      }
+    }
+  }
+}

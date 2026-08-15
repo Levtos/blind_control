@@ -1,0 +1,11 @@
+{
+  "domain": "blind_control",
+  "name": "Blind Control",
+  "version": "0.1.0",
+  "documentation": "https://github.com/Levtos/blind_control",
+  "issue_tracker": "https://github.com/Levtos/blind_control/issues/1",
+  "codeowners": ["@Levtos"],
+  "config_flow": true,
+  "integration_type": "service",
+  "iot_class": "calculated"
+}
