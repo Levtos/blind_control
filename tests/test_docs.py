@@ -21,6 +21,23 @@ class DocumentationTests(unittest.TestCase):
         ):
             self.assertTrue((DOCS / filename).is_file(), filename)
 
+        lastenheft = (DOCS / "LASTENHEFT.md").read_text(encoding="utf-8")
+        for term in (
+            "Dokumentversion:** 0.2",
+            "direct_sun",
+            "cloud_shadow",
+            "diffuse_bright",
+            "solar_not_on_window",
+            "storm_approaching",
+            "cool_air_available",
+            "cold_insulation",
+            "Override",
+            "A1–A16",
+            "A16 Restart",
+            "124° OSO",
+        ):
+            self.assertIn(term, lastenheft)
+
     def test_contract_document_contains_versioned_examples_and_decisions(self) -> None:
         source = (DOCS / "CONTRACTS.md").read_text(encoding="utf-8")
         for term in (
@@ -42,11 +59,25 @@ class DocumentationTests(unittest.TestCase):
             "ConfigEntry",
             "Storage",
             "WebSocket",
+            "entity.py",
+            "websocket_api.py",
+            "apply_now",
+            "set_privacy_bed",
+            "clear_manual_override",
+            "set_position_profile",
+            "get_status",
+            "set_apply_enabled",
+            "set_manual_position",
+            "set_manual_decision",
+            "set_invert_position",
+            "reset_position_profile",
+            "set_heat_lux_min",
             "Apply",
             "Cooldown",
             "Writing guard",
             "Override",
             "Startup",
+            "EVENT_HOMEASSISTANT_STARTED",
             "Regression",
             "Consumer",
             "ungeklärt / Blocker",

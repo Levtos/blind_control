@@ -29,7 +29,10 @@ entschiedene Ziel. Jede Zeile hat eine AP1-Klassifikation:
 | `view.py`, statisches Panel, WebSocket | spätere ADR-0001-UX mit read-only Diagnose und getrennten Commands/Events | technisch neu lösen | kein Frontend/API in AP1 |
 | `diagnostics.py` | owner-lokale, feldbezogene Diagnose mit Freshness/Quality/Root Cause | technisch neu lösen | Contract-Anforderungen dokumentiert |
 | `storage.py` / alte Runtime-State-Datei | neues versioniertes Runtime-Schema erst nach Fachentscheid | technisch neu lösen | keine Migration/kein Storage in AP1 |
-| `services.yaml` und alte Services | spätere explizite Apply-/Override-Commands | bewusst verwerfen | keine Services in AP1 |
+| `services.yaml`: `apply_now` | sofortige Neuberechnung und gegebenenfalls Fahrt | technisch neu lösen | kein Service in AP1 |
+| `services.yaml`: `set_privacy_bed` | manueller Bett-/Privacy-Modus mit `enabled` | fachlich ersetzen | kein Service in AP1 |
+| `services.yaml`: `clear_manual_override` | aktiven Manual Override löschen | technisch neu lösen | kein Service in AP1 |
+| `services.yaml`: `set_position_profile` | Positionsprofil-Dict für bekannte Modi | fachlich ersetzen | kein Service in AP1 |
 
 ## 2. ConfigEntry, Optionen und persistenter Zustand
 
@@ -48,10 +51,42 @@ entschiedene Ziel. Jede Zeile hat eine AP1-Klassifikation:
 | Mode-/Position-/Debug-Sensor | Entscheidung, effektive Position, Trace/Debug | fachlich ersetzen; Zielvertrag offen, AP1 keine Entity |
 | Lux-Gate-/Privacy-Latch-/Override-/Writing-/Apply-Blocked-Binaries | Diagnose und interne Policy-Zustände | technisch neu lösen; kein alter State wird als Ziel-Contract kopiert |
 | Privacy-Bed, Alarm-Wakeup, Apply-Enabled, Invert-Schalter | alte Bedien-/Optionsoberfläche | fachlich ersetzen; `waking` ersetzt den alten Alarm-Wakeup-Platzhalter, UI später |
-| `apply_now`, Privacy-Bed, Override, Position-Profile | Mutations-Services | technisch neu lösen; kein Service/keine Coverfahrt in AP1 |
-| Status-WebSocket plus Mutations-Commands | Panel-Snapshot und Admin-Schreibpfade | technisch neu lösen; spätere Commands/Events bleiben getrennt |
+| `entity.py` | gemeinsame Entity-Basis, Device-Naming, Coordinator-Listener und State-Write-Hook | technisch neu lösen; keine Entity in AP1 |
+| `websocket_api.py` | Status-Snapshot und Admin-Schreibpfade als HA-WebSocket-Gateway | technisch neu lösen; kein WebSocket in AP1 |
 | altes Panel `benni_blind_policy` | Produktive UI-/Gateway-Fläche | fachlich ersetzen; ADR-0001-Frontend später, kein Panel in AP1 |
 | altes Device/Entity-Naming | `benni_`-Policy-Outputs | bewusst verwerfen im neuen Produkt; externe Core-/Legacy-IDs bleiben nur in Inventar/Contracts |
+
+### 3.1 Alte Services
+
+Die vier in `custom_components/benni_blind_policy/services.yaml` belegten
+Services werden einzeln klassifiziert:
+
+| Alter Service | Verantwortung | Zielentscheidung |
+| --- | --- | --- |
+| `apply_now` | sofortige Neuberechnung und, wenn `apply_enabled`, Anfahren der Zielposition | technisch neu lösen; im Shadow niemals ausführen |
+| `set_privacy_bed` | manuellen Bett-/Privacy-Modus setzen oder löschen | fachlich ersetzen; Privacy-/Waking-Modell bleibt im neuen Trace getrennt |
+| `clear_manual_override` | aktiven Manual Override löschen | technisch neu lösen; neuer Override-Lifecycle mit sichtbarer Diagnose |
+| `set_position_profile` | bekannte Modus-Schlüssel im Profil-Dict auf 0..100 begrenzen | fachlich ersetzen; neue Normal-/Invertiert-Konfiguration |
+
+### 3.2 Alte WebSocket-Kommandos
+
+`custom_components/benni_blind_policy/const.py` und
+`websocket_api.py` belegen folgende Commands. Status und Mutation bleiben im
+Ziel getrennt; kein Command wird in AP1 registriert.
+
+| Alter Command | Verantwortung | Zielentscheidung |
+| --- | --- | --- |
+| `get_status` | Panel-Status und Diagnose-Snapshot lesen | technisch neu lösen; versionierter read-only UX-/Diagnose-Contract |
+| `set_apply_enabled` | Apply-Gate administrativ schalten | technisch neu lösen; technisches Gate bleibt sichtbar |
+| `set_privacy_bed` | Bett-/Privacy-Modus schalten | fachlich ersetzen |
+| `clear_manual_override` | Override löschen | technisch neu lösen |
+| `apply_now` | Neuberechnung und Apply erzwingen | technisch neu lösen; Shadow bleibt nicht-aktuiert |
+| `set_position_profile` | Normal-/Invertiert-Positionsprofile ändern | fachlich ersetzen |
+| `set_manual_position` | manuelle Zielposition vorgeben | fachlich ersetzen; neuer nachweisbarer Override |
+| `set_manual_decision` | manuelle Decision/Mode-Auswahl erzwingen | fachlich ersetzen; Kandidat/Reason muss im Trace bleiben |
+| `set_invert_position` | technische Achseninvertierung schalten | technisch neu lösen; eigene UI-/Runtime-Option |
+| `reset_position_profile` | Positionsprofile zurücksetzen | technisch neu lösen; sichere Konfigurationsmigration |
+| `set_heat_lux_min` | einzelnes Heat-Lux-Minimum ändern | bewusst verwerfen; Solar Exposure ersetzt das Lux-Hard-Gate |
 
 ## 4. Inputs und Quellen
 
@@ -97,6 +132,8 @@ entschiedene Ziel. Jede Zeile hat eine AP1-Klassifikation:
 
 | Ist | Soll/Klassifikation |
 | --- | --- |
+| `coordinator.py` Startup-Listener: `async_at_started` beziehungsweise `EVENT_HOMEASSISTANT_STARTED` | technische Readiness erst nach HA-Start und Startup-Block; technisch neu lösen, AP1 registriert keinen Listener |
+| `coordinator.py` `async_track_state_change_event` und `async_track_time_interval` | laufende Re-Evaluation und Scheduler des alten Policies; technisch neu lösen, keine Listener in AP1 |
 | alter Startup-Block und `startup_ready` im Coordinator | technische Readiness mit aktuellen Source-Observations und feldbezogener Quality; technisch neu lösen |
 | alter Master-/System-Ready-Template-Pfad | Core-Devices-/Core-Contracts-Evidence nicht als Blind-Policy-Ersatz duplizieren; technisch neu lösen |
 | Setup-Evaluation beim HA-Start | AP1 führt keine Evaluation aus; später nur nach explizitem Startup-/Freshness-Vertrag |

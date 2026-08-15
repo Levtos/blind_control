@@ -1,36 +1,39 @@
-"""Bootstrap runtime for the Blind Control Home Assistant integration.
-
-AP1 deliberately owns no entity platform, service, websocket command, or
-actuation path.  The entry is kept in ``hass.data`` so setup and unload are
-reproducible while the inventory and contract decisions are completed.
-"""
+"""Bootstrap runtime for the Blind Control Home Assistant integration."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
-from .const import DOMAIN
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
 
 
-async def async_setup(hass: Any, config: dict[str, Any]) -> bool:
-    """Prepare the integration namespace without registering a write surface."""
+@dataclass(frozen=True, slots=True)
+class BlindControlRuntimeData:
+    """Runtime state owned by one loaded Blind Control ConfigEntry."""
 
-    hass.data.setdefault(DOMAIN, {})
+    phase: str = "bootstrap"
+
+
+type BlindControlConfigEntry = ConfigEntry[BlindControlRuntimeData]
+
+
+async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
+    """Prepare the integration without creating a shared data bucket."""
+
     return True
 
 
-async def async_setup_entry(hass: Any, entry: Any) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: BlindControlConfigEntry) -> bool:
     """Load one bootstrap ConfigEntry without creating entities or listeners."""
 
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
-        "entry": entry,
-        "runtime": "bootstrap",
-    }
+    entry.runtime_data = BlindControlRuntimeData()
     return True
 
 
-async def async_unload_entry(hass: Any, entry: Any) -> bool:
-    """Unload one bootstrap entry and leave no runtime state behind."""
+async def async_unload_entry(hass: HomeAssistant, entry: BlindControlConfigEntry) -> bool:
+    """Unload one bootstrap entry and release its entry-owned runtime state."""
 
-    hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
+    entry.runtime_data = None
     return True
