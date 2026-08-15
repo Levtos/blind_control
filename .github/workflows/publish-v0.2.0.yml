@@ -1,0 +1,39 @@
+name: Publish v0.2.0
+
+on:
+  push:
+    branches:
+      - agent/publish-v0.2.0
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: 390a18812428f5061c0d1830e78663b548ef02a2
+        run: |
+          set -euo pipefail
+          if gh release view v0.2.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v0.2.0 already exists."
+            exit 0
+          fi
+          gh release create v0.2.0 \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$RELEASE_SHA" \
+            --title "Blind Control v0.2.0" \
+            --notes-file - <<'EOF'
+          First installable AP2 Shadow release.
+
+          - HACS-compatible package metadata
+          - deterministic Shadow decision engine and diagnostics
+          - configurable Normal/Invertiert profiles
+          - no cover actuation path
+
+          Safety: Not Live. This release cannot send cover commands and does not replace `benni_blind_policy`.
+          EOF
