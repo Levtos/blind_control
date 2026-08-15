@@ -14,7 +14,12 @@ from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from .config import INPUT_BINDING_KEYS, LEGACY_BINDING_KEYS, BlindControlConfig
+from .config import (
+    INPUT_BINDING_KEYS,
+    LEGACY_BINDING_KEYS,
+    BindingFreshness,
+    BlindControlConfig,
+)
 from .contracts import (
     BlindControlInputs,
     InputObservation,
@@ -56,7 +61,7 @@ _NUMERIC_KEYS = frozenset(
         "effective_target",
     }
 )
-_STATE_UNAVAILABLE = frozenset({"unknown", "unavailable", "none", ""})
+_STATE_UNAVAILABLE = frozenset({"unknown", "unavailable"})
 
 
 def build_inputs_from_states(
@@ -74,7 +79,7 @@ def build_inputs_from_states(
             key,
             configured.get(key),
             states.get(configured[key]) if key in configured else None,
-            config.observation_freshness_seconds,
+            config.binding_policy(key),
             now,
         )
         for key in INPUT_BINDING_KEYS
@@ -104,7 +109,7 @@ def build_legacy_evidence_from_states(
                     key,
                     entity_id,
                     states.get(entity_id) if entity_id else None,
-                    config.observation_freshness_seconds,
+                    config.binding_policy(key, legacy=True),
                     now,
                 ),
             )
@@ -231,7 +236,7 @@ def _observation_for_entity(
     key: str,
     entity_id: str | None,
     state: object | None,
-    freshness_seconds: float,
+    freshness: BindingFreshness,
     now: datetime,
 ) -> InputObservation[Any]:
     if entity_id is None:
@@ -244,7 +249,7 @@ def _observation_for_entity(
     if str(raw_state).lower() in _STATE_UNAVAILABLE:
         quality = (
             InputQuality.UNAVAILABLE
-            if str(raw_state).lower() in {"unavailable", "none", ""}
+            if str(raw_state).lower() == "unavailable"
             else InputQuality.UNKNOWN
         )
         return InputObservation(
@@ -264,7 +269,7 @@ def _observation_for_entity(
             updated_at=_updated_at(state),
         )
     updated_at = _updated_at(state)
-    quality, reason = _freshness(updated_at, now, freshness_seconds)
+    quality, reason = _freshness(updated_at, now, freshness)
     return InputObservation(
         value=value,
         source=entity_id,
@@ -314,12 +319,16 @@ def _updated_at(state: object) -> datetime | None:
 def _freshness(
     updated_at: datetime | None,
     now: datetime,
-    freshness_seconds: float,
+    policy: BindingFreshness,
 ) -> tuple[InputQuality, str]:
     if updated_at is None:
-        return InputQuality.FRESH, "bound_entity_has_no_timestamp_assumed_current"
+        if policy.require_timestamp:
+            return InputQuality.STALE, "required_timestamp_missing"
+        return InputQuality.FRESH, "stateful_contract_timestamp_not_required"
+    if policy.max_age_seconds is None:
+        return InputQuality.FRESH, "stateful_contract_not_age_limited"
     age = max(0.0, (now - updated_at).total_seconds())
-    if age <= freshness_seconds:
+    if age <= policy.max_age_seconds:
         return InputQuality.FRESH, "bound_entity_state_is_fresh"
     return InputQuality.STALE, "bound_entity_state_exceeded_freshness_window"
 

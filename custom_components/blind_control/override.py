@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 
 from .config import BlindControlConfig
-from .contracts import ManualOverride
+from .contracts import ManualOverride, OverrideContextKey
 
 
 @dataclass(slots=True)
@@ -113,10 +113,17 @@ class OverrideTracker:
         )
         return self._override
 
-    def clear(self) -> ManualOverride:
+    def attach_context(self, context_key: OverrideContextKey) -> ManualOverride:
+        """Bind an active foreign override to the explicit evaluation context."""
+
+        if self._override.active:
+            self._override = replace(self._override, context_key=context_key)
+        return self._override
+
+    def clear(self, reason: str = "cleared") -> ManualOverride:
         """Clear a visible override while retaining the last known baseline."""
 
-        self._override = ManualOverride.inactive("cleared")
+        self._override = ManualOverride.inactive(reason)
         return self._override
 
 

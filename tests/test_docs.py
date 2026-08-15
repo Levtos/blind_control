@@ -54,6 +54,9 @@ class DocumentationTests(unittest.TestCase):
             "waking",
             "cloud_shadow",
             "Owner-/Freshness",
+            "blind-control-panel.js",
+            "activity_state = none",
+            "override_context_changed",
             "Not Live",
         ):
             self.assertIn(term, ap2)
@@ -70,6 +73,9 @@ class DocumentationTests(unittest.TestCase):
             "cover.wohnbereich_thermo_verdunklungsrollo",
             "unknown",
             "reject",
+            "max_age_seconds",
+            "require_timestamp",
+            "waking_context_superseded",
         ):
             self.assertIn(term, source)
 
@@ -152,6 +158,38 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("blind_control/update_options", source)
         self.assertIn("navigator.clipboard", source)
         self.assertIn("statusTone", source)
+
+    def test_frontend_is_an_installable_ha_panel_with_official_context(self) -> None:
+        main = (FRONTEND / "src" / "main.ts").read_text(encoding="utf-8")
+        transport = (FRONTEND / "src" / "lib" / "transport.ts").read_text(encoding="utf-8")
+        panel = (PACKAGE / "panel.py").read_text(encoding="utf-8")
+
+        self.assertIn("customElements.define('blind-control-panel'", main)
+        self.assertIn("set hass(value", main)
+        self.assertIn("props: { hass: this.hassContext }", main)
+        self.assertNotIn("window.parent", transport)
+        self.assertIn("hass.connection", transport)
+        self.assertIn("async_register_static_paths", panel)
+        self.assertIn("async_register_built_in_panel", panel)
+        self.assertIn("js_url", panel)
+        bundle = PACKAGE / "frontend" / "blind-control-panel.js"
+        self.assertTrue(bundle.is_file())
+        bundle_source = bundle.read_text(encoding="utf-8")
+        self.assertIn("blind-control-panel", bundle_source)
+        self.assertNotIn("sampleSnapshot", bundle_source)
+
+    def test_ux_contains_all_binding_fields_and_live_household_projection(self) -> None:
+        ux = (PACKAGE / "ux_contract.py").read_text(encoding="utf-8")
+        app = (FRONTEND / "src" / "App.svelte").read_text(encoding="utf-8")
+        for term in (
+            '"cover_position"',
+            '"household"',
+            "inputBindingKeys",
+            "legacyBindingKeys",
+            "editableSettings.input_bindings[key] ?? ''",
+            "editableSettings.legacy_bindings[key] ?? ''",
+        ):
+            self.assertIn(term, ux + app)
 
 
 if __name__ == "__main__":

@@ -20,16 +20,35 @@ class _FakeSchema:
         self.schema = schema
 
 
+class _SchemaKey:
+    def __init__(self, key, required):
+        self.key = key
+        self.required = required
+
+    def __hash__(self):
+        return hash(self.key)
+
+    def __eq__(self, other):
+        return other == self.key or (
+            isinstance(other, _SchemaKey)
+            and self.key == other.key
+            and self.required == other.required
+        )
+
+    def __repr__(self):
+        return f"{self.required}({self.key!r})"
+
+
 class _FakeVoluptuous(types.ModuleType):
     Schema = _FakeSchema
 
     @staticmethod
     def Required(key, **_kwargs):
-        return key
+        return _SchemaKey(key, "required")
 
     @staticmethod
     def Optional(key, **_kwargs):
-        return key
+        return _SchemaKey(key, "optional")
 
     @staticmethod
     def Coerce(value):
@@ -49,9 +68,22 @@ class _FakeVoluptuous(types.ModuleType):
 
 
 class _FakeConfigEntry:
-    def __init__(self, entry_id: str):
+    def __init__(self, entry_id: str, *, data=None, options=None):
         self.entry_id = entry_id
+        self.domain = "blind_control"
+        self.data = data or {}
+        self.options = options or {}
         self.runtime_data = None
+        self.unload_callbacks = []
+        self.update_listeners = []
+
+    def async_on_unload(self, callback):
+        self.unload_callbacks.append(callback)
+        return callback
+
+    def add_update_listener(self, callback):
+        self.update_listeners.append(callback)
+        return lambda: self.update_listeners.remove(callback)
 
     @classmethod
     def __class_getitem__(cls, _item):
@@ -59,7 +91,92 @@ class _FakeConfigEntry:
 
 
 class _FakeHomeAssistant:
-    pass
+    def __init__(self):
+        self.data = {}
+        self.http = _FakeHttp()
+        self.config_entries = types.SimpleNamespace(
+            reloads=[],
+            updates=[],
+            async_reload=self._async_reload,
+            async_update_entry=self._async_update_entry,
+        )
+
+    async def _async_reload(self, domain, entry_id):
+        self.config_entries.reloads.append((domain, entry_id))
+
+    def _async_update_entry(self, entry, *, options):
+        self.config_entries.updates.append((entry, options))
+
+
+class _FakeStaticPathConfig:
+    def __init__(self, url_path, path, cache_headers):
+        self.url_path = url_path
+        self.path = path
+        self.cache_headers = cache_headers
+
+
+class _FakeHttp:
+    def __init__(self):
+        self.static_paths = []
+
+    async def async_register_static_paths(self, paths):
+        if any(
+            existing.url_path == path.url_path for existing in self.static_paths for path in paths
+        ):
+            raise RuntimeError("static path already registered")
+        self.static_paths.extend(paths)
+
+
+class _FakeFrontend(types.ModuleType):
+    def async_register_built_in_panel(self, hass, **kwargs):
+        hass.data.setdefault("frontend_panels", {})[kwargs["frontend_url_path"]] = kwargs
+
+    def async_remove_panel(self, hass, url_path):
+        hass.data.setdefault("frontend_panels", {}).pop(url_path, None)
+
+
+class _FakeWebsocket(types.ModuleType):
+    def __init__(self):
+        super().__init__("homeassistant.components.websocket_api")
+        self.commands = []
+
+    def websocket_command(self, schema):
+        def decorate(handler):
+            handler.websocket_schema = schema
+            return handler
+
+        return decorate
+
+    @staticmethod
+    def async_response(handler):
+        return handler
+
+    @staticmethod
+    def require_admin(handler):
+        async def guarded(hass, connection, msg):
+            if not getattr(getattr(connection, "user", None), "is_admin", False):
+                connection.send_error(msg["id"], "unauthorized", "Admin required")
+                return
+            await handler(hass, connection, msg)
+
+        guarded.requires_admin = True
+        return guarded
+
+    def async_register_command(self, _hass, handler):
+        self.commands.append(handler)
+
+
+class _FakeConnection:
+    def __init__(self, *, is_admin):
+        self.user = types.SimpleNamespace(is_admin=is_admin)
+        self.results = []
+        self.errors = []
+
+    def send_result(self, message_id, result):
+        self.results.append((message_id, result))
+
+    def send_error(self, message_id, code, message):
+        self.errors.append((message_id, code, message))
 
 
 class _DuplicateEntry(Exception):
@@ -102,8 +219,17 @@ def _home_assistant_imports():
     config_entries.OptionsFlow = _FakeOptionsFlow
     core = types.ModuleType("homeassistant.core")
     core.HomeAssistant = _FakeHomeAssistant
+    components = types.ModuleType("homeassistant.components")
+    websocket_api = _FakeWebsocket()
+    frontend = _FakeFrontend("homeassistant.components.frontend")
+    http = types.ModuleType("homeassistant.components.http")
+    http.StaticPathConfig = _FakeStaticPathConfig
+    components.websocket_api = websocket_api
+    components.frontend = frontend
+    components.http = http
     homeassistant.config_entries = config_entries
     homeassistant.core = core
+    homeassistant.components = components
     _FakeConfigFlow.configured_unique_ids.clear()
 
     for name in tuple(sys.modules):
@@ -119,6 +245,10 @@ def _home_assistant_imports():
             "homeassistant": homeassistant,
             "homeassistant.config_entries": config_entries,
             "homeassistant.core": core,
+            "homeassistant.components": components,
+            "homeassistant.components.websocket_api": websocket_api,
+            "homeassistant.components.frontend": frontend,
+            "homeassistant.components.http": http,
         },
     ):
         try:
@@ -146,13 +276,89 @@ class BootstrapTests(unittest.TestCase):
             hass = _FakeHomeAssistant()
             entry = _FakeConfigEntry("entry-1")
 
-            self.assertFalse(hasattr(hass, "data"))
             self.assertTrue(asyncio.run(module.async_setup(hass, {})))
+            self.assertIn("blind-control", hass.data["frontend_panels"])
+            self.assertEqual(hass.http.static_paths[0].url_path, "/blind-control/frontend")
             self.assertTrue(asyncio.run(module.async_setup_entry(hass, entry)))
             self.assertIsInstance(entry.runtime_data, module.BlindControlRuntimeData)
             self.assertEqual(entry.runtime_data.phase, "shadow")
             self.assertIsNotNone(entry.runtime_data.snapshot)
             self.assertTrue(asyncio.run(module.async_unload_entry(hass, entry)))
+
+    def test_reload_re_registers_panel_and_options_listener_reloads_entry(self) -> None:
+        with _home_assistant_imports():
+            module = importlib.import_module("custom_components.blind_control")
+            hass = _FakeHomeAssistant()
+            entry = _FakeConfigEntry("entry-1")
+
+            asyncio.run(module.async_setup(hass, {}))
+            asyncio.run(module.async_setup(hass, {}))
+            self.assertEqual(len(hass.http.static_paths), 1)
+            self.assertEqual(len(hass.data["frontend_panels"]), 1)
+
+            asyncio.run(module.async_setup_entry(hass, entry))
+            self.assertEqual(len(entry.update_listeners), 1)
+            asyncio.run(entry.update_listeners[0](hass, entry))
+            self.assertEqual(hass.config_entries.reloads, [("blind_control", "entry-1")])
+
+    def test_websocket_contracts_read_and_admin_protect_options_write(self) -> None:
+        with _home_assistant_imports():
+            module = importlib.import_module("custom_components.blind_control")
+            websocket = sys.modules["homeassistant.components.websocket_api"]
+            websocket_api_module = importlib.import_module(
+                "custom_components.blind_control.websocket_api"
+            )
+            hass = _FakeHomeAssistant()
+            entry = _FakeConfigEntry("entry-1")
+            asyncio.run(module.async_setup(hass, {}))
+            asyncio.run(module.async_setup_entry(hass, entry))
+            hass.config_entries.async_entries = lambda _domain: [entry]
+
+            get_handler = next(
+                handler
+                for handler in websocket.commands
+                if handler.websocket_schema["type"] == websocket_api_module.GET_SNAPSHOT
+            )
+            update_handler = next(
+                handler
+                for handler in websocket.commands
+                if handler.websocket_schema["type"] == websocket_api_module.UPDATE_OPTIONS
+            )
+            update_schema = update_handler.websocket_schema
+            required = {
+                key.key
+                for key in update_schema
+                if isinstance(key, _SchemaKey) and key.required == "required"
+            }
+            optional = {
+                key.key
+                for key in update_schema
+                if isinstance(key, _SchemaKey) and key.required == "optional"
+            }
+            self.assertIn("options", required)
+            self.assertIn("entry_id", optional)
+            self.assertTrue(update_handler.requires_admin)
+
+            denied = _FakeConnection(is_admin=False)
+            asyncio.run(update_handler(hass, denied, {"id": 1, "options": {}}))
+            self.assertEqual(denied.errors[0][1], "unauthorized")
+            self.assertEqual(hass.config_entries.updates, [])
+
+            allowed = _FakeConnection(is_admin=True)
+            asyncio.run(
+                update_handler(
+                    hass,
+                    allowed,
+                    {"id": 2, "entry_id": "entry-1", "options": {"apply_enabled": False}},
+                )
+            )
+            self.assertEqual(len(hass.config_entries.updates), 1)
+            self.assertFalse(hass.config_entries.updates[0][1]["apply_enabled"])
+
+            read_only = _FakeConnection(is_admin=False)
+            asyncio.run(get_handler(hass, read_only, {"id": 3, "entry_id": "entry-1"}))
+            self.assertEqual(read_only.results[0][0], 3)
+            self.assertEqual(read_only.results[0][1]["version"], "blind_control.ux.v1")
 
     def test_config_flow_is_singleton_and_persists_shadow_configuration(self) -> None:
         if importlib.util.find_spec("homeassistant") is None:

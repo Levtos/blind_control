@@ -43,6 +43,18 @@ verwendbar. `degraded` ist sichtbar, aber nicht automatisch fresh. Ein
 `closed`-Opening darf ausschließlich aus einer fresh, positiven Opening-
 Beobachtung kommen.
 
+Die Default-Policy trennt stabile Contract-Zustände von zeitkritischer
+Telemetrie: Core-State-Werte werden nicht allein wegen ihres HA-Alters stale,
+während Solar-, Wetter-, Temperatur- und Coverpositionswerte eine
+feldspezifische Zeit-Evidence benötigen. Opening-/Readiness-Felder benötigen
+mindestens einen Geräte-/Contract-Zeitstempel, und fehlende geforderte
+Timestamps bleiben konservativ `stale`. Jede Policy trägt Owner, zulässiges
+Maximalalter und `require_timestamp`; einzelne Felder können diese Defaults
+explizit überschreiben.
+
+`activity_state = none` ist ein gültiger kanonischer Inaktivitätswert. Nur die
+HA-Sentinels `unknown` und `unavailable` werden global verworfen.
+
 ## 3. Entscheidungssemantik
 
 - Kompatible aktive Kandidaten liefern jeweils einen eigenen Zielwert; der
@@ -103,8 +115,13 @@ Grundsatzrunde.
 - erzeugt nur bei einer fremden Positionsänderung außerhalb des Guards einen
   sichtbaren Override;
 - behandelt Konfigurationsänderung als Rechen-/Baseline-Ereignis;
-- beendet einen alten Override beim Eintritt in den kanonischen Waking-Kontext,
-  damit er Waking nicht blockiert.
+- bindet einen aktiven Override an einen expliziten Context-Key aus Bio-,
+  Activity-Gruppe, Day-, Household- und Opening-Feldern;
+- hält ihn bei derselben explizit definierten Medien-/Nutzungssitzung;
+- beendet ihn bei einem geänderten Context-Key mit dem deterministischen Grund
+  `override_context_changed`;
+- beendet ihn beim Eintritt in den kanonischen Waking-Kontext mit
+  `waking_context_superseded`, damit er Waking nicht blockiert.
 
 `CooldownTracker` hält während des Cooldowns ausschließlich das jüngste Ziel.
 Die Engine berechnet Trace und Snapshot unmittelbar; Cooldown verzögert keine
@@ -140,11 +157,18 @@ explizit unkonfiguriert; Werte werden nicht aus der neuen Entscheidung erfunden.
 `ux_contract.py` stellt `blind_control.ux.v1` für Übersicht, Diagnose und
 Einstellungen bereit. Die Projektion enthält Gewinner, effektives Ziel,
 Kandidaten, pausierte Äste, Solar-Diagnose, Quality/Reason, Alt/Neu-Diffs und
-alle editierbaren Konfigurationswerte. `frontend/` lädt die reale Projektion
-über `blind_control/get_snapshot`, pollt sie für laufende Anzeige, speichert
-Änderungen über `blind_control/update_options` und enthält keinen
-`sampleSnapshot`-Produktpfad. Status-Badges stammen aus dem Snapshot und die
-Copy-Aktion schreibt die redigierte Debug-Evidence in die Clipboard-API.
+alle editierbaren Konfigurationswerte. `frontend/` wird als
+`blind-control-panel.js` in der Integration ausgeliefert, über
+`async_register_static_paths` erreichbar gemacht und als offizielles
+HA-Custom-Panel registriert. Das Custom Element erhält den laufenden `hass`-
+Context von HA; DOM-/Window-Probing ist kein Transportpfad. Die App lädt die
+reale Projektion über `blind_control/get_snapshot`, pollt sie für laufende
+Anzeige, speichert Änderungen über `blind_control/update_options` und enthält
+keinen `sampleSnapshot`-Produktpfad. Status-Badges stammen aus dem Snapshot,
+Coverposition und Haushalt werden in der Übersicht gezeigt, und alle Input-
+und Legacy-Bindings bleiben im OptionsFlow-Formular sichtbar, auch wenn sie
+noch leer sind. Die Copy-Aktion schreibt die redigierte Debug-Evidence in die
+Clipboard-API.
 
 ## 8. Implementiert und offen
 
@@ -163,6 +187,10 @@ Copy-Aktion schreibt die redigierte Debug-Evidence in die Clipboard-API.
 - feldweiser Alt/Neu-Legacy-Diff mit `error` für nicht frische Evidence;
 - contract-getriebene Svelte-5/Vite/TypeScript-Ansicht für reale Snapshotdaten,
   dynamische Status-Badges, OptionsFlow-Update und echte Copy-Aktion;
+- installierbares HA-Custom-Panel mit offiziellem `hass`-Context und gebundener
+  Static-/Panel-Registrierung;
+- echte Contracttests für State-Listener, Freshness-Timer, WebSocket-Read/
+  Update/Admin-Gate, OptionsFlow-Reload und Panel-Registrierung;
 - keine produktive Coverfahrt und keine alte Policy-Änderung.
 
 ### Für spätere AP2-Batches beziehungsweise vor Cutover offen
@@ -171,8 +199,10 @@ Copy-Aktion schreibt die redigierte Debug-Evidence in die Clipboard-API.
   Input-/Legacy-Bindings müssen pro Installation über OptionsFlow gesetzt und
   fachlich bestätigt werden; der generische Laufzeitpfad ist implementiert;
 - native Entity-Projektionen über die noch nicht freigegebene HA-Binding;
-- reale Shadow-Traces und feldweise Alt/Neu-Paritätsklassifikation im laufenden
-  HA-Betrieb müssen noch als Installations-/Live-Evidence gesammelt werden;
+- die installierbare laufende Shadow-Auswertung und nutzbare Projektion sind
+  technisch contract-getestet; reale HA-Live-Traces und feldweise
+  Alt/Neu-Paritätsklassifikation müssen weiterhin als getrennte
+  Installations-/Live-Evidence gesammelt werden;
 - technische Migration alter Storage-/Override-Daten nach einem expliziten
   Verlustschutz-Contract;
 - Cutover, Cover-Rename, produktiver Apply, Release und Live-Verifikation.

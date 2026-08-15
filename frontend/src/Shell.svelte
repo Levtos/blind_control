@@ -2,6 +2,9 @@
   import App from './App.svelte';
   import type { UxSettings, UxSnapshot } from './lib/contracts';
   import { fetchSnapshot, updateOptions } from './lib/transport';
+  import type { HassContext } from './lib/transport';
+
+  let { hass }: { hass: HassContext } = $props();
 
   let snapshot = $state<UxSnapshot | null>(null);
   let error = $state<string | null>(null);
@@ -10,7 +13,7 @@
 
   async function refresh(): Promise<void> {
     try {
-      const next = await fetchSnapshot();
+      const next = await fetchSnapshot(hass);
       snapshot = next;
       error = null;
     } catch (cause) {
@@ -23,7 +26,7 @@
   async function saveSettings(settings: UxSettings): Promise<void> {
     saving = true;
     try {
-      await updateOptions(settings);
+      await updateOptions(hass, settings);
       await refresh();
     } finally {
       saving = false;

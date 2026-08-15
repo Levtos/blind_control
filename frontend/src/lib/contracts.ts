@@ -24,6 +24,12 @@ export type Candidate = {
 
 export type PositionProfile = { normal: number; inverted: number };
 
+export type BindingFreshness = {
+  max_age_seconds: number | null;
+  require_timestamp: boolean;
+  owner: string;
+};
+
 export type UxSettings = {
   axis_inverted: boolean;
   window_azimuth: number;
@@ -33,6 +39,7 @@ export type UxSettings = {
   input_bindings: Record<string, string>;
   legacy_bindings: Record<string, string>;
   observation_freshness_seconds: number;
+  binding_freshness: Record<string, BindingFreshness>;
   profiles: Record<string, PositionProfile>;
   calibration_defaults: Record<string, number>;
 };
@@ -46,6 +53,16 @@ export type UxSnapshot = {
     fachlicher_target: number | null;
     effective_target: number | null;
     opening_state: string;
+    cover_position: number | null;
+    household: {
+      bio_state: string | null;
+      activity_state: string | null;
+      day_state: string | null;
+      day_context: string | null;
+      away: boolean | null;
+      private_time: boolean | null;
+      privacy: boolean | null;
+    };
     safety_status: string;
     apply_status: string;
     override: {
@@ -55,6 +72,7 @@ export type UxSnapshot = {
       source: string;
       reason: string;
       started_at: string | null;
+      context_key: Record<string, string> | null;
     };
     shadow_only: boolean;
     actuation_executed: boolean;

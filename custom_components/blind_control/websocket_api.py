@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+import voluptuous as vol
+
 from .config import BlindControlConfig
 from .const import DOMAIN
 from .ux_contract import build_ux_snapshot
@@ -12,6 +14,16 @@ from .ux_contract import build_ux_snapshot
 GET_SNAPSHOT = "blind_control/get_snapshot"
 UPDATE_OPTIONS = "blind_control/update_options"
 _REGISTERED_ATTRIBUTE = "_blind_control_shadow_websocket_registered"
+
+GET_SNAPSHOT_SCHEMA = {
+    vol.Required("type"): GET_SNAPSHOT,
+    vol.Optional("entry_id"): str,
+}
+UPDATE_OPTIONS_SCHEMA = {
+    vol.Required("type"): UPDATE_OPTIONS,
+    vol.Required("options"): dict,
+    vol.Optional("entry_id"): str,
+}
 
 
 def register_websocket_commands(hass: object) -> None:
@@ -24,7 +36,7 @@ def register_websocket_commands(hass: object) -> None:
     except ImportError:
         return
 
-    @websocket_api.websocket_command({"type": GET_SNAPSHOT})
+    @websocket_api.websocket_command(GET_SNAPSHOT_SCHEMA)
     @websocket_api.async_response
     async def _get_snapshot(hass, connection, msg) -> None:
         entry = _entry_for_message(hass, msg)
@@ -44,7 +56,8 @@ def register_websocket_commands(hass: object) -> None:
             projection = build_ux_snapshot(snapshot, config)
         connection.send_result(msg["id"], projection)
 
-    @websocket_api.websocket_command({"type": UPDATE_OPTIONS})
+    @websocket_api.websocket_command(UPDATE_OPTIONS_SCHEMA)
+    @websocket_api.require_admin
     @websocket_api.async_response
     async def _update_options(hass, connection, msg) -> None:
         entry = _entry_for_message(hass, msg)

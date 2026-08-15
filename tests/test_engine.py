@@ -81,6 +81,10 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertFalse(snapshot.actuation_executed)
         self.assertFalse(snapshot.write_path_reachable)
         self.assertIsInstance(snapshot.as_dict()["trace"], dict)
+        projection = build_ux_snapshot(snapshot, BlindControlConfig.defaults())
+        self.assertEqual(projection["overview"]["cover_position"], 50.0)
+        self.assertFalse(projection["overview"]["household"]["away"])
+        self.assertIn("cover_position", projection["settings"]["binding_freshness"])
 
     def test_missing_inputs_never_fall_silently_to_open(self) -> None:
         trace = DecisionEngine().evaluate(BlindControlInputs.empty())
@@ -142,6 +146,25 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertTrue(heat.paused)
         self.assertEqual(heat.suppressed_by, "manual_override")
         self.assertIn("manual_override_holds_automation", trace.trace.reasons)
+        self.assertEqual(trace.trace.override.context_key.as_dict()["activity_context"], "pc")
+
+    def test_override_context_lifecycle_is_explicit_and_deterministic(self) -> None:
+        runtime = ShadowRuntime()
+        runtime.on_restart(50)
+        runtime.observe_cover_position(80, source="foreign_position", now=10)
+        tv = replace(ready_inputs(), activity_state=fresh("tv", "core_state.activity"))
+        console = replace(tv, activity_state=fresh("console", "core_state.activity"))
+        next_day = replace(console, day_state=fresh("night", "core_state.day"))
+
+        first = runtime.evaluate(tv, now=20)
+        same_session = runtime.evaluate(console, now=21)
+        ended = runtime.evaluate(next_day, now=22)
+
+        self.assertTrue(first.trace.override.active)
+        self.assertTrue(same_session.trace.override.active)
+        self.assertEqual(first.trace.override.context_key.as_dict()["activity_context"], "screen")
+        self.assertFalse(ended.trace.override.active)
+        self.assertEqual(ended.trace.override.reason, "override_context_changed")
 
     def test_apply_disabled_cannot_be_bypassed_by_manual_override(self) -> None:
         config = replace(BlindControlConfig.defaults(), apply_enabled=False)

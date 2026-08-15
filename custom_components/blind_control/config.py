@@ -39,7 +39,101 @@ INPUT_BINDING_KEYS = (
     "air_movement",
 )
 LEGACY_BINDING_KEYS = ("active_mode", "effective_target", "safety_status", "apply_status")
+STATEFUL_BINDING_KEYS = frozenset(
+    {
+        "bio_state",
+        "activity_state",
+        "day_state",
+        "day_context",
+        "away",
+        "private_time",
+        "privacy",
+    }
+)
+SAFETY_STATE_BINDING_KEYS = frozenset(
+    {"opening_state", "opening_safe_for_blind", "cover_available", "cover_ready"}
+)
+TIME_CRITICAL_BINDING_KEYS = frozenset(
+    set(INPUT_BINDING_KEYS) - STATEFUL_BINDING_KEYS - SAFETY_STATE_BINDING_KEYS
+)
+_BINDING_OWNER_BY_KEY = {
+    **dict.fromkeys(STATEFUL_BINDING_KEYS, "core_state"),
+    **dict.fromkeys(SAFETY_STATE_BINDING_KEYS | {"cover_position"}, "technical_device"),
+    **dict.fromkeys(
+        {
+            "outdoor_lux",
+            "lux_trend",
+            "sun_elevation",
+            "sun_azimuth",
+            "expected_direct_radiation",
+            "expected_diffuse_radiation",
+            "cloud_cover",
+        },
+        "solar_environment",
+    ),
+    **dict.fromkeys(
+        {
+            "indoor_temperature",
+            "outdoor_temperature",
+            "indoor_temperature_trend",
+            "outdoor_temperature_trend",
+            "weather_alert",
+            "precipitation_trend",
+            "wind_trend",
+            "pressure_trend",
+            "air_movement",
+        },
+        "weather_environment",
+    ),
+}
 _ENTITY_ID = re.compile(r"^[a-z][a-z0-9_]*\.[a-z0-9_]+$")
+
+
+@dataclass(frozen=True, slots=True)
+class BindingFreshness:
+    """Owner- and field-specific evidence policy for one bound value."""
+
+    max_age_seconds: float | None
+    require_timestamp: bool
+    owner: str
+
+    def __post_init__(self) -> None:
+        if self.max_age_seconds is not None:
+            _number(
+                self.max_age_seconds,
+                name="binding max_age_seconds",
+                minimum=1,
+                maximum=86_400,
+            )
+        if not isinstance(self.require_timestamp, bool):
+            raise ValueError("binding require_timestamp must be boolean")
+        if not isinstance(self.owner, str) or not self.owner.strip():
+            raise ValueError("binding owner must be a non-empty string")
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "max_age_seconds": self.max_age_seconds,
+            "require_timestamp": self.require_timestamp,
+            "owner": self.owner,
+        }
+
+
+def default_binding_freshness(
+    key: str,
+    freshness_seconds: float,
+    *,
+    legacy: bool = False,
+) -> BindingFreshness:
+    """Return the conservative default policy for one input contract field."""
+
+    if legacy:
+        return BindingFreshness(freshness_seconds, True, "legacy_policy")
+    owner = _BINDING_OWNER_BY_KEY.get(key, "unassigned")
+    if key in STATEFUL_BINDING_KEYS:
+        return BindingFreshness(None, False, owner)
+    if key in SAFETY_STATE_BINDING_KEYS:
+        return BindingFreshness(None, True, owner)
+    return BindingFreshness(freshness_seconds, True, owner)
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,6 +236,48 @@ def _bindings(
     return tuple(sorted(result))
 
 
+def _binding_freshness(
+    value: object, freshness_seconds: float
+) -> tuple[tuple[str, BindingFreshness], ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, Mapping):
+        raise ValueError("binding_freshness must be a mapping")
+    allowed = set(INPUT_BINDING_KEYS) | set(LEGACY_BINDING_KEYS)
+    result: list[tuple[str, BindingFreshness]] = []
+    for key, raw_policy in value.items():
+        if key not in allowed:
+            raise ValueError(f"unknown binding_freshness key: {key}")
+        if not isinstance(raw_policy, Mapping):
+            raise ValueError(f"binding_freshness.{key} must be a mapping")
+        default = default_binding_freshness(
+            key,
+            freshness_seconds,
+            legacy=key in LEGACY_BINDING_KEYS,
+        )
+        max_age = raw_policy.get("max_age_seconds", default.max_age_seconds)
+        if max_age is not None:
+            max_age = _number(
+                max_age,
+                name=f"binding_freshness.{key}.max_age_seconds",
+                minimum=1,
+                maximum=86_400,
+            )
+        require_timestamp = raw_policy.get("require_timestamp", default.require_timestamp)
+        owner = raw_policy.get("owner", default.owner)
+        result.append(
+            (
+                key,
+                BindingFreshness(
+                    max_age,
+                    _bool(require_timestamp, f"binding_freshness.{key}.require_timestamp"),
+                    owner,
+                ),
+            )
+        )
+    return tuple(sorted(result))
+
+
 @dataclass(frozen=True, slots=True)
 class BlindControlConfig:
     """All runtime-calibratable values for the deterministic shadow engine."""
@@ -155,6 +291,7 @@ class BlindControlConfig:
     input_bindings: tuple[tuple[str, str], ...] = ()
     legacy_bindings: tuple[tuple[str, str], ...] = ()
     observation_freshness_seconds: float = 120.0
+    binding_freshness: tuple[tuple[str, BindingFreshness], ...] = ()
 
     heat_outdoor_threshold: float = 30.0
     heat_indoor_threshold: float = 26.0
@@ -209,6 +346,10 @@ class BlindControlConfig:
         _number(self.cloud_shadow_ratio, name="cloud_shadow_ratio", minimum=0, maximum=1)
         if not 1 <= self.storm_required_signals <= 5:
             raise ValueError("storm_required_signals must be between 1 and 5")
+        allowed = set(INPUT_BINDING_KEYS) | set(LEGACY_BINDING_KEYS)
+        for key, policy in self.binding_freshness:
+            if key not in allowed or not isinstance(policy, BindingFreshness):
+                raise ValueError("binding_freshness contains an invalid field policy")
 
     @classmethod
     def defaults(cls) -> BlindControlConfig:
@@ -223,11 +364,35 @@ class BlindControlConfig:
     def target(self, profile_name: str) -> float:
         return self.profile(profile_name).target(self.axis_inverted)
 
+    def binding_policy(self, key: str, *, legacy: bool = False) -> BindingFreshness:
+        """Resolve one explicit policy without applying a global age heuristic."""
+
+        configured = dict(self.binding_freshness).get(key)
+        return configured or default_binding_freshness(
+            key,
+            self.observation_freshness_seconds,
+            legacy=legacy,
+        )
+
+    def binding_freshness_mapping(self) -> dict[str, dict[str, object]]:
+        """Expose effective owner/freshness policies for diagnostics and UX."""
+
+        return {
+            key: self.binding_policy(key, legacy=key in LEGACY_BINDING_KEYS).as_dict()
+            for key in (*INPUT_BINDING_KEYS, *LEGACY_BINDING_KEYS)
+        }
+
     @classmethod
     def from_mapping(cls, raw: Mapping[str, object] | None) -> BlindControlConfig:
         """Load persisted config without accepting unsafe or unknown profiles."""
 
         raw = raw or {}
+        observation_freshness_seconds = _number(
+            raw.get("observation_freshness_seconds", 120),
+            name="observation_freshness_seconds",
+            minimum=1,
+            maximum=86_400,
+        )
         profiles = raw.get("profiles")
         return cls(
             profiles=_profile_items(profiles),
@@ -256,11 +421,9 @@ class BlindControlConfig:
                 name="legacy_bindings",
                 allowed=LEGACY_BINDING_KEYS,
             ),
-            observation_freshness_seconds=_number(
-                raw.get("observation_freshness_seconds", 120),
-                name="observation_freshness_seconds",
-                minimum=1,
-                maximum=86_400,
+            observation_freshness_seconds=observation_freshness_seconds,
+            binding_freshness=_binding_freshness(
+                raw.get("binding_freshness"), observation_freshness_seconds
             ),
             heat_outdoor_threshold=float(raw.get("heat_outdoor_threshold", 30)),
             heat_indoor_threshold=float(raw.get("heat_indoor_threshold", 26)),
@@ -295,6 +458,7 @@ class BlindControlConfig:
             "input_bindings": dict(self.input_bindings),
             "legacy_bindings": dict(self.legacy_bindings),
             "observation_freshness_seconds": self.observation_freshness_seconds,
+            "binding_freshness": self.binding_freshness_mapping(),
             "heat_outdoor_threshold": self.heat_outdoor_threshold,
             "heat_indoor_threshold": self.heat_indoor_threshold,
             "heat_radiation_threshold": self.heat_radiation_threshold,

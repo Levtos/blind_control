@@ -1,11 +1,43 @@
-import { mount } from 'svelte';
+import { mount, unmount } from 'svelte';
 import Shell from './Shell.svelte';
+import type { HassContext } from './lib/transport';
 import './app.css';
 
-const target = document.getElementById('blind-control-app');
+class BlindControlPanel extends HTMLElement {
+  private app: ReturnType<typeof mount> | undefined;
+  private hassContext: HassContext | undefined;
 
-if (!target) {
-  throw new Error('Blind Control mount target is missing');
+  set hass(value: HassContext) {
+    if (this.hassContext) {
+      this.hassContext.connection = value.connection;
+    } else {
+      this.hassContext = { connection: value.connection };
+    }
+    this.mountWhenReady();
+  }
+
+  get hass(): HassContext | undefined {
+    return this.hassContext;
+  }
+
+  connectedCallback(): void {
+    this.mountWhenReady();
+  }
+
+  disconnectedCallback(): void {
+    if (this.app) {
+      unmount(this.app);
+      this.app = undefined;
+    }
+  }
+
+  private mountWhenReady(): void {
+    if (!this.isConnected || !this.hassContext || this.app) return;
+    this.app = mount(Shell, {
+      target: this,
+      props: { hass: this.hassContext },
+    });
+  }
 }
 
-mount(Shell, { target });
+customElements.define('blind-control-panel', BlindControlPanel);

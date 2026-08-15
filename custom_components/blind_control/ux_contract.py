@@ -17,6 +17,12 @@ def build_ux_snapshot(snapshot: ShadowSnapshot, config: BlindControlConfig) -> d
     """
 
     trace = snapshot.trace
+    input_values = snapshot.inputs
+
+    def input_value(key: str):
+        observation = input_values.get(key, {})
+        return observation.get("value") if isinstance(observation, dict) else None
+
     return {
         "version": UX_CONTRACT_VERSION,
         "evaluated_at": snapshot.evaluated_at.isoformat(),
@@ -26,6 +32,19 @@ def build_ux_snapshot(snapshot: ShadowSnapshot, config: BlindControlConfig) -> d
             "fachlicher_target": trace.fachlicher_target,
             "effective_target": trace.effective_target,
             "opening_state": trace.safety.opening_state,
+            "cover_position": input_value("cover_position"),
+            "household": {
+                key: input_value(key)
+                for key in (
+                    "bio_state",
+                    "activity_state",
+                    "day_state",
+                    "day_context",
+                    "away",
+                    "private_time",
+                    "privacy",
+                )
+            },
             "safety_status": trace.safety.status,
             "apply_status": trace.apply.status,
             "override": trace.override.as_dict(),
@@ -51,6 +70,7 @@ def build_ux_snapshot(snapshot: ShadowSnapshot, config: BlindControlConfig) -> d
             "input_bindings": dict(config.input_bindings),
             "legacy_bindings": dict(config.legacy_bindings),
             "observation_freshness_seconds": config.observation_freshness_seconds,
+            "binding_freshness": config.binding_freshness_mapping(),
             "profiles": {name: profile.as_dict() for name, profile in config.profiles},
             "calibration_defaults": {
                 "heat_outdoor_threshold": config.heat_outdoor_threshold,

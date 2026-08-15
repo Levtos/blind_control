@@ -4,6 +4,38 @@
   type Tab = 'overview' | 'diagnosis' | 'settings';
   type ProfileAxis = 'normal' | 'inverted';
 
+  const inputBindingKeys = [
+    'bio_state',
+    'activity_state',
+    'day_state',
+    'day_context',
+    'away',
+    'private_time',
+    'privacy',
+    'opening_state',
+    'opening_safe_for_blind',
+    'cover_available',
+    'cover_ready',
+    'cover_position',
+    'outdoor_lux',
+    'lux_trend',
+    'sun_elevation',
+    'sun_azimuth',
+    'expected_direct_radiation',
+    'expected_diffuse_radiation',
+    'cloud_cover',
+    'indoor_temperature',
+    'outdoor_temperature',
+    'indoor_temperature_trend',
+    'outdoor_temperature_trend',
+    'weather_alert',
+    'precipitation_trend',
+    'wind_trend',
+    'pressure_trend',
+    'air_movement',
+  ];
+  const legacyBindingKeys = ['active_mode', 'effective_target', 'safety_status', 'apply_status'];
+
   let {
     snapshot,
     onSaveSettings,
@@ -51,6 +83,9 @@
     if (value === 'error' || value === 'unavailable') return 'error';
     return 'warning';
   };
+
+  const householdLabel = (value: boolean | null): string =>
+    value === null ? '—' : value ? 'ja' : 'nein';
 
   const candidateClass = (candidate: Candidate): string =>
     candidate.paused ? 'candidate paused' : candidate.active ? 'candidate active' : 'candidate';
@@ -169,6 +204,9 @@
         <dl class="facts">
           <div><dt>Apply</dt><dd class={statusTone(snapshot.overview.apply_status)}>{statusLabel(snapshot.overview.apply_status)}</dd></div>
           <div><dt>Manual Override</dt><dd>{snapshot.overview.override.active ? 'aktiv' : 'inaktiv'}</dd></div>
+          <div><dt>Coverposition</dt><dd>{positionLabel(snapshot.overview.cover_position)}</dd></div>
+          <div><dt>Haushalt / Away</dt><dd>{householdLabel(snapshot.overview.household.away)}</dd></div>
+          <div><dt>Private Zeit</dt><dd>{householdLabel(snapshot.overview.household.private_time)}</dd></div>
           <div><dt>Shadow</dt><dd>{snapshot.overview.shadow_only ? 'nur Berechnung' : 'unbekannt'}</dd></div>
         </dl>
         <p class="callout">Keine Geräteaktion ist in diesem Contract erreichbar.</p>
@@ -282,11 +320,19 @@
         <div class="card-heading"><div><p class="eyebrow">OWNER-BINDINGS</p><h2>Reale HA-Quellen</h2></div><span class="muted">OptionsFlow</span></div>
         <p class="hint">Entity IDs werden ausschließlich vom Owner konfiguriert; ohne frische Bindung bleibt die entsprechende Entscheidung blockiert.</p>
         <div class="binding-grid">
-          {#each Object.entries(editableSettings.input_bindings) as [key, value]}
-            <label>{labelFor(key)}<input type="text" value={value} onchange={(event) => updateBinding('input_bindings', key, event)} /></label>
+          {#each inputBindingKeys as key}
+            <label>
+              {labelFor(key)}
+              <input type="text" value={editableSettings.input_bindings[key] ?? ''} onchange={(event) => updateBinding('input_bindings', key, event)} />
+              <small>{editableSettings.binding_freshness[key]?.owner ?? 'unassigned'} · {editableSettings.binding_freshness[key]?.max_age_seconds === null ? 'stateful' : `${editableSettings.binding_freshness[key]?.max_age_seconds ?? '—'} s`}</small>
+            </label>
           {/each}
-          {#each Object.entries(editableSettings.legacy_bindings) as [key, value]}
-            <label>Legacy · {labelFor(key)}<input type="text" value={value} onchange={(event) => updateBinding('legacy_bindings', key, event)} /></label>
+          {#each legacyBindingKeys as key}
+            <label>
+              Legacy · {labelFor(key)}
+              <input type="text" value={editableSettings.legacy_bindings[key] ?? ''} onchange={(event) => updateBinding('legacy_bindings', key, event)} />
+              <small>{editableSettings.binding_freshness[key]?.owner ?? 'legacy_policy'} · {editableSettings.binding_freshness[key]?.max_age_seconds ?? '—'} s</small>
+            </label>
           {/each}
         </div>
       </article>

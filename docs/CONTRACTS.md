@@ -112,3 +112,21 @@ Bindings; fehlende oder stale Inputs bleiben sichtbar und werden nicht als
 positive Werte ersetzt. Die UX erhält den aktuellen `blind_control.ux.v1`
 Snapshot über den read-only WebSocket-Read-Pfad; Konfigurationsänderungen
 werden ausschließlich als validierte ConfigEntry-/OptionsFlow-Daten gespeichert.
+
+AP2 konkretisiert die Freshness feldweise: stabile Core-State-Contracts sind
+nicht allein wegen eines alten `last_updated`-Werts stale; zeitkritische
+Telemetrie und die Coverposition verwenden eine eigene Maximalalter-Policy und
+benötigen die geforderte Timestamp-Evidence. Fehlende erforderliche Zeit-
+Evidence bleibt `stale`. Jede Bindung führt Owner, `max_age_seconds` und
+`require_timestamp` im effektiven Options-/UX-Contract.
+
+`activity_state = none` ist ein gültiger kanonischer Inaktivitätswert. Nur
+`unknown` und `unavailable` sind globale HA-Sentinels; die fachliche
+Gültigkeit übriger Strings bleibt feldspezifisch.
+
+Der aktive Fremd-Override erhält einen deterministischen Context-Key aus den
+explizit festgelegten Bio-, Activity-Gruppen-, Day-, Household- und Opening-
+Feldern. Innerhalb desselben Keys bleibt der Override aktiv; ein Key-Wechsel
+endet ihn mit `override_context_changed`, der Eintritt in kanonisches Waking
+mit `waking_context_superseded`. Das ist ein Lifecycle-Ereignis, kein
+heuristischer Zustandsersatz.

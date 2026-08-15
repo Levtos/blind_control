@@ -4,8 +4,10 @@ import asyncio
 import sys
 import types
 import unittest
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 PACKAGE = Path(__file__).resolve().parents[1] / "custom_components" / "blind_control"
 if "custom_components.blind_control" not in sys.modules:
@@ -41,11 +43,56 @@ class FakeStates:
 class FakeHass:
     def __init__(self, states):
         self.states = FakeStates(states)
+        self.tasks = []
+
+    def async_create_task(self, coroutine):
+        task = asyncio.create_task(coroutine)
+        self.tasks.append(task)
+        return task
 
 
 class FakeEntry:
     def __init__(self):
         self.runtime_data = None
+
+
+class FakeEventRegistry:
+    def __init__(self):
+        self.state_callbacks = []
+        self.time_callbacks = []
+        self.unsubscribed = 0
+
+    def track_state_change(self, _hass, _entity_ids, callback):
+        self.state_callbacks.append(callback)
+        return self._unsubscribe
+
+    def track_time_interval(self, _hass, callback, _interval):
+        self.time_callbacks.append(callback)
+        return self._unsubscribe
+
+    def _unsubscribe(self):
+        self.unsubscribed += 1
+
+
+@contextmanager
+def fake_home_assistant_event_modules():
+    registry = FakeEventRegistry()
+    homeassistant = types.ModuleType("homeassistant")
+    helpers = types.ModuleType("homeassistant.helpers")
+    event = types.ModuleType("homeassistant.helpers.event")
+    event.async_track_state_change_event = registry.track_state_change
+    event.async_track_time_interval = registry.track_time_interval
+    helpers.event = event
+    homeassistant.helpers = helpers
+    with patch.dict(
+        sys.modules,
+        {
+            "homeassistant": homeassistant,
+            "homeassistant.helpers": helpers,
+            "homeassistant.helpers.event": event,
+        },
+    ):
+        yield registry
 
 
 class CoordinatorTests(unittest.TestCase):
@@ -106,6 +153,8 @@ class CoordinatorTests(unittest.TestCase):
         self.assertEqual(inputs.bio_state.value, "awake")
         self.assertEqual(inputs.cover_position.value, 42.0)
         self.assertEqual(inputs.sun_elevation.value, 30.0)
+        self.assertEqual(inputs.activity_state.value, "none")
+        self.assertTrue(inputs.activity_state.usable)
         self.assertTrue(inputs.opening_state.usable)
         self.assertTrue(all(observation.usable for _, observation in legacy.observations))
         self.assertEqual(
@@ -118,31 +167,87 @@ class CoordinatorTests(unittest.TestCase):
             },
         )
 
-    def test_stale_owner_observation_is_visible_and_not_used_as_fresh_input(self) -> None:
+    def test_stateful_owner_observation_is_not_staled_by_age_alone(self) -> None:
         old = self.now - timedelta(
             seconds=BlindControlConfig.defaults().observation_freshness_seconds + 1
         )
         states = {**self.states, "sensor.opening_state": FakeState("closed", updated_at=old)}
         inputs = build_inputs_from_states(states, self.config, now=self.now)
 
-        self.assertFalse(inputs.opening_state.usable)
-        self.assertEqual(inputs.opening_state.quality.value, "stale")
+        self.assertTrue(inputs.opening_state.usable)
+        self.assertEqual(inputs.opening_state.reason, "stateful_contract_not_age_limited")
+
+    def test_time_critical_cover_observation_requires_timestamp_and_freshness(self) -> None:
+        old = self.now - timedelta(
+            seconds=BlindControlConfig.defaults().observation_freshness_seconds + 1
+        )
+        old_states = {
+            **self.states,
+            "cover.observer": FakeState(
+                "closed", attributes={"current_position": 42}, updated_at=old
+            ),
+        }
+        stale_inputs = build_inputs_from_states(old_states, self.config, now=self.now)
+        missing_timestamp = {
+            **self.states,
+            "cover.observer": FakeState("closed", attributes={"current_position": 42}),
+        }
+        missing_inputs = build_inputs_from_states(missing_timestamp, self.config, now=self.now)
+
+        self.assertFalse(stale_inputs.cover_position.usable)
+        self.assertEqual(
+            stale_inputs.cover_position.reason, "bound_entity_state_exceeded_freshness_window"
+        )
+        self.assertFalse(missing_inputs.cover_position.usable)
+        self.assertEqual(missing_inputs.cover_position.reason, "required_timestamp_missing")
+
+    def test_freshness_contract_is_owner_and_field_specific(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {
+                "binding_freshness": {
+                    "bio_state": {
+                        "max_age_seconds": 1,
+                        "require_timestamp": True,
+                        "owner": "test_bio_owner",
+                    }
+                }
+            }
+        )
+
+        self.assertEqual(config.binding_policy("bio_state").owner, "test_bio_owner")
+        self.assertEqual(config.binding_policy("bio_state").max_age_seconds, 1)
+        self.assertEqual(config.binding_policy("activity_state").owner, "core_state")
+        self.assertIsNone(config.binding_policy("activity_state").max_age_seconds)
+        self.assertEqual(config.binding_policy("cover_position").owner, "technical_device")
 
     def test_coordinator_publishes_running_snapshot_projection_without_writes(self) -> None:
-        hass = FakeHass(self.states)
-        entry = FakeEntry()
-        runtime = ShadowRuntime(self.config)
-        coordinator = ShadowCoordinator(hass, entry, self.config, runtime)
-        entry.runtime_data = types.SimpleNamespace(snapshot=None, ux_snapshot=None)
+        async def exercise() -> None:
+            hass = FakeHass(self.states)
+            entry = FakeEntry()
+            runtime = ShadowRuntime(self.config)
+            coordinator = ShadowCoordinator(hass, entry, self.config, runtime)
+            entry.runtime_data = types.SimpleNamespace(snapshot=None, ux_snapshot=None)
 
-        snapshot = asyncio.run(coordinator.async_start())
+            snapshot = await coordinator.async_start()
+            self.assertEqual(len(registry.state_callbacks), 1)
+            self.assertEqual(len(registry.time_callbacks), 1)
+            self.states["sensor.bio_state"].state = "sleeping"
+            registry.state_callbacks[0](None)
+            await hass.tasks[-1]
+            self.assertEqual(snapshot.inputs["bio_state"]["value"], "awake")
+            self.assertEqual(entry.runtime_data.snapshot.inputs["bio_state"]["value"], "sleeping")
 
-        self.assertIs(entry.runtime_data.snapshot, snapshot)
-        self.assertEqual(entry.runtime_data.ux_snapshot["version"], "blind_control.ux.v1")
-        self.assertEqual(snapshot.inputs["bio_state"]["value"], "awake")
-        self.assertFalse(snapshot.actuation_executed)
-        self.assertFalse(snapshot.write_path_reachable)
-        coordinator.stop()
+            registry.time_callbacks[0](None)
+            await hass.tasks[-1]
+            self.assertIs(entry.runtime_data.snapshot, coordinator.snapshot)
+            self.assertEqual(entry.runtime_data.ux_snapshot["version"], "blind_control.ux.v1")
+            self.assertFalse(coordinator.snapshot.actuation_executed)
+            self.assertFalse(coordinator.snapshot.write_path_reachable)
+            coordinator.stop()
+            self.assertEqual(registry.unsubscribed, 2)
+
+        with fake_home_assistant_event_modules() as registry:
+            asyncio.run(exercise())
 
     def test_legacy_field_with_stale_evidence_is_error_not_silent_parity(self) -> None:
         old = self.now - timedelta(seconds=1000)

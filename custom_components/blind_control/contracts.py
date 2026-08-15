@@ -43,6 +43,82 @@ class SolarExposureState(StrEnum):
     UNKNOWN = "unknown"
 
 
+_ACTIVITY_CONTEXT_GROUPS = {
+    "none": "idle",
+    "tv": "screen",
+    "streaming": "screen",
+    "console": "screen",
+    "playstation": "screen",
+    "xbox": "screen",
+    "pc": "pc",
+    "gaming_pc": "pc",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class OverrideContextKey:
+    """Explicit lifecycle key for deciding when a foreign override no longer fits."""
+
+    bio_state: str
+    activity_context: str
+    day_state: str
+    day_context: str
+    away: str
+    private_time: str
+    privacy: str
+    opening_state: str
+
+    @classmethod
+    def from_inputs(cls, inputs: BlindControlInputs) -> OverrideContextKey:
+        return cls(
+            bio_state=_context_value(inputs.bio_state),
+            activity_context=_activity_context(inputs.activity_state),
+            day_state=_context_value(inputs.day_state),
+            day_context=_context_value(inputs.day_context),
+            away=_context_value(inputs.away),
+            private_time=_context_value(inputs.private_time),
+            privacy=_context_value(inputs.privacy),
+            opening_state=_context_value(inputs.opening_state),
+        )
+
+    def as_tuple(self) -> tuple[str, ...]:
+        return (
+            self.bio_state,
+            self.activity_context,
+            self.day_state,
+            self.day_context,
+            self.away,
+            self.private_time,
+            self.privacy,
+            self.opening_state,
+        )
+
+    def as_dict(self) -> dict[str, str]:
+        return {
+            "bio_state": self.bio_state,
+            "activity_context": self.activity_context,
+            "day_state": self.day_state,
+            "day_context": self.day_context,
+            "away": self.away,
+            "private_time": self.private_time,
+            "privacy": self.privacy,
+            "opening_state": self.opening_state,
+        }
+
+
+def _context_value(observation: InputObservation[object]) -> str:
+    if observation.usable:
+        return str(observation.value).lower()
+    return f"{observation.quality.value}:{observation.reason}"
+
+
+def _activity_context(observation: InputObservation[str]) -> str:
+    if not observation.usable:
+        return f"{observation.quality.value}:{observation.reason}"
+    normalized = str(observation.value).lower()
+    return _ACTIVITY_CONTEXT_GROUPS.get(normalized, f"activity:{normalized}")
+
+
 @dataclass(frozen=True, slots=True)
 class InputObservation[T]:
     """One owner-bound input value with freshness and provenance."""
@@ -186,6 +262,7 @@ class ManualOverride:
     source: str = "none"
     reason: str = "inactive"
     started_at: datetime | None = None
+    context_key: OverrideContextKey | None = None
 
     @classmethod
     def inactive(cls, reason: str = "inactive") -> ManualOverride:
@@ -199,6 +276,7 @@ class ManualOverride:
             "source": self.source,
             "reason": self.reason,
             "started_at": self.started_at.isoformat() if self.started_at else None,
+            "context_key": self.context_key.as_dict() if self.context_key else None,
         }
 
 

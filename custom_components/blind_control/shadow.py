@@ -7,7 +7,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from .config import BlindControlConfig
-from .contracts import BlindControlInputs, DecisionTrace, LegacyEvidence, ManualOverride
+from .contracts import (
+    BlindControlInputs,
+    DecisionTrace,
+    LegacyEvidence,
+    ManualOverride,
+    OverrideContextKey,
+)
 from .cooldown import CooldownTracker
 from .engine import DecisionEngine
 from .override import OverrideTracker
@@ -65,6 +71,7 @@ class ShadowRuntime:
         self.engine = DecisionEngine(self.config)
         self.override_tracker = OverrideTracker.from_config(self.config)
         self.cooldown_tracker = CooldownTracker(tolerance=self.config.position_tolerance)
+        self._override_context_key: OverrideContextKey | None = None
 
     @property
     def override(self) -> ManualOverride:
@@ -78,9 +85,7 @@ class ShadowRuntime:
         now: float = 0.0,
         legacy_snapshot: Mapping[str, object] | LegacyEvidence | None = None,
     ) -> ShadowSnapshot:
-        if inputs.bio_state.usable and str(inputs.bio_state.value).lower() == "waking":
-            if self.override.active:
-                self.override_tracker.clear()
+        self._apply_override_context_lifecycle(OverrideContextKey.from_inputs(inputs))
         trace = self.engine.evaluate(
             inputs,
             override=self.override,
@@ -116,13 +121,16 @@ class ShadowRuntime:
         self.config = config
         self.engine = DecisionEngine(config)
         self.override_tracker.tolerance = config.position_tolerance
+        self._override_context_key = None
         self.on_configuration_change()
         return self.evaluate(inputs, evaluated_at=evaluated_at, now=now)
 
     def on_restart(self, position: float | None) -> ManualOverride:
+        self._override_context_key = None
         return self.override_tracker.on_restart(position)
 
     def on_configuration_change(self, position: float | None = None) -> ManualOverride:
+        self._override_context_key = None
         return self.override_tracker.on_configuration_change(position)
 
     def begin_own_write(
@@ -150,7 +158,33 @@ class ShadowRuntime:
         )
 
     def clear_override(self) -> ManualOverride:
+        self._override_context_key = None
         return self.override_tracker.clear()
+
+    def _apply_override_context_lifecycle(self, context_key: OverrideContextKey) -> None:
+        """End a foreign override only at an explicit, reproducible context boundary."""
+
+        if not self.override.active:
+            self._override_context_key = context_key
+            return
+        if context_key.bio_state == "waking":
+            self.override_tracker.clear("waking_context_superseded")
+            self._override_context_key = context_key
+            return
+        if self._override_context_key is None:
+            self._override_context_key = context_key
+            self.override_tracker.attach_context(context_key)
+            return
+        if context_key != self._override_context_key:
+            reason = (
+                "waking_context_superseded"
+                if context_key.bio_state == "waking"
+                else "override_context_changed"
+            )
+            self.override_tracker.clear(reason)
+            self._override_context_key = context_key
+            return
+        self.override_tracker.attach_context(context_key)
 
 
 def _is_sensitive_key(key: str) -> bool:

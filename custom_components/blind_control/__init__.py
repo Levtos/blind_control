@@ -30,9 +30,12 @@ type BlindControlConfigEntry = ConfigEntry[BlindControlRuntimeData]
 
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
-    """Prepare the read-only snapshot transport without creating an actuator."""
+    """Prepare the read-only transport and install the Shadow sidebar panel."""
 
     register_websocket_commands(hass)
+    from .panel import async_register_panel
+
+    await async_register_panel(hass)
     return True
 
 
