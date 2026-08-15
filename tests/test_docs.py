@@ -23,7 +23,7 @@ class DocumentationTests(unittest.TestCase):
 
         lastenheft = (DOCS / "LASTENHEFT.md").read_text(encoding="utf-8")
         for term in (
-            "Dokumentversion:** 0.2",
+            "**Dokumentstatus:** v0.2",
             "direct_sun",
             "cloud_shadow",
             "diffuse_bright",
@@ -32,8 +32,14 @@ class DocumentationTests(unittest.TestCase):
             "cool_air_available",
             "cold_insulation",
             "Override",
-            "A1–A16",
-            "A16 Restart",
+            "### A1 – Vorüberziehende Wolke bei Hitze",
+            "14.000 auf 13.000 lx",
+            "### A3 – Kanonisches Waking",
+            "09:30 Uhr",
+            "08:45 Uhr",
+            "### A16 – Cover-Entity-Rename",
+            "cover.wohnbereich_thermo_verdunklungsrollo",
+            "cover.living_thermal_blind",
             "124° OSO",
         ):
             self.assertIn(term, lastenheft)
