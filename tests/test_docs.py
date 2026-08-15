@@ -161,6 +161,7 @@ class DocumentationTests(unittest.TestCase):
 
     def test_frontend_is_an_installable_ha_panel_with_official_context(self) -> None:
         main = (FRONTEND / "src" / "main.ts").read_text(encoding="utf-8")
+        css = (FRONTEND / "src" / "app.css").read_text(encoding="utf-8")
         transport = (FRONTEND / "src" / "lib" / "transport.ts").read_text(encoding="utf-8")
         panel = (PACKAGE / "panel.py").read_text(encoding="utf-8")
 
@@ -169,6 +170,11 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("props: { hass: this.hassContext }", main)
         self.assertIn("app.css?inline", main)
         self.assertIn("data-blind-control-style", main)
+        self.assertIn("attachShadow({ mode: 'open' })", main)
+        self.assertIn("target: this.panelRoot", main)
+        self.assertIn(":host", css)
+        self.assertNotIn(":root", css)
+        self.assertNotRegex(css, r"(^|[},])\s*body\s*[{,]")
         self.assertNotIn("window.parent", transport)
         self.assertIn("hass.connection", transport)
         self.assertIn("async_register_static_paths", panel)

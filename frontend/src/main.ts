@@ -6,6 +6,12 @@ import panelCss from './app.css?inline';
 class BlindControlPanel extends HTMLElement {
   private app: ReturnType<typeof mount> | undefined;
   private hassContext: HassContext | undefined;
+  private readonly panelRoot: ShadowRoot;
+
+  constructor() {
+    super();
+    this.panelRoot = this.attachShadow({ mode: 'open' });
+  }
 
   set hass(value: HassContext) {
     if (this.hassContext) {
@@ -35,17 +41,17 @@ class BlindControlPanel extends HTMLElement {
     if (!this.isConnected || !this.hassContext || this.app) return;
     this.ensureStyles();
     this.app = mount(Shell, {
-      target: this,
+      target: this.panelRoot,
       props: { hass: this.hassContext },
     });
   }
 
   private ensureStyles(): void {
-    if (this.querySelector('style[data-blind-control-style]')) return;
+    if (this.panelRoot.querySelector('style[data-blind-control-style]')) return;
     const style = document.createElement('style');
     style.dataset.blindControlStyle = '';
     style.textContent = panelCss;
-    this.prepend(style);
+    this.panelRoot.prepend(style);
   }
 }
 

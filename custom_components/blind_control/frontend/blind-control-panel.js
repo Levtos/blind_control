@@ -4699,7 +4699,9 @@ function Shell($$anchor, $$props) {
   pop();
 }
 delegate(["click"]);
-const panelCss = `:root {
+const panelCss = `:host {
+  display: block;
+  min-width: 320px;
   color-scheme: dark;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: #12151b;
@@ -4707,9 +4709,7 @@ const panelCss = `:root {
   font-synthesis: none;
 }
 
-* { box-sizing: border-box; }
-
-body { margin: 0; min-width: 320px; background: #12151b; }
+*, *::before, *::after { box-sizing: border-box; }
 
 button, input { font: inherit; }
 
@@ -4822,9 +4822,11 @@ input[type='text'] { background: #12171e; border: 1px solid #3a4657; border-radi
 `;
 class BlindControlPanel extends HTMLElement {
   constructor() {
-    super(...arguments);
+    super();
     __publicField(this, "app");
     __publicField(this, "hassContext");
+    __publicField(this, "panelRoot");
+    this.panelRoot = this.attachShadow({ mode: "open" });
   }
   set hass(value) {
     if (this.hassContext) {
@@ -4850,16 +4852,16 @@ class BlindControlPanel extends HTMLElement {
     if (!this.isConnected || !this.hassContext || this.app) return;
     this.ensureStyles();
     this.app = mount(Shell, {
-      target: this,
+      target: this.panelRoot,
       props: { hass: this.hassContext }
     });
   }
   ensureStyles() {
-    if (this.querySelector("style[data-blind-control-style]")) return;
+    if (this.panelRoot.querySelector("style[data-blind-control-style]")) return;
     const style = document.createElement("style");
     style.dataset.blindControlStyle = "";
     style.textContent = panelCss;
-    this.prepend(style);
+    this.panelRoot.prepend(style);
   }
 }
 customElements.define("blind-control-panel", BlindControlPanel);
