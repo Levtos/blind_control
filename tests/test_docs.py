@@ -147,6 +147,11 @@ class DocumentationTests(unittest.TestCase):
         )
         self.assertNotIn("SUPERVISOR_TOKEN", source)
         self.assertNotIn("localStorage", source)
+        self.assertNotIn("sampleSnapshot", source)
+        self.assertIn("blind_control/get_snapshot", source)
+        self.assertIn("blind_control/update_options", source)
+        self.assertIn("navigator.clipboard", source)
+        self.assertIn("statusTone", source)
 
 
 if __name__ == "__main__":

@@ -124,6 +124,37 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertEqual(cool_trace.fachlicher_target, 75)
         self.assertNotIn("base_daylight", cool_trace.winner_keys)
 
+    def test_manual_override_holds_automation_until_allowed_lifecycle(self) -> None:
+        runtime = ShadowRuntime()
+        runtime.on_restart(50)
+        runtime.observe_cover_position(80, source="foreign_position", now=10)
+        inputs = sunny_inputs(
+            activity_state=fresh("pc", "core_state.activity"),
+            outdoor_temperature=fresh(34.0, "weather_temperature"),
+        )
+
+        trace = runtime.evaluate(inputs, now=20)
+
+        self.assertEqual(trace.trace.active_mode, "manual_override")
+        self.assertEqual(trace.trace.fachlicher_target, 80)
+        self.assertEqual(trace.trace.effective_target, 80)
+        heat = next(item for item in trace.trace.candidates if item.key == "heat_protection")
+        self.assertTrue(heat.paused)
+        self.assertEqual(heat.suppressed_by, "manual_override")
+        self.assertIn("manual_override_holds_automation", trace.trace.reasons)
+
+    def test_apply_disabled_cannot_be_bypassed_by_manual_override(self) -> None:
+        config = replace(BlindControlConfig.defaults(), apply_enabled=False)
+        runtime = ShadowRuntime(config)
+        runtime.on_restart(50)
+        runtime.observe_cover_position(80, source="foreign_position", now=10)
+
+        trace = runtime.evaluate(ready_inputs(), now=20)
+
+        self.assertEqual(trace.trace.fachlicher_target, 80)
+        self.assertEqual(trace.trace.apply.status, "blocked")
+        self.assertEqual(trace.trace.apply.reason, "apply_disabled")
+
     def test_waking_pauses_heat_glare_privacy_and_cold_until_awake(self) -> None:
         waking = sunny_inputs(
             bio_state=fresh("waking", "core_state.bio"),
@@ -245,6 +276,31 @@ class DecisionEngineTests(unittest.TestCase):
         )
         self.assertNotIn("storm_approaching", trace.reasons)
 
+    def test_glare_requires_window_solar_relevance_at_night_and_off_window(self) -> None:
+        night = replace(
+            sunny_inputs(),
+            activity_state=fresh("pc", "core_state.activity"),
+            sun_elevation=fresh(-5.0, "sun_contract"),
+            outdoor_lux=fresh(10.0, "lux_sensor"),
+        )
+        off_window = replace(
+            sunny_inputs(),
+            activity_state=fresh("pc", "core_state.activity"),
+            sun_azimuth=fresh(304.0, "sun_contract"),
+        )
+
+        night_trace = DecisionEngine().evaluate(night)
+        off_window_trace = DecisionEngine().evaluate(off_window)
+
+        self.assertFalse(
+            next(item for item in night_trace.candidates if item.key == "glare_pc").active
+        )
+        self.assertFalse(
+            next(item for item in off_window_trace.candidates if item.key == "glare_pc").active
+        )
+        self.assertNotIn("glare_pc", night_trace.winner_keys)
+        self.assertNotIn("glare_pc", off_window_trace.winner_keys)
+
     def test_cool_air_opens_only_when_no_closing_candidate_is_active(self) -> None:
         inputs = replace(
             ready_inputs(),
@@ -306,6 +362,22 @@ class SolarAndLifecycleTests(unittest.TestCase):
         self.assertEqual(diffuse.state, SolarExposureState.DIFFUSE_BRIGHT)
         self.assertEqual(away_from_window.state, SolarExposureState.SOLAR_NOT_ON_WINDOW)
         self.assertEqual(night.state, SolarExposureState.NIGHT)
+
+    def test_fresh_positive_sun_elevation_overrides_low_lux_night_fallback(self) -> None:
+        inputs = replace(
+            sunny_inputs(),
+            sun_elevation=fresh(12.0, "sun_contract"),
+            sun_azimuth=fresh(124.0, "sun_contract"),
+            outdoor_lux=fresh(1.0, "lux_sensor"),
+            expected_direct_radiation=fresh(0.0, "weather_model"),
+            expected_diffuse_radiation=fresh(0.0, "weather_model"),
+        )
+
+        exposure = calculate_solar_exposure(inputs, BlindControlConfig.defaults())
+
+        self.assertNotEqual(exposure.state, SolarExposureState.NIGHT)
+        self.assertEqual(exposure.state, SolarExposureState.UNKNOWN)
+        self.assertIn("insufficient_radiation", exposure.reason)
 
     def test_override_lifecycle_distinguishes_owned_external_restart_and_config(self) -> None:
         runtime = ShadowRuntime()

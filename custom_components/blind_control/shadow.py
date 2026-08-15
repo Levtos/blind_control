@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from .config import BlindControlConfig
-from .contracts import BlindControlInputs, DecisionTrace, ManualOverride
+from .contracts import BlindControlInputs, DecisionTrace, LegacyEvidence, ManualOverride
 from .cooldown import CooldownTracker
 from .engine import DecisionEngine
 from .override import OverrideTracker
@@ -25,6 +25,7 @@ class ShadowSnapshot:
     inputs: dict[str, object]
     trace: DecisionTrace
     diffs: tuple[ShadowDiff, ...] = ()
+    legacy_evidence: LegacyEvidence = LegacyEvidence()
     shadow_only: bool = True
     actuation_executed: bool = False
     write_path_reachable: bool = False
@@ -40,6 +41,7 @@ class ShadowSnapshot:
             "inputs": self.inputs,
             "trace": self.trace.as_dict(),
             "diffs": [diff.as_dict() for diff in self.diffs],
+            "legacy_evidence": self.legacy_evidence.as_dict(),
             "shadow_only": self.shadow_only,
             "actuation_executed": self.actuation_executed,
             "write_path_reachable": self.write_path_reachable,
@@ -74,7 +76,7 @@ class ShadowRuntime:
         *,
         evaluated_at: datetime | None = None,
         now: float = 0.0,
-        legacy_snapshot: Mapping[str, object] | None = None,
+        legacy_snapshot: Mapping[str, object] | LegacyEvidence | None = None,
     ) -> ShadowSnapshot:
         if inputs.bio_state.usable and str(inputs.bio_state.value).lower() == "waking":
             if self.override.active:
@@ -85,12 +87,20 @@ class ShadowRuntime:
             now=now,
             cooldown=self.cooldown_tracker,
         )
+        legacy_evidence = (
+            legacy_snapshot
+            if isinstance(legacy_snapshot, LegacyEvidence)
+            else LegacyEvidence.from_mapping(legacy_snapshot)
+            if legacy_snapshot is not None
+            else LegacyEvidence.empty()
+        )
         return ShadowSnapshot(
             version=SHADOW_CONTRACT_VERSION,
             evaluated_at=evaluated_at or datetime.now(UTC),
             inputs=inputs.as_dict(),
             trace=trace,
-            diffs=compare_legacy_snapshot(legacy_snapshot, trace),
+            diffs=compare_legacy_snapshot(legacy_evidence, trace),
+            legacy_evidence=legacy_evidence,
         )
 
     def update_config(

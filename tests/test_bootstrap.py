@@ -28,6 +28,10 @@ class _FakeVoluptuous(types.ModuleType):
         return key
 
     @staticmethod
+    def Optional(key, **_kwargs):
+        return key
+
+    @staticmethod
     def Coerce(value):
         return value
 

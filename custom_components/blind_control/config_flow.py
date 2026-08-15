@@ -8,7 +8,12 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, OptionsFlow
 
-from .config import DEFAULT_PROFILE_NAMES, BlindControlConfig
+from .config import (
+    DEFAULT_PROFILE_NAMES,
+    INPUT_BINDING_KEYS,
+    LEGACY_BINDING_KEYS,
+    BlindControlConfig,
+)
 from .const import DOMAIN
 
 
@@ -26,6 +31,9 @@ def _config_schema(config: BlindControlConfig | None = None):
             [True, False]
         ),
         vol.Required("apply_enabled", default=config.apply_enabled): vol.In([True, False]),
+        vol.Required(
+            "observation_freshness_seconds", default=config.observation_freshness_seconds
+        ): vol.All(vol.Coerce(float), vol.Range(min=1, max=86400)),
         vol.Required("heat_outdoor_threshold", default=config.heat_outdoor_threshold): vol.Coerce(
             float
         ),
@@ -37,6 +45,9 @@ def _config_schema(config: BlindControlConfig | None = None):
         ): vol.Coerce(float),
         vol.Required(
             "heat_confidence_threshold", default=config.heat_confidence_threshold
+        ): vol.All(vol.Coerce(float), vol.Range(min=0, max=1)),
+        vol.Required(
+            "glare_confidence_threshold", default=config.glare_confidence_threshold
         ): vol.All(vol.Coerce(float), vol.Range(min=0, max=1)),
         vol.Required("cloud_shadow_lux_drop", default=config.cloud_shadow_lux_drop): vol.Coerce(
             float
@@ -78,6 +89,12 @@ def _config_schema(config: BlindControlConfig | None = None):
         fields[vol.Required(f"position_{profile_name}_inverted", default=profile.inverted)] = (
             vol.All(vol.Coerce(float), vol.Range(min=0, max=100))
         )
+    input_bindings = dict(config.input_bindings)
+    for key in INPUT_BINDING_KEYS:
+        fields[vol.Optional(f"input_binding_{key}", default=input_bindings.get(key, ""))] = str
+    legacy_bindings = dict(config.legacy_bindings)
+    for key in LEGACY_BINDING_KEYS:
+        fields[vol.Optional(f"legacy_binding_{key}", default=legacy_bindings.get(key, ""))] = str
     return vol.Schema(fields)
 
 
@@ -95,6 +112,22 @@ def _mapping_from_form(
             "normal": values.pop(f"position_{profile_name}_normal", profile.normal),
             "inverted": values.pop(f"position_{profile_name}_inverted", profile.inverted),
         }
+    input_bindings = dict(config.input_bindings)
+    for key in INPUT_BINDING_KEYS:
+        value = values.pop(f"input_binding_{key}", input_bindings.get(key, ""))
+        if value in (None, ""):
+            input_bindings.pop(key, None)
+        else:
+            input_bindings[key] = value
+    legacy_bindings = dict(config.legacy_bindings)
+    for key in LEGACY_BINDING_KEYS:
+        value = values.pop(f"legacy_binding_{key}", legacy_bindings.get(key, ""))
+        if value in (None, ""):
+            legacy_bindings.pop(key, None)
+        else:
+            legacy_bindings[key] = value
+    values["input_bindings"] = input_bindings
+    values["legacy_bindings"] = legacy_bindings
     values["profiles"] = profiles
     return values
 

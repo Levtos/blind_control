@@ -8,20 +8,23 @@
 
 ```text
 ConfigEntry / OptionsFlow
-        -> BlindControlConfig mit expliziten Normal-/Invertiert-Werten
-        -> owner-bound BlindControlInputs mit Source/Quality/Freshness
+        -> BlindControlConfig mit Profilen, Kalibrierdefaults und Owner-Bindings
+        -> ShadowCoordinator: State-Listener + Freshness-Timer
+        -> owner-bound BlindControlInputs und LegacyEvidence mit Source/Quality/Freshness
         -> Solar Exposure + DecisionEngine
         -> DecisionTrace mit Kandidaten, Winner, Pausen und Safety
         -> ShadowRuntime / ShadowSnapshot
-        -> optionaler feldweiser Legacy-Diff
+        -> feldweiser Legacy-Diff
+        -> read-only WebSocket-Projektion / OptionsFlow-Update
 ```
 
-`async_setup_entry` erzeugt nur den initialen Snapshot aus einem leeren,
-konservativen Input-Contract. Es werden keine Input-/Observation-Listener,
-Plattformen, Services, WebSocket-Kommandos oder Apply-Pfade registriert. Der standardmäßige
-OptionsFlow-Update-Listener lädt ausschließlich die read-only Shadow-Auswertung
-neu; er führt keinen Gerätebefehl aus. Eine spätere Input-Bindung
-muss einen ausdrücklich bestätigten Owner- und Freshness-Contract liefern.
+`async_setup_entry` startet eine laufende, aber strikt nicht-aktuierende
+Beobachtung. Entity IDs werden nicht im Produktcode erfunden, sondern als
+Owner-Bindings über ConfigEntry/OptionsFlow gespeichert. Bei jeder gebundenen
+State-Änderung und zusätzlich über den Freshness-Timer wird ein neuer Snapshot
+berechnet und als `blind_control.ux.v1` im Runtime-Data-Projektionsobjekt
+gehalten. Der WebSocket-Read-Befehl liefert genau diese Projektion; der einzige
+UX-Update-Befehl validiert und speichert ausschließlich OptionsFlow-Konfiguration.
 
 ## 2. Contracts und Ownership
 
@@ -52,13 +55,20 @@ Beobachtung kommen.
   pausiert Heat, Glare, Privacy und Cold Insulation. Safety, Readiness und
   deaktivierte Automatik bleiben übergeordnet.
 - TV, Streaming und Konsolen verwenden `glare_tv`; PC verwendet `glare_pc`.
-  Glare hat kein gemeinsames Lux-Hard-Gate mit Heat.
+  Glare benötigt zusätzlich eine eigene, fensterbezogene Solar-Exposure mit
+  Confidence; es teilt kein Lux-Hard-Gate mit Heat. Night und
+  `solar_not_on_window` beenden Glare trotz Screen-Aktivität.
+- Eine frische positive Sonnenhöhe darf durch niedrigen Lux nicht zu `night`
+  werden. Der Lux-Night-Fallback gilt nur ohne frische Solar-Geometrie.
 - `cloud_shadow` beendet Heat bei fortbestehender thermischer Last nicht.
   Gewitter und nutzbare kühle Luft sind getrennte Cooling-Kandidaten.
 - Vollständiges Öffnen braucht einen positiven Grund. Fehlende oder unsichere
   Daten führen nicht still auf 100 %.
 - Ein vollständig offenes Fenster verwendet die konfigurierte Safety-Position;
   eine unsichere Kippstellung oder unbekannte Opening-Lage blockiert.
+- Ein aktiver, fremder Manual Override hält die Automatik auf der beobachteten
+  Position. Nur Safety und der festgelegte Waking-Lifecycle dürfen ihn
+  überstimmen; `apply_enabled = false` bleibt auch mit Override absolut.
 
 ## 4. Konfiguration und Kalibrierung
 
@@ -111,50 +121,58 @@ Diagnose und führt selbst keine Aktion aus.
 Der versionierte Snapshot-Contract heißt `blind_control.shadow.v1`.
 
 Die Produktintegration importiert keine Home-Assistant-Aktor-/Service-API,
-forwardet keine Plattform und registriert keinen Service/Listener. Der
+forwardet keine Plattform und registriert keinen Service. Die Coordinator-
+Listener sind ausschließlich State-/Zeitbeobachtung; der WebSocket-Transport
+liefert Snapshot-Daten oder validiert OptionsFlow-Konfiguration. Der
 Boundary-Test prüft zusätzlich, dass kein produktiver Cover-/Apply-Schreibpfad
-im Python-Paket vorhanden ist. ConfigEntry-/OptionsFlow-Speicherung ist davon
-getrennt und betrifft nur Konfiguration, niemals ein Gerät.
+im Python-Paket vorhanden ist. Konfigurationsspeicherung ist davon getrennt
+und betrifft niemals ein Gerät.
 
 ## 7. Legacy-Diff und UX-Contract
 
-`compare_legacy_snapshot` vergleicht nur tatsächlich gelieferte Felder
-(`active_mode`, `effective_target`, `safety_status`, `apply_status`) und
-klassifiziert jede Differenz als `expected`, `improved`, `unresolved` oder
-`error`. Fehlende Legacy-Evidence wird nicht erfunden.
+`ShadowCoordinator` liest für jede konfigurierte Legacy-Bindung die vier Felder
+(`active_mode`, `effective_target`, `safety_status`, `apply_status`) und erzeugt
+auch für eine fehlende/stale Beobachtung ein sichtbares Feld. `compare_legacy_snapshot`
+klassifiziert feldweise als `expected`, `improved`, `unresolved` oder `error` und
+trägt Quality/Source der Alt-Evidence mit. Fehlende Legacy-Bindings bleiben
+explizit unkonfiguriert; Werte werden nicht aus der neuen Entscheidung erfunden.
 
 `ux_contract.py` stellt `blind_control.ux.v1` für Übersicht, Diagnose und
 Einstellungen bereit. Die Projektion enthält Gewinner, effektives Ziel,
-Kandidaten, pausierte Äste, Solar-Diagnose, Quality/Reason, Diffs und alle
-editierbaren Konfigurationswerte. Die aktuelle Svelte-5-Oberfläche unter
-`frontend/` bindet ausschließlich an diesen Contract. Es gibt in AP2 keine
-UI-Command-Oberfläche und keinen Gateway-Schreibpfad.
+Kandidaten, pausierte Äste, Solar-Diagnose, Quality/Reason, Alt/Neu-Diffs und
+alle editierbaren Konfigurationswerte. `frontend/` lädt die reale Projektion
+über `blind_control/get_snapshot`, pollt sie für laufende Anzeige, speichert
+Änderungen über `blind_control/update_options` und enthält keinen
+`sampleSnapshot`-Produktpfad. Status-Badges stammen aus dem Snapshot und die
+Copy-Aktion schreibt die redigierte Debug-Evidence in die Clipboard-API.
 
 ## 8. Implementiert und offen
 
 ### Implementiert
 
 - früh installierbarer ConfigEntry-Shadow-Snapshot;
+- laufender HA-Observation-/Coordinator-Pfad mit konfigurierbaren Owner-
+  Bindings, Freshness- und Legacy-Evidence;
 - versionierte Backend-, Trace-, UX- und Shadow-Contracts;
 - konfigurierte Normal-/Invertiert-Profile und Achseninvertierung;
 - Solar-Geometrie mit Golden-Vector-Regressionen;
 - Minimum-Komposition, exklusives Waking, Heat/Glare, Storm/Cool-Air/Cold;
 - Opening-Safety, positive Open-Gründe und Unknown/Stale-Blockierung;
 - Override-, Restart-, Konfigurations- und Cooldown-Regressionsschutz;
-- feldweiser Legacy-Diff ohne alte Integration zu importieren;
-- contract-getriebene Svelte-5/Vite/TypeScript-Ansicht für Übersicht, Diagnose
-  und lokale Einstellungen ohne Command-/Gateway-Schreibpfad;
+- Manual-Override-Hold mit Safety-/Waking-Ausnahmen und absolutem Apply-Gate;
+- feldweiser Alt/Neu-Legacy-Diff mit `error` für nicht frische Evidence;
+- contract-getriebene Svelte-5/Vite/TypeScript-Ansicht für reale Snapshotdaten,
+  dynamische Status-Badges, OptionsFlow-Update und echte Copy-Aktion;
 - keine produktive Coverfahrt und keine alte Policy-Änderung.
 
 ### Für spätere AP2-Batches beziehungsweise vor Cutover offen
 
-- konkrete, owner-bestätigte Home-Assistant-Input-Bindings für Wohnzimmer-
-  Opening, Lux, Sonne, Wetter, Temperatur und Cover-Readiness;
-- laufende HA-Observation/Coordinator-Anbindung an diese Contracts;
-- konkrete, owner-bestätigte HA-Input-Bindings und ein schlankes UX-Gateway/
-  Transport für die contract-getriebene Oberfläche gemäß ADR 0001;
+- konkrete produktive Werte für die owner-bestätigten Home-Assistant-
+  Input-/Legacy-Bindings müssen pro Installation über OptionsFlow gesetzt und
+  fachlich bestätigt werden; der generische Laufzeitpfad ist implementiert;
 - native Entity-Projektionen über die noch nicht freigegebene HA-Binding;
-- reale Shadow-Traces und feldweise Alt/Neu-Paritätsklassifikation;
+- reale Shadow-Traces und feldweise Alt/Neu-Paritätsklassifikation im laufenden
+  HA-Betrieb müssen noch als Installations-/Live-Evidence gesammelt werden;
 - technische Migration alter Storage-/Override-Daten nach einem expliziten
   Verlustschutz-Contract;
 - Cutover, Cover-Rename, produktiver Apply, Release und Live-Verifikation.

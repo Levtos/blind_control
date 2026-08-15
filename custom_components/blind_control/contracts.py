@@ -6,6 +6,7 @@ missing observation is not converted into a normal open state by this module.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
 from datetime import datetime
 from enum import StrEnum
@@ -132,6 +133,47 @@ class BlindControlInputs:
         """Return all input fields for a redaction-free, topology-free snapshot."""
 
         return {item.name: getattr(self, item.name).as_dict() for item in fields(self)}
+
+
+@dataclass(frozen=True, slots=True)
+class LegacyEvidence:
+    """Owner-bound old-policy observations used for fieldwise Shadow parity."""
+
+    observations: tuple[tuple[str, InputObservation[object]], ...] = ()
+    configured: bool = False
+
+    @classmethod
+    def empty(cls) -> LegacyEvidence:
+        return cls()
+
+    @classmethod
+    def from_mapping(cls, values: Mapping[str, object]) -> LegacyEvidence:
+        """Keep the pure helper backwards compatible for explicit test evidence."""
+
+        return cls(
+            observations=tuple(
+                (
+                    key,
+                    InputObservation(
+                        value=value,
+                        source="legacy_mapping",
+                        quality=InputQuality.FRESH,
+                        reason="explicit_legacy_mapping",
+                    ),
+                )
+                for key, value in values.items()
+            ),
+            configured=True,
+        )
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "configured": self.configured,
+            "fields": {key: observation.as_dict() for key, observation in self.observations},
+        }
+
+    def as_mapping(self) -> dict[str, InputObservation[object]]:
+        return dict(self.observations)
 
 
 @dataclass(frozen=True, slots=True)

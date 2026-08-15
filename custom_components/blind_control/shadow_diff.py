@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 
-from .contracts import DecisionTrace
+from .contracts import DecisionTrace, InputObservation, InputQuality, LegacyEvidence
 
 
 class DiffClassification(StrEnum):
@@ -23,6 +23,8 @@ class ShadowDiff:
     shadow_value: object
     classification: DiffClassification
     reason: str
+    legacy_quality: str = InputQuality.UNKNOWN.value
+    legacy_source: str = "unbound"
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -31,17 +33,31 @@ class ShadowDiff:
             "shadow_value": self.shadow_value,
             "classification": self.classification.value,
             "reason": self.reason,
+            "legacy_quality": self.legacy_quality,
+            "legacy_source": self.legacy_source,
         }
 
 
 def compare_legacy_snapshot(
-    legacy: Mapping[str, object] | None,
+    legacy: Mapping[str, object] | LegacyEvidence | None,
     trace: DecisionTrace,
 ) -> tuple[ShadowDiff, ...]:
-    """Compare only supplied legacy fields; missing legacy evidence is explicit."""
+    """Compare real old-policy fields and classify every supplied observation."""
 
     if legacy is None:
         return ()
+    if isinstance(legacy, LegacyEvidence):
+        observations = legacy.as_mapping()
+    else:
+        observations = {
+            key: InputObservation(
+                value=value,
+                source="legacy_mapping",
+                quality=InputQuality.FRESH,
+                reason="explicit_legacy_mapping",
+            )
+            for key, value in legacy.items()
+        }
     shadow_values = {
         "active_mode": trace.active_mode,
         "effective_target": trace.effective_target,
@@ -50,10 +66,14 @@ def compare_legacy_snapshot(
     }
     diffs: list[ShadowDiff] = []
     for field, shadow_value in shadow_values.items():
-        if field not in legacy:
+        if field not in observations:
             continue
-        legacy_value = legacy[field]
-        if legacy_value == shadow_value:
+        observation = observations[field]
+        legacy_value = observation.value
+        if not observation.usable:
+            classification = DiffClassification.ERROR
+            reason = "legacy_field_evidence_not_fresh"
+        elif legacy_value == shadow_value:
             classification = DiffClassification.EXPECTED
             reason = "field_matches_shadow_decision"
         elif field == "safety_status" and trace.safety.status == "blocked":
@@ -72,6 +92,8 @@ def compare_legacy_snapshot(
                 shadow_value=shadow_value,
                 classification=classification,
                 reason=reason,
+                legacy_quality=observation.quality.value,
+                legacy_source=observation.source,
             )
         )
     return tuple(diffs)

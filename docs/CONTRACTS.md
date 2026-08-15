@@ -101,9 +101,14 @@ Der frühe AP2-Slice versioniert zusätzlich:
 | --- | --- | --- |
 | `blind_control.decision.v1` | Kandidaten, Gewinner, pausierte Äste, fachliches Ziel, Safety, Apply-Intent | kein ausführbarer Gerätepfad |
 | `blind_control.shadow.v1` | Inputs, Trace, Legacy-Diffs und Shadow-Flags | `shadow_only=true`, `actuation_executed=false`, `write_path_reachable=false` |
-| `blind_control.ux.v1` | read-only Übersicht, Diagnose und Einstellungen | keine Command-/Service-Oberfläche |
+| `blind_control.ux.v1` | laufende Snapshot-Projektion für Übersicht, Diagnose und OptionsFlow-Einstellungen | kein Geräte-/Cover-Command und kein Service-Pfad |
 
 Alle externen Inputwerte werden als `InputObservation` mit `source`,
 `quality`, `reason` und optionalem Zeitbezug übergeben. Nur `fresh` ist für
 positive fachliche oder technische Aussagen verwendbar. Die Fachmodule
 erzeugen keine externe Rohwahrheit und enthalten keine produktiven Entity-IDs.
+Die laufende HA-Anbindung liest ausschließlich über owner-konfigurierte
+Bindings; fehlende oder stale Inputs bleiben sichtbar und werden nicht als
+positive Werte ersetzt. Die UX erhält den aktuellen `blind_control.ux.v1`
+Snapshot über den read-only WebSocket-Read-Pfad; Konfigurationsänderungen
+werden ausschließlich als validierte ConfigEntry-/OptionsFlow-Daten gespeichert.

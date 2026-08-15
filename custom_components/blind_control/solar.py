@@ -59,17 +59,17 @@ def calculate_solar_exposure(
             reason="sun_below_horizon",
         )
 
-    if lux.usable and float(lux.value) <= config.night_lux_threshold:
+    if not sun_elevation.usable and lux.usable and float(lux.value) <= config.night_lux_threshold:
         return SolarExposure(
             state=SolarExposureState.NIGHT,
-            confidence=0.86 if sun_elevation.usable else 0.72,
-            incidence_factor=0.0 if not sun_azimuth.usable else None,
+            confidence=0.72,
+            incidence_factor=None,
             expected_radiation_w_m2=0.0,
             observed_lux=float(lux.value),
             lux_trend=_number(lux_trend),
             cloud_shadow=False,
             sources=sources,
-            reason="local_lux_below_night_threshold",
+            reason="local_lux_fallback_without_solar_geometry",
         )
 
     if not sun_elevation.usable or not sun_azimuth.usable:
@@ -77,7 +77,7 @@ def calculate_solar_exposure(
             sources=sources,
             observed_lux=_number(lux),
             lux_trend=_number(lux_trend),
-            reason="sun_geometry_not_fresh",
+            reason="positive_sun_elevation_requires_fresh_geometry",
         )
 
     incidence = _incidence_factor(

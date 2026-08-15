@@ -15,6 +15,8 @@ button, input { font: inherit; }
 button { cursor: pointer; }
 
 .panel-root { max-width: 1180px; margin: 0 auto; padding: 32px; }
+.transport-state { margin: 14vh auto; max-width: 680px; padding: 32px; }
+.error-state { border: 1px solid #765b30; border-radius: 12px; background: #30291f; }
 .app-header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 28px; }
 .eyebrow { color: #92a0b5; font-size: 11px; font-weight: 700; letter-spacing: .14em; margin: 0 0 8px; }
 h1, h2, h3, p { margin-top: 0; }
@@ -26,6 +28,9 @@ h3 { font-size: 14px; margin: 22px 0 12px; }
 .header-status { border: 1px solid #384356; border-radius: 999px; color: #b7c3d6; display: flex; align-items: center; gap: 9px; padding: 9px 13px; white-space: nowrap; }
 .status-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 .status-dot.blocked { background: #e5a84b; box-shadow: 0 0 0 4px #e5a84b1c; }
+.status-dot.ready { background: #67d49a; box-shadow: 0 0 0 4px #67d49a1c; }
+.status-dot.warning { background: #e5a84b; box-shadow: 0 0 0 4px #e5a84b1c; }
+.status-dot.error { background: #ef7373; box-shadow: 0 0 0 4px #ef73731c; }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid #2c3442; margin-bottom: 24px; }
 .tab { background: transparent; border: 0; color: #92a0b5; padding: 12px 14px; border-bottom: 2px solid transparent; }
 .tab:hover, .tab.active { color: #edf1f7; border-bottom-color: #6fb3ff; }
@@ -36,7 +41,9 @@ h3 { font-size: 14px; margin: 22px 0 12px; }
 .hero-card { background: linear-gradient(140deg, #202a38, #1a1f28 60%); }
 .card-heading, .candidate-top, .metric-strip, .profile-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .badge { background: #273243; border: 1px solid #40516a; border-radius: 999px; color: #c9d5e7; font-size: 11px; font-weight: 700; letter-spacing: .08em; padding: 5px 9px; text-transform: uppercase; }
-.badge.blocked { background: #49371f; border-color: #765b30; color: #f0c477; }
+.badge.blocked, .badge.warning { background: #49371f; border-color: #765b30; color: #f0c477; }
+.badge.ready { background: #1f4937; border-color: #397d5c; color: #9ce2b9; }
+.badge.error { background: #4b2529; border-color: #87444b; color: #ffaaaa; }
 .target-row { margin: 30px 0 24px; display: flex; align-items: baseline; gap: 12px; }
 .target-value { font-size: clamp(48px, 9vw, 76px); font-weight: 700; letter-spacing: -.07em; }
 .metric-strip { border-top: 1px solid #354051; padding-top: 16px; align-items: flex-start; }
@@ -78,6 +85,14 @@ input:focus-visible, button:focus-visible { outline: 3px solid #6fb3ff; outline-
 .hint { font-size: 12px; line-height: 1.5; margin: 18px 0 0; }
 .quiet-button { background: transparent; border: 1px solid #3a4657; border-radius: 8px; color: #b7c3d6; padding: 8px 11px; }
 .quiet-button:hover { border-color: #6fb3ff; color: #edf1f7; }
+.primary-button { background: #6fb3ff; border: 1px solid #8bc5ff; border-radius: 8px; color: #101820; padding: 8px 11px; font-weight: 700; }
+.primary-button:disabled { cursor: not-allowed; opacity: .55; }
+.button-row { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.binding-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 20px; }
+input[type='text'] { background: #12171e; border: 1px solid #3a4657; border-radius: 8px; color: #edf1f7; min-height: 40px; padding: 8px 10px; width: 100%; }
+.ready { color: #9ce2b9; }
+.warning { color: #f0c477; }
+.error { color: #ffaaaa; }
 .profile-table { margin-top: 20px; }
 .profile-row { border-bottom: 1px solid #2c3442; display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(90px, .6fr)); padding: 10px 0; }
 .profile-row strong { color: #d7e0ed; font-size: 13px; }
@@ -93,7 +108,7 @@ input:focus-visible, button:focus-visible { outline: 3px solid #6fb3ff; outline-
 }
 
 @media (max-width: 520px) {
-  .candidate-grid, .form-grid, .calibration-grid { grid-template-columns: 1fr; }
+  .candidate-grid, .form-grid, .calibration-grid, .binding-grid { grid-template-columns: 1fr; }
   .metric-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .metric-strip div:last-child { grid-column: span 2; }
   .plain-list li { display: grid; gap: 4px; }

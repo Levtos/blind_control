@@ -2,10 +2,44 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 
 CONFIG_VERSION = 1
+
+INPUT_BINDING_KEYS = (
+    "bio_state",
+    "activity_state",
+    "day_state",
+    "day_context",
+    "away",
+    "private_time",
+    "privacy",
+    "opening_state",
+    "opening_safe_for_blind",
+    "cover_available",
+    "cover_ready",
+    "cover_position",
+    "outdoor_lux",
+    "lux_trend",
+    "sun_elevation",
+    "sun_azimuth",
+    "expected_direct_radiation",
+    "expected_diffuse_radiation",
+    "cloud_cover",
+    "indoor_temperature",
+    "outdoor_temperature",
+    "indoor_temperature_trend",
+    "outdoor_temperature_trend",
+    "weather_alert",
+    "precipitation_trend",
+    "wind_trend",
+    "pressure_trend",
+    "air_movement",
+)
+LEGACY_BINDING_KEYS = ("active_mode", "effective_target", "safety_status", "apply_status")
+_ENTITY_ID = re.compile(r"^[a-z][a-z0-9_]*\.[a-z0-9_]+$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +117,31 @@ def _number(value: object, *, name: str, minimum: float, maximum: float) -> floa
     return result
 
 
+def _bindings(
+    value: object,
+    *,
+    name: str,
+    allowed: tuple[str, ...],
+) -> tuple[tuple[str, str], ...]:
+    """Validate owner-selected HA entity bindings without inventing topology."""
+
+    if value is None:
+        return ()
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{name} must be a mapping")
+    allowed_set = set(allowed)
+    result: list[tuple[str, str]] = []
+    for key, entity_id in value.items():
+        if key not in allowed_set:
+            raise ValueError(f"unknown {name} key: {key}")
+        if entity_id in (None, ""):
+            continue
+        if not isinstance(entity_id, str) or not _ENTITY_ID.fullmatch(entity_id):
+            raise ValueError(f"{name}.{key} must be a Home Assistant entity ID")
+        result.append((key, entity_id))
+    return tuple(sorted(result))
+
+
 @dataclass(frozen=True, slots=True)
 class BlindControlConfig:
     """All runtime-calibratable values for the deterministic shadow engine."""
@@ -93,11 +152,15 @@ class BlindControlConfig:
     axis_inverted: bool = False
     automation_enabled: bool = True
     apply_enabled: bool = True
+    input_bindings: tuple[tuple[str, str], ...] = ()
+    legacy_bindings: tuple[tuple[str, str], ...] = ()
+    observation_freshness_seconds: float = 120.0
 
     heat_outdoor_threshold: float = 30.0
     heat_indoor_threshold: float = 26.0
     heat_radiation_threshold: float = 250.0
     heat_confidence_threshold: float = 0.55
+    glare_confidence_threshold: float = 0.35
     cloud_shadow_lux_drop: float = 1000.0
     cloud_shadow_ratio: float = 0.75
     diffuse_lux_threshold: float = 2500.0
@@ -128,11 +191,18 @@ class BlindControlConfig:
             "storm_pressure_drop_threshold",
             "apply_cooldown_seconds",
             "position_tolerance",
+            "observation_freshness_seconds",
         ):
             _number(getattr(self, name), name=name, minimum=0, maximum=100_000)
         _number(
             self.heat_confidence_threshold,
             name="heat_confidence_threshold",
+            minimum=0,
+            maximum=1,
+        )
+        _number(
+            self.glare_confidence_threshold,
+            name="glare_confidence_threshold",
             minimum=0,
             maximum=1,
         )
@@ -176,10 +246,27 @@ class BlindControlConfig:
             axis_inverted=_bool(raw.get("axis_inverted", False), "axis_inverted"),
             automation_enabled=_bool(raw.get("automation_enabled", True), "automation_enabled"),
             apply_enabled=_bool(raw.get("apply_enabled", True), "apply_enabled"),
+            input_bindings=_bindings(
+                raw.get("input_bindings", raw.get("bindings")),
+                name="input_bindings",
+                allowed=INPUT_BINDING_KEYS,
+            ),
+            legacy_bindings=_bindings(
+                raw.get("legacy_bindings"),
+                name="legacy_bindings",
+                allowed=LEGACY_BINDING_KEYS,
+            ),
+            observation_freshness_seconds=_number(
+                raw.get("observation_freshness_seconds", 120),
+                name="observation_freshness_seconds",
+                minimum=1,
+                maximum=86_400,
+            ),
             heat_outdoor_threshold=float(raw.get("heat_outdoor_threshold", 30)),
             heat_indoor_threshold=float(raw.get("heat_indoor_threshold", 26)),
             heat_radiation_threshold=float(raw.get("heat_radiation_threshold", 250)),
             heat_confidence_threshold=float(raw.get("heat_confidence_threshold", 0.55)),
+            glare_confidence_threshold=float(raw.get("glare_confidence_threshold", 0.35)),
             cloud_shadow_lux_drop=float(raw.get("cloud_shadow_lux_drop", 1000)),
             cloud_shadow_ratio=float(raw.get("cloud_shadow_ratio", 0.75)),
             diffuse_lux_threshold=float(raw.get("diffuse_lux_threshold", 2500)),
@@ -205,10 +292,14 @@ class BlindControlConfig:
             "axis_inverted": self.axis_inverted,
             "automation_enabled": self.automation_enabled,
             "apply_enabled": self.apply_enabled,
+            "input_bindings": dict(self.input_bindings),
+            "legacy_bindings": dict(self.legacy_bindings),
+            "observation_freshness_seconds": self.observation_freshness_seconds,
             "heat_outdoor_threshold": self.heat_outdoor_threshold,
             "heat_indoor_threshold": self.heat_indoor_threshold,
             "heat_radiation_threshold": self.heat_radiation_threshold,
             "heat_confidence_threshold": self.heat_confidence_threshold,
+            "glare_confidence_threshold": self.glare_confidence_threshold,
             "cloud_shadow_lux_drop": self.cloud_shadow_lux_drop,
             "cloud_shadow_ratio": self.cloud_shadow_ratio,
             "diffuse_lux_threshold": self.diffuse_lux_threshold,

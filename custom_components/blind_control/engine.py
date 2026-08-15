@@ -79,6 +79,24 @@ class DecisionEngine:
         else:
             candidates.extend(environment)
 
+        if override.active and override.observed_position is not None and not waking:
+            held_candidates: list[Candidate] = []
+            for candidate in candidates:
+                if candidate.active and candidate.key != "manual_override":
+                    paused.append(
+                        PausedRequirement(
+                            key=candidate.key,
+                            reason="manual_override_holds_automation",
+                            source=override.source,
+                        )
+                    )
+                    held_candidates.append(
+                        replace(candidate, paused=True, suppressed_by="manual_override")
+                    )
+                else:
+                    held_candidates.append(candidate)
+            candidates = held_candidates
+
         known_paused = {item.key for item in paused}
         for candidate in candidates:
             if candidate.active and candidate.paused and candidate.key not in known_paused:
@@ -277,9 +295,10 @@ class DecisionEngine:
     ) -> list[Candidate]:
         storm = self._storm_active(inputs)
         heat, heat_reason = self._heat_active(inputs, solar, storm)
-        glare_general = _activity(inputs, SCREEN_ACTIVITY)
-        glare_tv = _activity(inputs, TV_ACTIVITY)
-        glare_pc = _activity(inputs, PC_ACTIVITY)
+        glare_relevant = self._glare_relevant(solar)
+        glare_general = glare_relevant and _activity(inputs, SCREEN_ACTIVITY)
+        glare_tv = glare_relevant and _activity(inputs, TV_ACTIVITY)
+        glare_pc = glare_relevant and _activity(inputs, PC_ACTIVITY)
         cold = self._cold_active(inputs, solar)
         cool_air = self._cool_air_active(inputs)
         return [
@@ -298,8 +317,10 @@ class DecisionEngine:
                 glare_general,
                 self.config.target("glare_general") if glare_general else None,
                 inputs.activity_state.source,
-                "screen_activity_requires_general_glare"
+                "screen_activity_with_window_solar_relevance"
                 if glare_general
+                else "screen_activity_without_window_solar_relevance"
+                if _activity(inputs, SCREEN_ACTIVITY) and not glare_relevant
                 else "no_general_glare_activity",
                 inputs.activity_state.quality,
             ),
@@ -309,7 +330,11 @@ class DecisionEngine:
                 glare_tv,
                 self.config.target("glare_tv") if glare_tv else None,
                 inputs.activity_state.source,
-                "tv_or_console_uses_tv_glare" if glare_tv else "no_tv_activity",
+                "tv_or_console_with_window_solar_relevance"
+                if glare_tv
+                else "tv_activity_without_window_solar_relevance"
+                if _activity(inputs, TV_ACTIVITY) and not glare_relevant
+                else "no_tv_activity",
                 inputs.activity_state.quality,
             ),
             self._candidate(
@@ -318,7 +343,11 @@ class DecisionEngine:
                 glare_pc,
                 self.config.target("glare_pc") if glare_pc else None,
                 inputs.activity_state.source,
-                "pc_activity_requires_pc_glare" if glare_pc else "no_pc_activity",
+                "pc_activity_with_window_solar_relevance"
+                if glare_pc
+                else "pc_activity_without_window_solar_relevance"
+                if _activity(inputs, PC_ACTIVITY) and not glare_relevant
+                else "no_pc_activity",
                 inputs.activity_state.quality,
             ),
             self._candidate(
@@ -351,6 +380,19 @@ class DecisionEngine:
                 _quality(inputs.outdoor_temperature, inputs.opening_state),
             ),
         ]
+
+    def _glare_relevant(self, solar: SolarExposure) -> bool:
+        """Use an independent window-solar signal for screen glare."""
+
+        return (
+            solar.state
+            in {
+                SolarExposureState.DIRECT_SUN,
+                SolarExposureState.CLOUD_SHADOW,
+                SolarExposureState.DIFFUSE_BRIGHT,
+            }
+            and solar.confidence >= self.config.glare_confidence_threshold
+        )
 
     def _heat_active(
         self,
@@ -542,7 +584,7 @@ class DecisionEngine:
                 approved_target=None,
                 cooldown_pending_target=None,
             )
-        if not self.config.apply_enabled and not override.active:
+        if not self.config.apply_enabled:
             return ApplyDecision(
                 status="blocked",
                 reason="apply_disabled",
