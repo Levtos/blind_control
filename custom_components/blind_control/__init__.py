@@ -33,7 +33,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: BlindControlConfigEntry)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: BlindControlConfigEntry) -> bool:
-    """Unload one bootstrap entry and release its entry-owned runtime state."""
+    """Unload one bootstrap entry without integration-owned cleanup."""
 
-    entry.runtime_data = None
     return True

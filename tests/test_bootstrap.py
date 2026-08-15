@@ -123,7 +123,6 @@ class BootstrapTests(unittest.TestCase):
             self.assertIsInstance(entry.runtime_data, module.BlindControlRuntimeData)
             self.assertEqual(entry.runtime_data.phase, "bootstrap")
             self.assertTrue(asyncio.run(module.async_unload_entry(hass, entry)))
-            self.assertIsNone(entry.runtime_data)
 
     def test_config_flow_is_singleton_and_has_only_empty_user_step(self) -> None:
         if importlib.util.find_spec("homeassistant") is None:
