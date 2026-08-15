@@ -12,6 +12,14 @@ FRONTEND = ROOT / "frontend"
 
 
 class DocumentationTests(unittest.TestCase):
+    def test_hacs_package_metadata_matches_integration_manifest(self) -> None:
+        hacs = json.loads((ROOT / "hacs.json").read_text(encoding="utf-8"))
+        manifest = json.loads((PACKAGE / "manifest.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(hacs, {"name": "Blind Control"})
+        self.assertEqual(hacs["name"], manifest["name"])
+        self.assertRegex(manifest["version"], r"^\d+\.\d+\.\d+$")
+
     def test_normative_documents_exist(self) -> None:
         for filename in (
             "LASTENHEFT.md",
