@@ -21,6 +21,16 @@ Read the documents in this order:
 5. [Migration and gates](docs/MIGRATION.md)
 6. [AP2 Shadow implementation](docs/AP2_SHADOW.md)
 
+## Installation through HACS
+
+Add `https://github.com/Levtos/blind_control` as a custom HACS integration
+repository and install the latest published release. Restart Home Assistant,
+then add **Blind Control** from **Settings → Devices & services**.
+
+The AP2 installation runs exclusively in Shadow mode. It observes configured
+inputs and publishes decisions and diagnostics, but it cannot send a cover
+command or replace the productive `benni_blind_policy` Apply owner.
+
 ## AP2 boundary
 
 - product/domain name: `Blind Control` / `blind_control`
