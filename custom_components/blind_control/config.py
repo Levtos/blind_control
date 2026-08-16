@@ -6,7 +6,13 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-CONFIG_VERSION = 1
+CONFIG_VERSION = 2
+
+OPENING_SAFETY_POLARITIES = (
+    "unspecified",
+    "positive_safe",
+    "negative_unsafe",
+)
 
 INPUT_BINDING_KEYS = (
     "bio_state",
@@ -39,6 +45,29 @@ INPUT_BINDING_KEYS = (
     "air_movement",
 )
 LEGACY_BINDING_KEYS = ("active_mode", "effective_target", "safety_status", "apply_status")
+MANDATORY_AUTOMATIC_BINDING_KEYS = frozenset(
+    {
+        "bio_state",
+        "activity_state",
+        "day_state",
+        "day_context",
+        "away",
+        "private_time",
+        "privacy",
+        "outdoor_lux",
+        "sun_elevation",
+        "sun_azimuth",
+        "indoor_temperature",
+        "outdoor_temperature",
+    }
+)
+MANDATORY_TECHNICAL_BINDING_KEYS = frozenset(
+    {"opening_state", "cover_available", "cover_ready", "cover_position"}
+)
+CONDITIONAL_BINDING_KEYS = frozenset({"opening_safe_for_blind"})
+OPTIONAL_EVIDENCE_BINDING_KEYS = frozenset(INPUT_BINDING_KEYS) - (
+    MANDATORY_AUTOMATIC_BINDING_KEYS | MANDATORY_TECHNICAL_BINDING_KEYS | CONDITIONAL_BINDING_KEYS
+)
 BINDING_GROUPS: tuple[tuple[str, str, tuple[str, ...], bool], ...] = (
     (
         "core_state_bindings",
@@ -352,6 +381,7 @@ class BlindControlConfig:
     axis_inverted: bool = False
     automation_enabled: bool = True
     apply_enabled: bool = True
+    opening_safety_polarity: str = "unspecified"
     input_bindings: tuple[tuple[str, str], ...] = ()
     legacy_bindings: tuple[tuple[str, str], ...] = ()
     observation_freshness_seconds: float = 120.0
@@ -410,6 +440,8 @@ class BlindControlConfig:
         _number(self.cloud_shadow_ratio, name="cloud_shadow_ratio", minimum=0, maximum=1)
         if not 1 <= self.storm_required_signals <= 5:
             raise ValueError("storm_required_signals must be between 1 and 5")
+        if self.opening_safety_polarity not in OPENING_SAFETY_POLARITIES:
+            raise ValueError("opening_safety_polarity is not supported")
         allowed = set(INPUT_BINDING_KEYS) | set(LEGACY_BINDING_KEYS)
         for key, policy in self.binding_freshness:
             if key not in allowed or not isinstance(policy, BindingFreshness):
@@ -489,6 +521,7 @@ class BlindControlConfig:
             axis_inverted=_bool(raw.get("axis_inverted", False), "axis_inverted"),
             automation_enabled=_bool(raw.get("automation_enabled", True), "automation_enabled"),
             apply_enabled=_bool(raw.get("apply_enabled", True), "apply_enabled"),
+            opening_safety_polarity=str(raw.get("opening_safety_polarity", "unspecified")),
             input_bindings=_bindings(
                 raw.get("input_bindings", raw.get("bindings")),
                 name="input_bindings",
@@ -533,6 +566,7 @@ class BlindControlConfig:
             "axis_inverted": self.axis_inverted,
             "automation_enabled": self.automation_enabled,
             "apply_enabled": self.apply_enabled,
+            "opening_safety_polarity": self.opening_safety_polarity,
             "input_bindings": dict(self.input_bindings),
             "legacy_bindings": dict(self.legacy_bindings),
             "observation_freshness_seconds": self.observation_freshness_seconds,
@@ -561,3 +595,15 @@ def _bool(value: object, name: str) -> bool:
     if not isinstance(value, bool):
         raise ValueError(f"{name} must be boolean")
     return value
+
+
+def binding_requirement(key: str, *, legacy: bool = False) -> str:
+    """Describe whether one selector is required, conditional, or optional."""
+
+    if legacy:
+        return "optional"
+    if key in MANDATORY_AUTOMATIC_BINDING_KEYS | MANDATORY_TECHNICAL_BINDING_KEYS:
+        return "required"
+    if key in CONDITIONAL_BINDING_KEYS:
+        return "conditional"
+    return "optional"

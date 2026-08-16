@@ -9,6 +9,7 @@ import types
 import unittest
 from contextlib import contextmanager
 from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -139,6 +140,9 @@ class _FakeHomeAssistant:
         self.http = _FakeHttp()
         self.entity_registry = _FakeEntityRegistry()
         self._entities_by_entry = {}
+        self._entries = {}
+        self._state_values = {}
+        self.states = types.SimpleNamespace(get=lambda entity_id: self._state_values.get(entity_id))
         self.config_entries = types.SimpleNamespace(
             reloads=[],
             updates=[],
@@ -150,13 +154,24 @@ class _FakeHomeAssistant:
             async_unload_platforms=self._async_unload_platforms,
         )
 
-    async def _async_reload(self, domain, entry_id):
-        self.config_entries.reloads.append((domain, entry_id))
+    async def _async_reload(self, entry_id):
+        """Mirror HA 2026.8 async_reload(entry_id) and rebuild runtime state."""
+
+        self.config_entries.reloads.append(entry_id)
+        entry = self._entries[entry_id]
+        module = importlib.import_module("custom_components.blind_control")
+        await module.async_unload_entry(self, entry)
+        callbacks = list(entry.unload_callbacks)
+        entry.unload_callbacks.clear()
+        for callback in callbacks:
+            callback()
+        await module.async_setup_entry(self, entry)
 
     def _async_update_entry(self, entry, *, options):
         self.config_entries.updates.append((entry, options))
 
     async def _async_forward_entry_setups(self, entry, platforms):
+        self._entries[entry.entry_id] = entry
         names = tuple(getattr(platform, "value", platform) for platform in platforms)
         self.config_entries.forwards.append((entry.entry_id, names))
         added = []
@@ -199,6 +214,21 @@ class _FakeHttp:
         ):
             raise RuntimeError("static path already registered")
         self.static_paths.extend(paths)
+
+
+class _FakeEventModule(types.ModuleType):
+    def __init__(self):
+        super().__init__("homeassistant.helpers.event")
+        self.state_callbacks = []
+        self.time_callbacks = []
+
+    def async_track_state_change_event(self, _hass, _entity_ids, callback):
+        self.state_callbacks.append(callback)
+        return lambda: self.state_callbacks.remove(callback)
+
+    def async_track_time_interval(self, _hass, callback, _interval):
+        self.time_callbacks.append(callback)
+        return lambda: self.time_callbacks.remove(callback)
 
 
 class _FakeFrontend(types.ModuleType):
@@ -304,9 +334,11 @@ def _home_assistant_imports():
     data_entry_flow = types.ModuleType("homeassistant.data_entry_flow")
     data_entry_flow.section = lambda schema, options: _FakeSection(schema, options)
     helpers = types.ModuleType("homeassistant.helpers")
+    event = _FakeEventModule()
     selector_module = types.ModuleType("homeassistant.helpers.selector")
     selector_module.selector = lambda config: _FakeSelector(config)
     helpers.selector = selector_module
+    helpers.event = event
     components = types.ModuleType("homeassistant.components")
     websocket_api = _FakeWebsocket()
     frontend = _FakeFrontend("homeassistant.components.frontend")
@@ -347,6 +379,7 @@ def _home_assistant_imports():
             "homeassistant.data_entry_flow": data_entry_flow,
             "homeassistant.helpers": helpers,
             "homeassistant.helpers.selector": selector_module,
+            "homeassistant.helpers.event": event,
             "homeassistant.helpers.entity_platform": entity_platform,
             "homeassistant.components": components,
             "homeassistant.components.websocket_api": websocket_api,
@@ -420,27 +453,27 @@ class BootstrapTests(unittest.TestCase):
                 )
 
             inputs = contracts.BlindControlInputs(
-                bio_state=fresh("awake", "sensor.private_bio"),
-                activity_state=fresh("none", "sensor.private_activity"),
-                day_state=fresh("morning", "sensor.private_day"),
-                day_context=fresh("weekday", "sensor.private_context"),
-                away=fresh(False, "sensor.private_away"),
-                private_time=fresh(False, "sensor.private_private"),
-                privacy=fresh(False, "sensor.private_privacy"),
-                opening_state=fresh("closed", "sensor.private_opening"),
-                opening_safe_for_blind=fresh(True, "sensor.private_opening"),
-                cover_available=fresh(True, "sensor.private_cover"),
-                cover_ready=fresh(True, "sensor.private_cover"),
-                cover_position=fresh(42.0, "sensor.private_cover"),
-                outdoor_lux=fresh(14_000.0, "sensor.private_lux"),
-                lux_trend=fresh(0.0, "sensor.private_lux"),
-                sun_elevation=fresh(30.0, "sensor.private_sun"),
-                sun_azimuth=fresh(304.0, "sensor.private_sun"),
-                expected_direct_radiation=fresh(400.0, "sensor.private_weather"),
-                expected_diffuse_radiation=fresh(50.0, "sensor.private_weather"),
-                cloud_cover=fresh(0.1, "sensor.private_weather"),
-                indoor_temperature=fresh(22.0, "sensor.private_indoor"),
-                outdoor_temperature=fresh(20.0, "sensor.private_outdoor"),
+                bio_state=fresh("awake", "sensor.fixture_bio"),
+                activity_state=fresh("none", "sensor.fixture_activity"),
+                day_state=fresh("forenoon", "sensor.fixture_day"),
+                day_context=fresh("weekday", "sensor.fixture_context"),
+                away=fresh(False, "sensor.fixture_away"),
+                private_time=fresh(False, "sensor.fixture_private_time"),
+                privacy=fresh(False, "sensor.fixture_privacy"),
+                opening_state=fresh("closed", "sensor.fixture_opening"),
+                opening_safe_for_blind=fresh(True, "sensor.fixture_opening"),
+                cover_available=fresh(True, "sensor.fixture_cover"),
+                cover_ready=fresh(True, "sensor.fixture_cover"),
+                cover_position=fresh(42.0, "sensor.fixture_cover"),
+                outdoor_lux=fresh(14_000.0, "sensor.fixture_lux"),
+                lux_trend=fresh(0.0, "sensor.fixture_lux"),
+                sun_elevation=fresh(30.0, "sensor.fixture_sun"),
+                sun_azimuth=fresh(304.0, "sensor.fixture_sun"),
+                expected_direct_radiation=fresh(400.0, "sensor.fixture_weather"),
+                expected_diffuse_radiation=fresh(50.0, "sensor.fixture_weather"),
+                cloud_cover=fresh(0.1, "sensor.fixture_weather"),
+                indoor_temperature=fresh(22.0, "sensor.fixture_indoor"),
+                outdoor_temperature=fresh(20.0, "sensor.fixture_outdoor"),
             )
             entry.runtime_data.snapshot = entry.runtime_data.shadow.evaluate(inputs)
             entry.runtime_data.coordinator._notify_snapshot_listeners()
@@ -454,13 +487,13 @@ class BootstrapTests(unittest.TestCase):
             self.assertFalse(attributes["safety_blocked"])
             self.assertFalse(attributes["apply_blocked"])
             serialized = json.dumps(attributes)
-            self.assertNotIn("sensor.private", serialized)
+            self.assertNotIn("sensor.fixture", serialized)
 
             unresolved_inputs = replace(
                 inputs,
                 indoor_temperature=contracts.InputObservation(
                     value=22.0,
-                    source="sensor.private_indoor",
+                    source="sensor.fixture_indoor",
                     quality=contracts.InputQuality.STALE,
                     reason="matrix_stale",
                 ),
@@ -477,7 +510,7 @@ class BootstrapTests(unittest.TestCase):
                 "indoor_temperature",
                 {blocker["key"] for blocker in failure_attributes["failure_quality_blockers"]},
             )
-            self.assertNotIn("sensor.private", json.dumps(failure_attributes))
+            self.assertNotIn("sensor.fixture", json.dumps(failure_attributes))
 
             writes_before_unload = sensor._state_write_count
             self.assertTrue(asyncio.run(module.async_unload_entry(hass, entry)))
@@ -489,7 +522,27 @@ class BootstrapTests(unittest.TestCase):
         with _home_assistant_imports():
             module = importlib.import_module("custom_components.blind_control")
             hass = _FakeHomeAssistant()
-            entry = _FakeConfigEntry("entry-1")
+            now = datetime.now(UTC)
+            old_binding = "sensor.owner_old"
+            new_binding = "sensor.owner_new"
+            entry = _FakeConfigEntry(
+                "entry-1",
+                data={"input_bindings": {"bio_state": old_binding}},
+            )
+            hass._state_values = {
+                old_binding: types.SimpleNamespace(
+                    state="sleep",
+                    attributes={},
+                    last_updated=now,
+                    last_changed=now,
+                ),
+                new_binding: types.SimpleNamespace(
+                    state="awake",
+                    attributes={},
+                    last_updated=now,
+                    last_changed=now,
+                ),
+            }
 
             asyncio.run(module.async_setup(hass, {}))
             asyncio.run(module.async_setup(hass, {}))
@@ -498,8 +551,32 @@ class BootstrapTests(unittest.TestCase):
 
             asyncio.run(module.async_setup_entry(hass, entry))
             self.assertEqual(len(entry.update_listeners), 1)
-            asyncio.run(entry.update_listeners[0](hass, entry))
-            self.assertEqual(hass.config_entries.reloads, [("blind_control", "entry-1")])
+            old_runtime = entry.runtime_data
+            old_coordinator = old_runtime.coordinator
+            update_listener = entry.update_listeners[0]
+            config_flow = importlib.import_module("custom_components.blind_control.config_flow")
+            entry.options = config_flow._mapping_from_form(
+                {"core_state_bindings": {"bio_state": new_binding}},
+                old_runtime.config,
+            )
+
+            asyncio.run(update_listener(hass, entry))
+
+            event = sys.modules["homeassistant.helpers.event"]
+            self.assertEqual(hass.config_entries.reloads, ["entry-1"])
+            self.assertIsNot(entry.runtime_data, old_runtime)
+            self.assertIsNot(entry.runtime_data.coordinator, old_coordinator)
+            self.assertEqual(old_coordinator._unsubscribers, [])
+            self.assertEqual(old_coordinator._snapshot_listeners, [])
+            self.assertEqual(len(entry.update_listeners), 1)
+            self.assertEqual(len(event.state_callbacks), 1)
+            self.assertEqual(len(event.time_callbacks), 1)
+            self.assertEqual(
+                entry.runtime_data.config.input_bindings, (("bio_state", new_binding),)
+            )
+            self.assertEqual(entry.runtime_data.snapshot.inputs["bio_state"]["value"], "awake")
+            sensor = hass._entities_by_entry[entry.entry_id][0]
+            self.assertEqual(sensor._snapshot.inputs["bio_state"]["value"], "awake")
 
     def test_websocket_contracts_read_and_admin_protect_options_write(self) -> None:
         with _home_assistant_imports():
@@ -512,8 +589,8 @@ class BootstrapTests(unittest.TestCase):
             entry = _FakeConfigEntry(
                 "entry-1",
                 data={
-                    "input_bindings": {"bio_state": "sensor.private_bio"},
-                    "legacy_bindings": {"active_mode": "sensor.private_legacy"},
+                    "input_bindings": {"bio_state": "sensor.fixture_bio"},
+                    "legacy_bindings": {"active_mode": "sensor.fixture_legacy"},
                 },
             )
             asyncio.run(module.async_setup(hass, {}))
@@ -593,8 +670,8 @@ class BootstrapTests(unittest.TestCase):
             projection = read_only.results[0][1]
             self.assertEqual(projection["version"], "blind_control.ux.v2")
             serialized = json.dumps(projection)
-            self.assertNotIn("sensor.private_bio", serialized)
-            self.assertNotIn("sensor.private_legacy", serialized)
+            self.assertNotIn("sensor.fixture_bio", serialized)
+            self.assertNotIn("sensor.fixture_legacy", serialized)
             self.assertNotIn("sensor.new_activity", serialized)
             self.assertTrue(
                 next(
@@ -625,6 +702,12 @@ class BootstrapTests(unittest.TestCase):
             bio_selector = _schema_value(core_state_section.schema, "bio_state")
             self.assertIsInstance(bio_selector, _FakeSelector)
             self.assertEqual(bio_selector.config, {"entity": {}})
+            opening_section = _schema_value(form["data_schema"], "opening_safety_cover_bindings")
+            polarity_selector = _schema_value(opening_section.schema, "opening_safety_polarity")
+            self.assertEqual(
+                polarity_selector.config["select"]["translation_key"],
+                "opening_safety_polarity",
+            )
 
             from custom_components.blind_control.config import BlindControlConfig
 
@@ -656,7 +739,9 @@ class BootstrapTests(unittest.TestCase):
                 user_input[f"position_{name}_normal"] = profile.normal
                 user_input[f"position_{name}_inverted"] = profile.inverted
             user_input["core_state_bindings"] = {"bio_state": "sensor.bound_bio"}
-            user_input["opening_safety_cover_bindings"] = {}
+            user_input["opening_safety_cover_bindings"] = {
+                "opening_safety_polarity": "positive_safe"
+            }
             user_input["solar_bindings"] = {}
             user_input["temperature_weather_bindings"] = {}
             user_input["legacy_comparison_bindings"] = {}
@@ -664,8 +749,9 @@ class BootstrapTests(unittest.TestCase):
             result = asyncio.run(flow.async_step_user(user_input))
             self.assertEqual(result["type"], "create_entry")
             self.assertEqual(result["title"], "Blind Control")
-            self.assertEqual(result["data"]["config_version"], 1)
+            self.assertEqual(result["data"]["config_version"], 2)
             self.assertEqual(result["data"]["input_bindings"], {"bio_state": "sensor.bound_bio"})
+            self.assertEqual(result["data"]["opening_safety_polarity"], "positive_safe")
             existing = BlindControlConfig.from_mapping(result["data"])
             cleared = loaded._mapping_from_form(
                 {"core_state_bindings": {"bio_state": ""}}, existing

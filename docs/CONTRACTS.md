@@ -115,12 +115,21 @@ Snapshot über den read-only WebSocket-Read-Pfad; Konfigurationsänderungen
 werden ausschließlich als validierte ConfigEntry-/OptionsFlow-Daten gespeichert.
 
 Das automatische Quality-Gate wird nicht durch ein schon gebildetes
-fachliches Target umgangen. Sobald Temperatur, Activity/Belegung oder der
-relevante Lux-/Solar-Block nicht fresh und vollständig belastbar ist, führt
+fachliches Target umgangen. Sobald Temperatur, Activity/Belegung oder die
+zwingende Solar-Kombination aus Sonnengeometrie und Außenlux nicht fresh und
+vollständig belastbar ist, führt
 das Ergebnis `quality_blockers[]` mit Feld, Quality und Reason und setzt den
 Mastermodus auf `failure`. Damit ist ein `base_daylight`-Target kein
 Öffnungsbefehl: die letzte nachweislich sichere Position wird gehalten oder
 Apply bleibt blockiert.
+
+`lux_trend`, `expected_direct_radiation`, `expected_diffuse_radiation` und
+`cloud_cover` sind ersetzbare Evidence. Ihr Fehlen beziehungsweise ihre nicht
+frische Quality blockiert nicht einzeln, solange Geometrie, Sonnenstand und
+Außenlux die Solarentscheidung belastbar tragen. Der Solar-Contract enthält
+`capabilities`, `missing_optional_capabilities`, `used_evidence`,
+`derived_evidence`, `confidence` und `quality_blockers`. Ein intern abgeleiteter
+Lux-Trend benötigt zwei verschiedene frische Lux-Zeitpunkte.
 
 AP2 konkretisiert die Freshness feldweise: stabile Core-State-Contracts sind
 nicht allein wegen eines alten `last_updated`-Werts stale; zeitkritische
@@ -129,9 +138,19 @@ benötigen die geforderte Timestamp-Evidence. Fehlende erforderliche Zeit-
 Evidence bleibt `stale`. Jede Bindung führt Owner, `max_age_seconds` und
 `require_timestamp` im effektiven Options-/UX-Contract.
 
-`activity_state = none` ist ein gültiger kanonischer Inaktivitätswert. Nur
+`activity_state = none` ist der blind-spezifische, aus Core State abgeleitete
+Inaktivitätswert. `music` mit `pc_active=true` wird `pc`; `gaming` mit einer
+TV-Konsole und `entertainment` werden `tv`. Die Präzedenz bei gleichzeitig
+positiven Signalen lautet `tv > pc > screen > none`. Nur
 `unknown` und `unavailable` sind globale HA-Sentinels; die fachliche
 Gültigkeit übriger Strings bleibt feldspezifisch.
+
+Presence verwendet ein gültiges `away_gate`-Attribut vorrangig. `away`,
+`not_home`, `abwesend` bedeuten `true`; `home`, `zuhause` bedeuten `false`.
+Unbekannte Werte werden `degraded`. Der Day-State-Contract umfasst exakt die
+neun Owner-Werte; Tageslicht sind `early_morning`, `forenoon`, `midday`,
+`afternoon`, `late_afternoon`, Übergang sind `evening`, `late_evening`, Nacht
+sind `early_night`, `late_night`.
 
 Der aktive Fremd-Override erhält einen deterministischen Context-Key aus den
 explizit festgelegten Bio-, Activity-Gruppen-, Day-, Household- und Opening-
@@ -188,7 +207,17 @@ Opening/Safety/Cover, Solar, Temperatur/Wetter und Legacy-Vergleich. Leere
 optionale Werte werden beim Persistieren entfernt. Der WebSocket-Optionspfad
 ist admin-geschützt, akzeptiert aber keine Binding-Mappings; dafür ist allein
 der OptionsFlow zuständig. Die Panel-Projektion enthält für jedes Feld nur
-`configured`, `owner`, `max_age_seconds` und `require_timestamp`.
+`configured`, `requirement`, Gruppen-Readiness, `owner`, `max_age_seconds` und
+`require_timestamp`. `opening_safety_polarity` ist `unspecified`,
+`positive_safe` oder `negative_unsafe`; nur die beiden expliziten Polaritäten
+dürfen ein Kipp-Safety-Signal auswerten.
+
+Ein Standard-Cover ist bei den Zuständen `open`, `closed`, `opening`, `closing`
+oder `stopped` verfügbar; `unknown`/`unavailable` bleiben nicht nutzbar.
+`cover_position` liest `current_position`. Ein expliziter Source-/Device-
+Timestamp hat Vorrang, andernfalls ist der HA-Zeitstempel des Standard-Covers
+zulässig. `restored` bleibt degradiert; fehlende Positions-Evidence blockiert
+Apply und erfindet keine Position.
 
 ### 7.2 Kleine Automations-/Diagnoseprojektion
 

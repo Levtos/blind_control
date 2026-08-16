@@ -28,14 +28,14 @@ from .cooldown import CooldownTracker
 from .solar import calculate_solar_exposure
 
 DECISION_CONTRACT_VERSION = "blind_control.decision.v2"
-DAYLIGHT_STATES = frozenset(
-    {"dawn", "morning", "day", "midday", "afternoon", "late_afternoon", "evening"}
-)
+DAYLIGHT_STATES = frozenset({"early_morning", "forenoon", "midday", "afternoon", "late_afternoon"})
+TRANSITION_STATES = frozenset({"evening", "late_evening"})
+NIGHT_STATES = frozenset({"early_night", "late_night"})
 SCREEN_ACTIVITY = frozenset({"screen", "glare", "general_glare"})
 TV_ACTIVITY = frozenset({"tv", "console", "streaming", "playstation", "xbox", "switch"})
 PC_ACTIVITY = frozenset({"pc", "computer", "workstation"})
 OPENING_CANDIDATES = frozenset({"base_daylight", "storm_approaching", "cool_air_available"})
-AUTOMATIC_DECISION_QUALITY_INPUTS = (
+MANDATORY_AUTOMATIC_DECISION_INPUTS = (
     "bio_state",
     "activity_state",
     "day_state",
@@ -45,13 +45,6 @@ AUTOMATIC_DECISION_QUALITY_INPUTS = (
     "privacy",
     "indoor_temperature",
     "outdoor_temperature",
-    "outdoor_lux",
-    "lux_trend",
-    "sun_elevation",
-    "sun_azimuth",
-    "expected_direct_radiation",
-    "expected_diffuse_radiation",
-    "cloud_cover",
 )
 
 
@@ -168,7 +161,7 @@ class DecisionEngine:
             for candidate in candidates
             if candidate.active
         )
-        failure = self._failure(inputs, failure_hold_target)
+        failure = self._failure(inputs, solar, failure_hold_target)
         master_mode = self._master_mode(override=override, waking=waking, failure=failure)
         safety = self._safety(inputs, fachlicher_target)
         effective_target = safety.approved_target
@@ -548,6 +541,14 @@ class DecisionEngine:
                 opening_state=opening.value,
                 source=inputs.opening_state.source,
             )
+        if not inputs.cover_position.usable:
+            return SafetyDecision(
+                status="blocked",
+                reason="cover_position_evidence_not_fresh",
+                approved_target=None,
+                opening_state=opening.value,
+                source=inputs.cover_position.source,
+            )
         if opening is OpeningState.OPEN:
             if not inputs.cover_available.usable or not inputs.cover_available.value:
                 return SafetyDecision(
@@ -686,6 +687,7 @@ class DecisionEngine:
     def _failure(
         self,
         inputs: BlindControlInputs,
+        solar: SolarExposure,
         failure_hold_target: float | None,
     ) -> FailureDecision:
         """Block automatic decisions until all closing-demand inputs are proven.
@@ -697,7 +699,7 @@ class DecisionEngine:
         therefore remains ``normal``.
         """
 
-        quality_blockers = _automatic_decision_quality_blockers(inputs)
+        quality_blockers = _automatic_decision_quality_blockers(inputs, solar)
         if quality_blockers:
             hold_target = _valid_hold_target(failure_hold_target)
             return FailureDecision(
@@ -872,21 +874,35 @@ def _valid_hold_target(value: float | None) -> float | None:
 
 def _automatic_decision_quality_blockers(
     inputs: BlindControlInputs,
+    solar: SolarExposure,
 ) -> tuple[QualityBlocker, ...]:
     """Return every unresolved input needed to rule out closing demands.
 
-    Core-state mode, thermal load and the complete solar/lux packet jointly
-    determine whether Heat, Glare, Cold, Privacy or the daylight opening branch
-    may be active.  Any non-fresh observation keeps the result conservative;
-    this is intentionally not a target-specific test patch.
+    Core-state mode and thermal load are mandatory owner truths. Solar is a
+    capability-aware aggregate: geometry and local lux are mandatory for a
+    daylight decision, while trend/model/cloud fields are replaceable evidence.
     """
 
-    return tuple(
+    mandatory = tuple(
         QualityBlocker(
             key=key,
             quality=observation.quality,
             reason=observation.reason,
         )
-        for key in AUTOMATIC_DECISION_QUALITY_INPUTS
+        for key in MANDATORY_AUTOMATIC_DECISION_INPUTS
         if not (observation := getattr(inputs, key)).usable
     )
+    consistency: tuple[QualityBlocker, ...] = ()
+    if (
+        inputs.day_state.usable
+        and str(inputs.day_state.value).lower() in DAYLIGHT_STATES
+        and solar.state is SolarExposureState.NIGHT
+    ):
+        consistency = (
+            QualityBlocker(
+                key="day_solar_consistency",
+                quality=InputQuality.CONFLICT,
+                reason="daylight_phase_conflicts_with_sun_below_horizon",
+            ),
+        )
+    return tuple(dict.fromkeys((*mandatory, *solar.quality_blockers, *consistency)))

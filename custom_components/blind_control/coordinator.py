@@ -11,6 +11,7 @@ import asyncio
 import math
 import time
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -41,11 +42,8 @@ from .ux_contract import build_ux_snapshot
 
 _BOOLEAN_KEYS = frozenset(
     {
-        "away",
         "private_time",
         "privacy",
-        "opening_safe_for_blind",
-        "cover_available",
         "cover_ready",
         "weather_alert",
         "air_movement",
@@ -72,6 +70,19 @@ _NUMERIC_KEYS = frozenset(
     }
 )
 _STATE_UNAVAILABLE = frozenset({"unknown", "unavailable"})
+_CANONICAL_DAY_STATES = frozenset(
+    {
+        "early_night",
+        "late_night",
+        "early_morning",
+        "forenoon",
+        "midday",
+        "afternoon",
+        "late_afternoon",
+        "evening",
+        "late_evening",
+    }
+)
 
 
 def build_inputs_from_states(
@@ -91,6 +102,7 @@ def build_inputs_from_states(
             states.get(configured[key]) if key in configured else None,
             config.binding_policy(key),
             now,
+            opening_safety_polarity=config.opening_safety_polarity,
         )
         for key in INPUT_BINDING_KEYS
     }
@@ -147,6 +159,8 @@ class ShadowCoordinator:
         self._snapshot_listeners: list[Callable[[], None]] = []
         self._refresh_task: asyncio.Task[object] | None = None
         self._restart_baseline_established = False
+        self._previous_lux_sample: tuple[float, datetime] | None = None
+        self._derived_lux_trend: InputObservation[float] | None = None
 
     @property
     def entity_ids(self) -> tuple[str, ...]:
@@ -201,7 +215,9 @@ class ShadowCoordinator:
             for entity_id in self.entity_ids
             if getattr(self.hass, "states", None) is not None
         }
-        inputs = build_inputs_from_states(states, self.config, now=now)
+        inputs = self._with_derived_lux_trend(
+            build_inputs_from_states(states, self.config, now=now)
+        )
         legacy = build_legacy_evidence_from_states(states, self.config, now=now)
         position = _number_value(inputs.cover_position)
         if not self._restart_baseline_established:
@@ -228,6 +244,43 @@ class ShadowCoordinator:
             runtime_data.ux_snapshot = self.ux_snapshot
         self._notify_snapshot_listeners()
         return snapshot
+
+    def _with_derived_lux_trend(self, inputs: BlindControlInputs) -> BlindControlInputs:
+        """Derive a local lux delta only when no trend owner is configured."""
+
+        if "lux_trend" in dict(self.config.input_bindings):
+            return inputs
+        lux = inputs.outdoor_lux
+        if not lux.usable or lux.updated_at is None:
+            return replace(
+                inputs,
+                lux_trend=InputObservation.missing(
+                    source=lux.source,
+                    reason="derived_lux_trend_waiting_for_fresh_lux",
+                ),
+            )
+        current = (float(lux.value), lux.updated_at)
+        previous = self._previous_lux_sample
+        if previous is None:
+            self._previous_lux_sample = current
+        elif current[1] > previous[1]:
+            self._derived_lux_trend = InputObservation(
+                value=current[0] - previous[0],
+                source=lux.source,
+                quality=InputQuality.FRESH,
+                reason="derived_from_consecutive_fresh_lux_observations",
+                updated_at=current[1],
+            )
+            self._previous_lux_sample = current
+        if self._derived_lux_trend is None:
+            return replace(
+                inputs,
+                lux_trend=InputObservation.missing(
+                    source=lux.source,
+                    reason="derived_lux_trend_waiting_for_previous_sample",
+                ),
+            )
+        return replace(inputs, lux_trend=self._derived_lux_trend)
 
     @callback
     def async_add_snapshot_listener(self, listener: Callable[[], None]) -> Callable[[], None]:
@@ -297,6 +350,8 @@ def _observation_for_entity(
     state: object | None,
     freshness: BindingFreshness,
     now: datetime,
+    *,
+    opening_safety_polarity: str = "unspecified",
 ) -> InputObservation[Any]:
     if entity_id is None:
         return InputObservation.missing(reason="owner_binding_not_configured")
@@ -317,9 +372,31 @@ def _observation_for_entity(
             reason="bound_entity_state_not_usable",
             updated_at=_updated_at(key, state),
         )
+    attributes = getattr(state, "attributes", {}) or {}
+    if _true_bool(attributes.get("restored")):
+        return InputObservation(
+            source=entity_id,
+            quality=InputQuality.DEGRADED,
+            reason="restored_state_is_not_fresh_owner_evidence",
+            updated_at=_updated_at(key, state),
+        )
+    explicit_quality = _explicit_quality(attributes)
+    if explicit_quality is not None and explicit_quality is not InputQuality.FRESH:
+        return InputObservation(
+            source=entity_id,
+            quality=explicit_quality,
+            reason="owner_contract_quality_not_fresh",
+            updated_at=_updated_at(key, state),
+        )
     raw_value = _attribute_value(key, state, raw_state)
     try:
-        value = _convert_value(key, raw_value)
+        value, adapter_reason = _convert_value(
+            key,
+            raw_value,
+            raw_state=raw_state,
+            attributes=attributes,
+            opening_safety_polarity=opening_safety_polarity,
+        )
     except (TypeError, ValueError):
         return InputObservation(
             source=entity_id,
@@ -333,7 +410,7 @@ def _observation_for_entity(
         value=value,
         source=entity_id,
         quality=quality,
-        reason=reason,
+        reason=f"{adapter_reason};{_timestamp_reason(key, state)};{reason}",
         updated_at=updated_at,
     )
 
@@ -350,25 +427,188 @@ def _attribute_value(key: str, state: object, raw_state: object) -> object:
     return raw_state
 
 
-def _convert_value(key: str, value: object) -> object:
+def _convert_value(
+    key: str,
+    value: object,
+    *,
+    raw_state: object,
+    attributes: Mapping[str, object],
+    opening_safety_polarity: str,
+) -> tuple[object, str]:
+    if key == "away":
+        return _convert_away(raw_state, attributes)
+    if key == "activity_state":
+        return _convert_activity(raw_state, attributes)
+    if key == "day_state":
+        normalized = str(raw_state).strip().lower()
+        if normalized not in _CANONICAL_DAY_STATES:
+            raise ValueError("day state is not canonical")
+        return normalized, "canonical_nine_phase_day_state"
+    if key == "cover_available":
+        return _convert_cover_availability(raw_state)
+    if key == "opening_safe_for_blind":
+        if opening_safety_polarity == "unspecified":
+            raise ValueError("opening safety polarity is not configured")
+        active = _canonical_bool(value)
+        if opening_safety_polarity == "negative_unsafe":
+            return not active, "explicit_negative_unsafe_polarity_inverted"
+        return active, "explicit_positive_safe_polarity"
     if key in _BOOLEAN_KEYS:
-        normalized = str(value).lower()
-        if normalized in {"on", "true", "yes", "1", "open", "home"}:
-            return True
-        if normalized in {"off", "false", "no", "0", "closed", "away"}:
-            return False
-        raise ValueError("boolean state is not canonical")
+        return _canonical_bool(value), "canonical_boolean_contract"
     if key in _NUMERIC_KEYS:
         result = float(value)
         if not math.isfinite(result):
             raise ValueError("numeric state is not finite")
-        return result
-    return str(value)
+        return result, "canonical_numeric_contract"
+    return str(value), "canonical_state_contract"
+
+
+def _canonical_bool(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in {"on", "true", "yes", "1"}:
+        return True
+    if normalized in {"off", "false", "no", "0"}:
+        return False
+    raise ValueError("boolean state is not canonical")
+
+
+def _true_bool(value: object) -> bool:
+    try:
+        return _canonical_bool(value)
+    except (TypeError, ValueError):
+        return False
+
+
+def _convert_away(
+    raw_state: object,
+    attributes: Mapping[str, object],
+) -> tuple[bool, str]:
+    if "away_gate" in attributes:
+        return _canonical_bool(attributes["away_gate"]), "core_state_away_gate_attribute"
+    if isinstance(raw_state, bool):
+        return raw_state, "canonical_away_boolean_state"
+    normalized = str(raw_state).strip().lower()
+    if normalized in {"away", "not_home", "abwesend"}:
+        return True, "canonical_absent_presence_state"
+    if normalized in {"home", "zuhause"}:
+        return False, "canonical_home_presence_state"
+    if normalized in {"on", "off", "true", "false", "yes", "no", "1", "0"}:
+        return _canonical_bool(normalized), "controlled_boolean_presence_state"
+    raise ValueError("presence state is not canonical")
+
+
+def _convert_cover_availability(raw_state: object) -> tuple[bool, str]:
+    """Use HA entity availability, never the cover's open/closed position state."""
+
+    normalized = str(raw_state).strip().lower()
+    if normalized in {"open", "closed", "opening", "closing", "stopped"}:
+        return True, "standard_cover_entity_is_available"
+    return _canonical_bool(raw_state), "explicit_cover_availability_contract"
+
+
+def _convert_activity(
+    raw_state: object,
+    attributes: Mapping[str, object],
+) -> tuple[str, str]:
+    """Adapt Core State activity evidence to blind-specific glare contexts."""
+
+    state = str(raw_state).strip().lower()
+    pc = _optional_bool_attribute(attributes, "pc_active")
+    entertainment = _optional_bool_attribute(attributes, "entertainment_active")
+    platform = str(attributes.get("gaming_platform", "")).strip().lower()
+    context_values = {
+        str(attributes.get(name, "")).strip().lower()
+        for name in ("media_activity_context", "media_context")
+        if attributes.get(name) not in (None, "")
+    }
+
+    tv_platforms = {"ps5", "playstation", "xbox", "switch", "tv"}
+    pc_platforms = {"pc", "gaming_pc", "computer"}
+    tv_contexts = {"entertainment", "tv", "streaming", "console", "gaming_tv"}
+    pc_contexts = {"pc", "pc_active", "gaming_pc", "workstation"}
+    general_contexts = {"screen", "display", "general_glare"}
+
+    tv_active = (
+        entertainment is True
+        or platform in tv_platforms
+        or state == "entertainment"
+        or bool(context_values & tv_contexts)
+    )
+    pc_active = (
+        pc is True
+        or platform in pc_platforms
+        or state == "pc_active"
+        or bool(context_values & pc_contexts)
+    )
+    general_active = (
+        state == "gaming"
+        or bool(context_values & general_contexts)
+        or (entertainment is True and not tv_active)
+    )
+
+    if tv_active:
+        selected = "tv"
+    elif pc_active:
+        selected = "pc"
+    elif general_active:
+        selected = "screen"
+    elif state in {
+        "idle",
+        "none",
+        "music",
+        "sleep",
+        "waking",
+        "private_time",
+        "work_home",
+        "work_away",
+        "household",
+        "free_time",
+    }:
+        selected = "none"
+    else:
+        raise ValueError("activity state has no documented blind glare mapping")
+
+    evidence = ",".join(
+        item
+        for item in (
+            f"state:{state}",
+            "pc_active" if pc is True else "",
+            "entertainment_active" if entertainment is True else "",
+            f"platform:{platform}" if platform else "",
+            *(f"context:{value}" for value in sorted(context_values)),
+        )
+        if item
+    )
+    return selected, f"core_state_glare_adapter_{selected}[{evidence}]"
+
+
+def _optional_bool_attribute(attributes: Mapping[str, object], key: str) -> bool | None:
+    if key not in attributes or attributes[key] is None:
+        return None
+    return _canonical_bool(attributes[key])
+
+
+def _explicit_quality(attributes: Mapping[str, object]) -> InputQuality | None:
+    value = attributes.get("quality_status", attributes.get("quality"))
+    decision = attributes.get("activity_decision")
+    if value is None and isinstance(decision, Mapping):
+        value = decision.get("quality_status")
+    if value is None:
+        return None
+    normalized = str(value).strip().lower()
+    if normalized in {"valid", "ok", "ready"}:
+        return InputQuality.FRESH
+    try:
+        return InputQuality(normalized)
+    except ValueError:
+        return InputQuality.DEGRADED
 
 
 def _updated_at(key: str, state: object) -> datetime | None:
     if key == "cover_position":
-        return _device_timestamp(state)
+        return _device_timestamp(state) or _ha_updated_at(state)
     return _ha_updated_at(state)
 
 
@@ -378,7 +618,7 @@ def _ha_updated_at(state: object) -> datetime | None:
 
 
 def _device_timestamp(state: object) -> datetime | None:
-    """Read source/device evidence, never HA state-change time, for cover position."""
+    """Read an explicit source/device timestamp when the owner publishes one."""
 
     attributes = getattr(state, "attributes", {}) or {}
     for name in ("device_timestamp", "source_timestamp", "measurement_timestamp", "observed_at"):
@@ -387,6 +627,16 @@ def _device_timestamp(state: object) -> datetime | None:
             if timestamp is not None:
                 return timestamp
     return None
+
+
+def _timestamp_reason(key: str, state: object) -> str:
+    if key != "cover_position":
+        return "ha_state_timestamp_contract"
+    if _device_timestamp(state) is not None:
+        return "device_timestamp_contract"
+    if _ha_updated_at(state) is not None:
+        return "standard_cover_ha_timestamp_contract"
+    return "timestamp_contract_missing"
 
 
 def _as_utc_datetime(value: object) -> datetime | None:

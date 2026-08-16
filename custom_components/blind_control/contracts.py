@@ -497,6 +497,11 @@ class SolarExposure:
     cloud_shadow: bool
     sources: tuple[str, ...]
     reason: str
+    capabilities: tuple[str, ...] = ()
+    missing_optional_capabilities: tuple[str, ...] = ()
+    used_evidence: tuple[str, ...] = ()
+    derived_evidence: tuple[str, ...] = ()
+    quality_blockers: tuple[QualityBlocker, ...] = ()
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -509,6 +514,11 @@ class SolarExposure:
             "cloud_shadow": self.cloud_shadow,
             "sources": list(self.sources),
             "reason": self.reason,
+            "capabilities": list(self.capabilities),
+            "missing_optional_capabilities": list(self.missing_optional_capabilities),
+            "used_evidence": list(self.used_evidence),
+            "derived_evidence": list(self.derived_evidence),
+            "quality_blockers": [blocker.as_dict() for blocker in self.quality_blockers],
         }
 
 

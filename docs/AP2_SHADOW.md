@@ -51,10 +51,11 @@ Telemetrie: Core-State-Werte werden nicht allein wegen ihres HA-Alters stale,
 während Solar-, Wetter-, Temperatur- und Coverpositionswerte eine
 feldspezifische Zeit-Evidence benötigen. Opening-/Readiness-Felder benötigen
 mindestens einen zulässigen Contract-Zeitstempel, und fehlende geforderte
-Timestamps bleiben konservativ `stale`. Für `cover_position` wird ausschließlich
-ein Source-/Device-Zeitstempel aus den Attributen `device_timestamp`,
-`source_timestamp`, `measurement_timestamp` oder `observed_at` verwendet;
-HA-`last_updated`/`last_changed` genügt dort nicht. Jede Policy trägt Owner,
+Timestamps bleiben konservativ `stale`. Für `cover_position` hat ein
+Source-/Device-Zeitstempel aus `device_timestamp`, `source_timestamp`,
+`measurement_timestamp` oder `observed_at` Vorrang. Bei einer Standard-Cover-
+Entität ist alternativ HA-`last_updated`/`last_changed` zulässige Freshness-
+Evidence; Restore-Marker bleiben degradiert. Jede Policy trägt Owner,
 zulässiges Maximalalter und `require_timestamp`; einzelne Felder können diese
 Defaults explizit überschreiben. Der Beobachtungstimer läuft höchstens mit der
 Hälfte des kürzesten konfigurierten feldweisen Maximalalters.
@@ -86,11 +87,16 @@ HA-Sentinels `unknown` und `unavailable` werden global verworfen.
 - Das automatische Quality-Gate wird auch dann geprüft, wenn die
   Kandidatenkomposition bereits `base_daylight` oder ein anderes fachliches
   Target gebildet hat. `missing`, `unknown`, `unavailable`, `stale` oder
-  `conflict` von Innen-/Außentemperatur, Activity/Belegung sowie Lux,
-  Lux-Trend oder relevanten Solarwerten erzeugt `failure` mit
+  `conflict` von Innen-/Außentemperatur, Activity/Belegung sowie der zwingenden
+  Solar-Kombination aus Sonnengeometrie und Außenlux erzeugt `failure` mit
   `quality_blockers[]`; die sichere aktuelle/letzte Position wird gehalten,
   andernfalls Apply blockiert. Ein zufällig gehaltenes 100-%-Target ist kein
   neuer Öffnungsbefehl.
+- Lux-Trend, direkte/diffuse Modellstrahlung und Bewölkung sind ersetzbare
+  Zusatz-Evidence. Lux-Trend wird ohne eigenes Binding aus zwei verschiedenen
+  frischen Luxbeobachtungen abgeleitet. Solar-Diagnose nennt Capabilities,
+  fehlende optionale Capabilities, verwendete/abgeleitete Evidence, Confidence
+  und tatsächliche Blocker.
 - Ein vollständig offenes Fenster verwendet die konfigurierte Safety-Position;
   eine unsichere Kippstellung oder unbekannte Opening-Lage blockiert.
 - Ein aktiver, fremder Manual Override hält die Automatik auf der beobachteten
@@ -297,3 +303,25 @@ Safety-/Apply-Status und Shadow-Flags. Sie wird über genau eine read-only
 diagnostische Sensorentität sowie über UX/WebSocket angeboten. Die öffentliche
 UX, Sensorattribute und Clipboard-Evidence sind entity-ID-redigiert; es gibt
 keine Services und keinen Cover-/Apply-Schreibpfad.
+
+## 11. Live-Shadow-Contract-Korrekturen
+
+- Home Assistant 2026.8 lädt Optionsänderungen mit `async_reload(entry_id)`.
+  Der Lifecycle-Test belegt Stop/Unload, genau einen neuen Listener-/Timer-Satz,
+  neue Runtime-Optionen, aktualisierten Snapshot und Statussensor.
+- Presence nutzt `away_gate` oder kanonische Home-/Away-Werte mit korrekter
+  Away-Polarität. Activity adaptiert Core-State-State und dokumentierte
+  Attribute in `tv > pc > screen > none`; `music` verdeckt PC-Evidence nicht.
+- Day State verwendet exakt `early_night`, `late_night`, `early_morning`,
+  `forenoon`, `midday`, `afternoon`, `late_afternoon`, `evening`,
+  `late_evening`. Die ersten fünf Tagesphasen ab `early_morning` bis
+  `late_afternoon` sind Daylight, Evening-Phasen Übergang, Night-Phasen Nacht.
+- Opening-Safety-Polarität ist explizite OptionsFlow-Konfiguration. Standard-
+  Cover-Verfügbarkeit folgt HA-Verfügbarkeit statt der Positionssemantik;
+  `current_position` plus Source-/HA-Zeitstempel ist zulässig, Restore nicht.
+- Das Panel entkoppelt Svelte-5-Deep-State mit `$state.snapshot` und einer
+  JSON-förmigen Kopie. Poll, Save-Erfolg und Save-Fehler erhalten damit den
+  kontrollierten Dirty-Draft-Vertrag ohne `DataCloneError`.
+
+Der Status bleibt `Installed / Shadow / Not Live`. Diese Korrekturen führen
+keinen HA-Reload, keine Coverfahrt und keinen Apply-Owner-Wechsel aus.

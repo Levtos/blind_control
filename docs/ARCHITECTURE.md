@@ -175,3 +175,35 @@ read-only Attribute. Die Entity Registry bestimmt ihren installationsbezogenen
 Namen aus der ConfigEntry-Instanz, daher ist keine Entity-ID vorgegeben. Die
 Projektion hat keine Services, keinen Aktuatorzugriff und umgeht den
 Apply-Owner nicht.
+
+## 9. Live-Shadow-Contract-Fortschreibung
+
+Der OptionsFlow-Listener lädt unter Home Assistant 2026.8 ausschließlich mit
+`async_reload(entry_id)` neu. Der Reload entlädt Sensorplattform, Coordinator,
+State-Listener und Timer vollständig und baut danach Runtime, Snapshot und die
+read-only Statusentität aus den gespeicherten Optionen neu auf.
+
+Vor der Engine liegt eine feldspezifische Adaptergrenze:
+
+- Presence: `away_gate` beziehungsweise kanonische Home-/Away-Zustände;
+- Activity: Core-State-State und dokumentierte Media-/PC-/Gaming-Attribute mit
+  der Glare-Präzedenz `tv > pc > screen > none`;
+- Day State: exakt neun kanonische Phasen, getrennt in Tageslicht, Übergang und
+  Nacht;
+- Opening: explizite positive/negative Safety-Polarität;
+- Standard-Cover: HA-Verfügbarkeit, `current_position`, Source- oder
+  HA-Zeitstempel und Restore-Ablehnung.
+
+Solar Exposure ist capability-basiert. Sonnenhöhe, Sonnenazimut und Außenlux
+sind die zwingende Tageslicht-Kombination. Lux-Trend wird bei ungebundenem
+Trend-Owner aus zwei zeitlich verschiedenen frischen Luxbeobachtungen
+abgeleitet. Direkte/diffuse Modellstrahlung und Bewölkung sind optionale
+Confidence-Evidence. `SolarExposure` projiziert vorhandene und fehlende
+Capabilities, verwendete und abgeleitete Evidence, Confidence und tatsächliche
+Quality-Blocker. Nicht frische optionale Evidence blockiert nur dann, wenn die
+verbleibende Kombination insgesamt nicht belastbar ist.
+
+Die Panel-Draft-Grenze verwendet `$state.snapshot` und eine rekursive
+JSON-Entkopplung. Dadurch erreicht kein Svelte-5-Proxy `structuredClone`; Dirty
+Drafts bleiben bei Polls erhalten und erfolgreiche Saves synchronisieren erst
+gegen den bestätigten Server-Snapshot.

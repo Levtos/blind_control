@@ -41,10 +41,11 @@
   let pausedBranches = $derived(activeBranches.filter((branch) => branch.paused));
 
   $effect(() => {
+    const incomingSettings = $state.snapshot(snapshot.settings);
     const next = rebaseDraft(
       draftSettings,
       confirmedSettingsRevision,
-      snapshot.settings,
+      incomingSettings,
     );
     if (
       next.draftSettings !== draftSettings
@@ -140,14 +141,15 @@
   }
 
   function resetDraft(): void {
-    draftSettings = cloneSettings(snapshot.settings);
-    confirmedSettingsRevision = settingsRevision(snapshot.settings);
+    const serverSettings = $state.snapshot(snapshot.settings);
+    draftSettings = cloneSettings(serverSettings);
+    confirmedSettingsRevision = settingsRevision(serverSettings);
     saveError = null;
   }
 
   async function saveDraft(): Promise<void> {
     if (!onSaveSettings || !draftSettings) return;
-    const submittedDraft = cloneSettings(draftSettings);
+    const submittedDraft = cloneSettings($state.snapshot(draftSettings));
     const submittedRevision = settingsRevision(submittedDraft);
     saveError = null;
     try {
@@ -360,6 +362,10 @@
             <div><dt>Einfallsfaktor</dt><dd>{snapshot.diagnosis.solar.incidence_factor?.toFixed(3) ?? '—'}</dd></div>
             <div><dt>Außen-Lux</dt><dd>{snapshot.diagnosis.solar.observed_lux ?? '—'}</dd></div>
             <div><dt>Trend</dt><dd>{snapshot.diagnosis.solar.lux_trend ?? '—'}</dd></div>
+            <div><dt>Capabilities</dt><dd>{snapshot.diagnosis.solar.capabilities.map(labelFor).join(', ') || '—'}</dd></div>
+            <div><dt>Optionale Capabilities fehlen</dt><dd>{snapshot.diagnosis.solar.missing_optional_capabilities.map(labelFor).join(', ') || 'keine'}</dd></div>
+            <div><dt>Verwendete Evidence</dt><dd>{snapshot.diagnosis.solar.used_evidence.map(labelFor).join(', ') || '—'}</dd></div>
+            <div><dt>Abgeleitet</dt><dd>{snapshot.diagnosis.solar.derived_evidence.map(labelFor).join(', ') || 'keine'}</dd></div>
             <div><dt>Grund</dt><dd>{snapshot.diagnosis.solar.reason.replaceAll('_', ' ')}</dd></div>
           </dl>
         </article>
@@ -428,14 +434,17 @@
         <div class="binding-grid">
           {#each editableSettings.binding_groups as group}
             <section class="binding-group">
-              <h3>{group.label}</h3>
+              <h3>{group.label} · {group.readiness === 'ready' ? 'bereit' : 'Pflicht-Evidence fehlt'}</h3>
               {#each group.fields as field}
                 <div class="binding-row">
                   <strong>{labelFor(field.key)}</strong>
                   <span class={field.configured ? 'ready' : 'warning'}>{field.configured ? 'konfiguriert' : 'nicht konfiguriert'}</span>
-                  <small>{field.owner} · {field.max_age_seconds === null ? 'stateful' : `${field.max_age_seconds} s`} · {field.require_timestamp ? 'Zeitbeleg erforderlich' : 'kein Zeitbeleg erforderlich'}</small>
+                  <small>{field.requirement === 'required' ? 'Pflicht' : field.requirement === 'conditional' ? 'bedingt erforderlich' : 'optional'} · {field.owner} · {field.max_age_seconds === null ? 'stateful' : `${field.max_age_seconds} s`} · {field.require_timestamp ? 'Zeitbeleg erforderlich' : 'kein Zeitbeleg erforderlich'}</small>
                 </div>
               {/each}
+              {#if group.key === 'opening_safety_cover_bindings'}
+                <p class="hint">Opening-Safety-Polarität: {labelFor(editableSettings.opening_safety_polarity)}. Ohne explizite Polarität bleibt eine Kippfreigabe blockiert.</p>
+              {/if}
             </section>
           {/each}
         </div>

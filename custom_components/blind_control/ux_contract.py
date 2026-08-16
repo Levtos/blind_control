@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .config import BINDING_GROUPS, BlindControlConfig
+from .config import BINDING_GROUPS, BlindControlConfig, binding_requirement
 from .contracts import redact_diagnostic_value
 from .shadow import ShadowSnapshot
 
@@ -105,6 +105,7 @@ def build_ux_snapshot(snapshot: ShadowSnapshot, config: BlindControlConfig) -> d
             "window_tilt": config.window_tilt,
             "automation_enabled": config.automation_enabled,
             "apply_enabled": config.apply_enabled,
+            "opening_safety_polarity": config.opening_safety_polarity,
             "binding_groups": _binding_groups(config),
             "observation_freshness_seconds": config.observation_freshness_seconds,
             "binding_freshness": config.binding_freshness_mapping(),
@@ -179,18 +180,27 @@ def _binding_groups(config: BlindControlConfig) -> list[dict[str, object]]:
     groups: list[dict[str, object]] = []
     for key, label, fields, legacy in BINDING_GROUPS:
         bindings = legacy_bindings if legacy else input_bindings
+        projected_fields = [
+            {
+                "key": field,
+                "configured": field in bindings,
+                "requirement": binding_requirement(field, legacy=legacy),
+                **config.binding_policy(field, legacy=legacy).as_dict(),
+            }
+            for field in fields
+        ]
+        missing_required = [
+            field["key"]
+            for field in projected_fields
+            if field["requirement"] == "required" and not field["configured"]
+        ]
         groups.append(
             {
                 "key": key,
                 "label": label,
-                "fields": [
-                    {
-                        "key": field,
-                        "configured": field in bindings,
-                        **config.binding_policy(field, legacy=legacy).as_dict(),
-                    }
-                    for field in fields
-                ],
+                "readiness": "ready" if not missing_required else "missing_required",
+                "missing_required": missing_required,
+                "fields": projected_fields,
             }
         )
     return groups

@@ -44,7 +44,7 @@ def ready_inputs() -> BlindControlInputs:
     return BlindControlInputs(
         bio_state=fresh("awake", "core_state.bio"),
         activity_state=fresh("none", "core_state.activity"),
-        day_state=fresh("morning", "core_state.day"),
+        day_state=fresh("forenoon", "core_state.day"),
         day_context=fresh("weekday", "core_state.context"),
         away=fresh(False, "core_state.away"),
         private_time=fresh(False, "core_state.private"),
@@ -102,6 +102,19 @@ class DecisionEngineTests(unittest.TestCase):
             "blind_control.automation_projection.v1",
         )
         self.assertIn("binding_groups", projection["settings"])
+        core_group = next(
+            group
+            for group in projection["settings"]["binding_groups"]
+            if group["key"] == "core_state_bindings"
+        )
+        self.assertEqual(core_group["readiness"], "missing_required")
+        self.assertIn("bio_state", core_group["missing_required"])
+        self.assertEqual(
+            next(field for field in core_group["fields"] if field["key"] == "bio_state")[
+                "requirement"
+            ],
+            "required",
+        )
 
     def test_missing_inputs_never_fall_silently_to_open(self) -> None:
         trace = DecisionEngine().evaluate(BlindControlInputs.empty())
@@ -123,12 +136,8 @@ class DecisionEngineTests(unittest.TestCase):
             "outdoor_temperature": 20.0,
             "activity_state": "none",
             "outdoor_lux": 14_000.0,
-            "lux_trend": 0.0,
             "sun_elevation": 30.0,
             "sun_azimuth": 304.0,
-            "expected_direct_radiation": 400.0,
-            "expected_diffuse_radiation": 50.0,
-            "cloud_cover": 0.1,
         }
         quality_cases = {
             "valid": InputQuality.FRESH,
@@ -178,6 +187,139 @@ class DecisionEngineTests(unittest.TestCase):
                     self.assertEqual(
                         blocker.reason, "matrix_missing" if case == "missing" else f"matrix_{case}"
                     )
+
+    def test_replaceable_solar_evidence_quality_does_not_block_valid_combination(self) -> None:
+        complete = replace(ready_inputs(), cover_position=fresh(42.0, "technical_cover"))
+        optional_fields = {
+            "lux_trend": 0.0,
+            "expected_direct_radiation": 400.0,
+            "expected_diffuse_radiation": 50.0,
+            "cloud_cover": 0.1,
+        }
+        unresolved_qualities = (
+            InputQuality.UNKNOWN,
+            InputQuality.UNAVAILABLE,
+            InputQuality.STALE,
+            InputQuality.CONFLICT,
+        )
+
+        for key, value in optional_fields.items():
+            for quality in unresolved_qualities:
+                with self.subTest(field=key, quality=quality):
+                    observation = InputObservation(
+                        value=value,
+                        source=f"owner.{key}",
+                        quality=quality,
+                        reason=f"replaceable_{quality.value}",
+                    )
+                    trace = DecisionEngine().evaluate(replace(complete, **{key: observation}))
+
+                    self.assertEqual(trace.master_mode.value, "normal")
+                    self.assertEqual(trace.failure.status, "none")
+                    self.assertEqual(trace.effective_target, 100)
+                    self.assertNotIn(
+                        key,
+                        {blocker.key for blocker in trace.failure.quality_blockers},
+                    )
+
+    def test_capability_aware_solar_evidence_combinations(self) -> None:
+        missing = InputObservation.missing(reason="owner_binding_not_configured")
+        base = replace(
+            ready_inputs(),
+            cover_position=fresh(42.0, "technical_cover"),
+            lux_trend=missing,
+            expected_direct_radiation=missing,
+            expected_diffuse_radiation=missing,
+            cloud_cover=missing,
+        )
+
+        lux_geometry = DecisionEngine().evaluate(base)
+        derived_trend = DecisionEngine().evaluate(
+            replace(
+                base,
+                lux_trend=InputObservation(
+                    value=-250.0,
+                    source="owner.lux",
+                    quality=InputQuality.FRESH,
+                    reason="derived_from_consecutive_fresh_lux_observations",
+                ),
+            )
+        )
+        model_without_trend = DecisionEngine().evaluate(
+            replace(
+                base,
+                expected_direct_radiation=fresh(400.0, "owner.model"),
+                expected_diffuse_radiation=fresh(50.0, "owner.model"),
+            )
+        )
+        insufficient = DecisionEngine().evaluate(
+            replace(base, outdoor_lux=InputObservation.missing(reason="matrix_missing")),
+            failure_hold_target=42.0,
+        )
+
+        for trace in (lux_geometry, derived_trend, model_without_trend):
+            self.assertEqual(trace.master_mode.value, "normal")
+            self.assertEqual(trace.failure.status, "none")
+            self.assertEqual(trace.effective_target, 100)
+        self.assertIn("lux_trend", derived_trend.solar.derived_evidence)
+        self.assertIn("expected_direct_radiation", model_without_trend.solar.used_evidence)
+        self.assertIn("lux_trend", lux_geometry.solar.missing_optional_capabilities)
+        self.assertEqual(insufficient.master_mode.value, "failure")
+        self.assertEqual(insufficient.effective_target, 42.0)
+        self.assertEqual(insufficient.apply.status, "blocked")
+        self.assertNotEqual(insufficient.effective_target, 100)
+
+    def test_canonical_day_phases_have_explicit_daylight_transition_and_night_semantics(
+        self,
+    ) -> None:
+        daylight = {
+            "early_morning",
+            "forenoon",
+            "midday",
+            "afternoon",
+            "late_afternoon",
+        }
+        transition = {"evening", "late_evening"}
+        night = {"early_night", "late_night"}
+
+        for phase in daylight | transition | night:
+            with self.subTest(phase=phase):
+                trace = DecisionEngine().evaluate(
+                    replace(ready_inputs(), day_state=fresh(phase, "core_state.day"))
+                )
+                self.assertEqual(trace.master_mode.value, "normal")
+                if phase in daylight:
+                    self.assertEqual(trace.fachlicher_target, 100)
+                    self.assertIn("base_daylight", trace.winner_keys)
+                else:
+                    self.assertIsNone(trace.fachlicher_target)
+                    self.assertEqual(trace.winner.category, "neutral")
+
+    def test_daylight_phase_conflicting_with_sun_below_horizon_blocks_opening(self) -> None:
+        inputs = replace(
+            ready_inputs(),
+            cover_position=fresh(42.0, "technical_cover"),
+            sun_elevation=fresh(-2.0, "sun_contract"),
+        )
+        trace = DecisionEngine().evaluate(inputs, failure_hold_target=42.0)
+
+        self.assertEqual(trace.fachlicher_target, 100)
+        self.assertEqual(trace.master_mode.value, "failure")
+        self.assertEqual(trace.effective_target, 42.0)
+        self.assertIn(
+            "day_solar_consistency",
+            {blocker.key for blocker in trace.failure.quality_blockers},
+        )
+
+    def test_missing_cover_position_evidence_blocks_apply_without_inventing_position(self) -> None:
+        trace = DecisionEngine().evaluate(
+            replace(ready_inputs(), cover_position=InputObservation.missing())
+        )
+
+        self.assertEqual(trace.safety.status, "blocked")
+        self.assertEqual(trace.safety.reason, "cover_position_evidence_not_fresh")
+        self.assertEqual(trace.apply.status, "blocked")
+        self.assertIsNone(trace.apply.approved_target)
 
     def test_cloud_shadow_keeps_heat_active_without_open_fallback(self) -> None:
         inputs = sunny_inputs(

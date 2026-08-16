@@ -174,6 +174,95 @@ function safe_equals(value) {
   return !safe_not_equal(value, this.v);
 }
 let tracing_mode_flag = false;
+const empty = [];
+function snapshot(value, skip_warning = false, no_tojson = false) {
+  return clone(value, /* @__PURE__ */ new Map(), "", empty, null, no_tojson);
+}
+function clone(value, cloned, path, paths, original = null, no_tojson = false) {
+  if (typeof value === "object" && value !== null) {
+    var unwrapped = cloned.get(value);
+    if (unwrapped !== void 0) return unwrapped;
+    if (value instanceof Map) return (
+      /** @type {Snapshot<T>} */
+      new Map(value)
+    );
+    if (value instanceof Set) return (
+      /** @type {Snapshot<T>} */
+      new Set(value)
+    );
+    if (is_array(value)) {
+      var copy = (
+        /** @type {Snapshot<any>} */
+        Array(value.length)
+      );
+      cloned.set(value, copy);
+      if (original !== null) {
+        cloned.set(original, copy);
+      }
+      for (var i = 0; i < value.length; i += 1) {
+        var element = value[i];
+        if (i in value) {
+          copy[i] = clone(element, cloned, path, paths, null, no_tojson);
+        }
+      }
+      return copy;
+    }
+    if (get_prototype_of(value) === object_prototype) {
+      copy = {};
+      cloned.set(value, copy);
+      if (original !== null) {
+        cloned.set(original, copy);
+      }
+      for (var key of Object.keys(value)) {
+        copy[key] = clone(
+          // @ts-expect-error
+          value[key],
+          cloned,
+          path,
+          paths,
+          null,
+          no_tojson
+        );
+      }
+      return copy;
+    }
+    if (value instanceof Date) {
+      return (
+        /** @type {Snapshot<T>} */
+        structuredClone(value)
+      );
+    }
+    if (typeof /** @type {T & { toJSON?: any } } */
+    value.toJSON === "function" && !no_tojson) {
+      return clone(
+        /** @type {T & { toJSON(): any } } */
+        value.toJSON(),
+        cloned,
+        path,
+        paths,
+        // Associate the instance with the toJSON clone
+        value
+      );
+    }
+  }
+  if (value instanceof EventTarget) {
+    return (
+      /** @type {Snapshot<T>} */
+      value
+    );
+  }
+  try {
+    return (
+      /** @type {Snapshot<T>} */
+      structuredClone(value)
+    );
+  } catch (e) {
+    return (
+      /** @type {Snapshot<T>} */
+      value
+    );
+  }
+}
 let component_context = null;
 function set_component_context(context) {
   component_context = context;
@@ -3067,24 +3156,24 @@ function from_html(content, flags2) {
       if (!is_fragment) node = /** @type {TemplateNode} */
       /* @__PURE__ */ get_first_child(node);
     }
-    var clone = (
+    var clone2 = (
       /** @type {TemplateNode} */
       use_import_node || is_firefox ? document.importNode(node, true) : node.cloneNode(true)
     );
     if (is_fragment) {
       var start = (
         /** @type {TemplateNode} */
-        /* @__PURE__ */ get_first_child(clone)
+        /* @__PURE__ */ get_first_child(clone2)
       );
       var end = (
         /** @type {TemplateNode} */
-        clone.lastChild
+        clone2.lastChild
       );
       assign_nodes(start, end);
     } else {
-      assign_nodes(clone, clone);
+      assign_nodes(clone2, clone2);
     }
-    return clone;
+    return clone2;
   };
 }
 function text(value = "") {
@@ -4015,7 +4104,10 @@ if (typeof window !== "undefined") {
   ((_c = window.__svelte ?? (window.__svelte = {})).v ?? (_c.v = /* @__PURE__ */ new Set())).add(PUBLIC_VERSION);
 }
 function cloneSettings(value) {
-  return structuredClone(value);
+  return (
+    /** @type {T} */
+    detachJsonValue(value)
+  );
 }
 function settingsRevision(settings) {
   return JSON.stringify(canonicalize(settings));
@@ -4075,6 +4167,21 @@ function canonicalize(value) {
   }
   return value;
 }
+function detachJsonValue(value) {
+  if (Array.isArray(value)) {
+    return value.map(detachJsonValue);
+  }
+  if (value && typeof value === "object") {
+    const record = (
+      /** @type {Record<string, unknown>} */
+      value
+    );
+    return Object.fromEntries(
+      Object.entries(record).map(([key, item]) => [key, detachJsonValue(item)])
+    );
+  }
+  return value;
+}
 var root$1 = /* @__PURE__ */ from_html(`<button type="button" role="tab"> </button>`);
 var root_1$1 = /* @__PURE__ */ from_html(`<p class="callout failure-callout"> <!></p>`);
 var root_2 = /* @__PURE__ */ from_html(`<div><dt> </dt><dd> </dd></div>`);
@@ -4087,14 +4194,15 @@ var root_8 = /* @__PURE__ */ from_html(`<li><strong> </strong><span> </span></li
 var root_9 = /* @__PURE__ */ from_html(`<h3>Pausiert / unterdrückt</h3> <ul class="plain-list"></ul>`, 1);
 var root_10 = /* @__PURE__ */ from_html(`<div><span> </span><code> </code></div>`);
 var root_11 = /* @__PURE__ */ from_html(`<p class="empty-state">Noch keine owner-bound Inputs gebunden.</p>`);
-var root_12 = /* @__PURE__ */ from_html(`<section class="diagnosis-layout" aria-label="Diagnose"><article class="card"><div class="card-heading"><div><p class="eyebrow">DECISION TRACE</p><h2>Hierarchie und flache Diagnose</h2></div><span class="badge"> </span></div> <div class="winner-tree"><span>Master</span> <strong> </strong> <span> </span></div> <h3>Flache Kandidatenliste (Diagnose)</h3> <div class="trace-list"></div> <!></article> <div class="side-stack"><article class="card"><div class="card-heading"><div><p class="eyebrow">SOLAR EXPOSURE</p><h2> </h2></div><span class="badge"> </span></div> <dl class="facts"><div><dt>Einfallsfaktor</dt><dd> </dd></div> <div><dt>Außen-Lux</dt><dd> </dd></div> <div><dt>Trend</dt><dd> </dd></div> <div><dt>Grund</dt><dd> </dd></div></dl></article> <article class="card"><div class="card-heading"><div><p class="eyebrow">INPUT QUALITY</p><h2>Owner-gebundene Inputs</h2></div></div> <div class="source-list"></div></article> <article class="card debug-card"><div class="card-heading"><div><p class="eyebrow">EXPORT</p><h2>Redigierte Debug-Evidence</h2></div><button class="quiet-button" type="button"> </button></div> <details><summary>Kopierbare Shadow-Evidence anzeigen</summary> <pre> </pre></details></article></div></section>`);
+var root_12 = /* @__PURE__ */ from_html(`<section class="diagnosis-layout" aria-label="Diagnose"><article class="card"><div class="card-heading"><div><p class="eyebrow">DECISION TRACE</p><h2>Hierarchie und flache Diagnose</h2></div><span class="badge"> </span></div> <div class="winner-tree"><span>Master</span> <strong> </strong> <span> </span></div> <h3>Flache Kandidatenliste (Diagnose)</h3> <div class="trace-list"></div> <!></article> <div class="side-stack"><article class="card"><div class="card-heading"><div><p class="eyebrow">SOLAR EXPOSURE</p><h2> </h2></div><span class="badge"> </span></div> <dl class="facts"><div><dt>Einfallsfaktor</dt><dd> </dd></div> <div><dt>Außen-Lux</dt><dd> </dd></div> <div><dt>Trend</dt><dd> </dd></div> <div><dt>Capabilities</dt><dd> </dd></div> <div><dt>Optionale Capabilities fehlen</dt><dd> </dd></div> <div><dt>Verwendete Evidence</dt><dd> </dd></div> <div><dt>Abgeleitet</dt><dd> </dd></div> <div><dt>Grund</dt><dd> </dd></div></dl></article> <article class="card"><div class="card-heading"><div><p class="eyebrow">INPUT QUALITY</p><h2>Owner-gebundene Inputs</h2></div></div> <div class="source-list"></div></article> <article class="card debug-card"><div class="card-heading"><div><p class="eyebrow">EXPORT</p><h2>Redigierte Debug-Evidence</h2></div><button class="quiet-button" type="button"> </button></div> <details><summary>Kopierbare Shadow-Evidence anzeigen</summary> <pre> </pre></details></article></div></section>`);
 var root_13 = /* @__PURE__ */ from_html(`<p class="callout failure-callout"> </p>`);
 var root_14 = /* @__PURE__ */ from_html(`<div class="profile-row" role="row"><strong> </strong> <input type="number" min="0" max="100"/> <input type="number" min="0" max="100"/></div>`);
 var root_15 = /* @__PURE__ */ from_html(`<label> <input type="number" min="0"/></label>`);
 var root_16 = /* @__PURE__ */ from_html(`<div class="binding-row"><strong> </strong> <span> </span> <small> </small></div>`);
-var root_17 = /* @__PURE__ */ from_html(`<section class="binding-group"><h3> </h3> <!></section>`);
-var root_18 = /* @__PURE__ */ from_html(`<section class="settings-layout" aria-label="Einstellungen"><article class="card"><div class="card-heading"><div><p class="eyebrow">GEOMETRIE & STATUS</p><h2>Fensterfläche</h2></div><span> </span></div> <div class="form-grid"><label>Azimut (°)<input type="number" min="0" max="360"/></label> <label>Neigung (°)<input type="number" min="0" max="180"/></label> <label class="toggle"><input type="checkbox"/> Achse invertiert</label> <label class="toggle"><input type="checkbox"/> Automatik aktiv</label> <label class="toggle"><input type="checkbox"/> Apply-Gate aktiv</label></div> <p class="hint">Die Werte stammen aus der laufenden Shadow-Projektion. Speicherung erreicht niemals einen Cover-Service.</p></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">PROFILE</p><h2>Normal / Invertiert</h2></div><div class="button-row"><span class="muted"> </span><button class="quiet-button" type="button">Entwurf zurücksetzen</button><button class="primary-button" type="button"> </button></div></div> <!> <div class="profile-table" role="table" aria-label="Positionsprofile"><div class="profile-row profile-header" role="row"><span>Profil</span><span>Normal</span><span>Invertiert</span></div> <!></div></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">KALIBRIERUNG</p><h2>Shadow-Defaults</h2></div><span class="muted">später trace-basiert kalibrieren</span></div> <div class="calibration-grid"></div></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">OWNER-BINDINGS</p><h2>Native Entity-Selectoren</h2></div><span class="muted">OptionsFlow</span></div> <p class="hint">Bearbeitung erfolgt ausschließlich über Blind Control → Konfigurieren im nativen Home-Assistant-OptionsFlow. Entity-IDs werden im Panel nicht angezeigt oder entgegengenommen.</p> <div class="binding-grid"></div></article></section>`);
-var root_19 = /* @__PURE__ */ from_html(`<div class="panel-root"><header class="app-header"><div><p class="eyebrow">BLIND CONTROL · SHADOW · NOT LIVE</p> <h1>Wohnzimmer-Rollo</h1> <p class="subtitle">Versionierter Entscheidungs-, Safety- und Shadow-Vertrag</p></div> <div class="header-status"><span></span> <span> </span></div></header> <div class="tabs" aria-label="Blind Control Bereiche" role="tablist"></div> <!></div>`);
+var root_17 = /* @__PURE__ */ from_html(`<p class="hint"> </p>`);
+var root_18 = /* @__PURE__ */ from_html(`<section class="binding-group"><h3> </h3> <!> <!></section>`);
+var root_19 = /* @__PURE__ */ from_html(`<section class="settings-layout" aria-label="Einstellungen"><article class="card"><div class="card-heading"><div><p class="eyebrow">GEOMETRIE & STATUS</p><h2>Fensterfläche</h2></div><span> </span></div> <div class="form-grid"><label>Azimut (°)<input type="number" min="0" max="360"/></label> <label>Neigung (°)<input type="number" min="0" max="180"/></label> <label class="toggle"><input type="checkbox"/> Achse invertiert</label> <label class="toggle"><input type="checkbox"/> Automatik aktiv</label> <label class="toggle"><input type="checkbox"/> Apply-Gate aktiv</label></div> <p class="hint">Die Werte stammen aus der laufenden Shadow-Projektion. Speicherung erreicht niemals einen Cover-Service.</p></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">PROFILE</p><h2>Normal / Invertiert</h2></div><div class="button-row"><span class="muted"> </span><button class="quiet-button" type="button">Entwurf zurücksetzen</button><button class="primary-button" type="button"> </button></div></div> <!> <div class="profile-table" role="table" aria-label="Positionsprofile"><div class="profile-row profile-header" role="row"><span>Profil</span><span>Normal</span><span>Invertiert</span></div> <!></div></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">KALIBRIERUNG</p><h2>Shadow-Defaults</h2></div><span class="muted">später trace-basiert kalibrieren</span></div> <div class="calibration-grid"></div></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">OWNER-BINDINGS</p><h2>Native Entity-Selectoren</h2></div><span class="muted">OptionsFlow</span></div> <p class="hint">Bearbeitung erfolgt ausschließlich über Blind Control → Konfigurieren im nativen Home-Assistant-OptionsFlow. Entity-IDs werden im Panel nicht angezeigt oder entgegengenommen.</p> <div class="binding-grid"></div></article></section>`);
+var root_20 = /* @__PURE__ */ from_html(`<div class="panel-root"><header class="app-header"><div><p class="eyebrow">BLIND CONTROL · SHADOW · NOT LIVE</p> <h1>Wohnzimmer-Rollo</h1> <p class="subtitle">Versionierter Entscheidungs-, Safety- und Shadow-Vertrag</p></div> <div class="header-status"><span></span> <span> </span></div></header> <div class="tabs" aria-label="Blind Control Bereiche" role="tablist"></div> <!></div>`);
 function App($$anchor, $$props) {
   push($$props, true);
   let saving = prop($$props, "saving", 3, false);
@@ -4109,7 +4217,8 @@ function App($$anchor, $$props) {
   let supportingBranches = /* @__PURE__ */ user_derived(() => get(activeBranches).filter((branch2) => !branch2.winner && !branch2.paused));
   let pausedBranches = /* @__PURE__ */ user_derived(() => get(activeBranches).filter((branch2) => branch2.paused));
   user_effect(() => {
-    const next = rebaseDraft(get(draftSettings), get(confirmedSettingsRevision), $$props.snapshot.settings);
+    const incomingSettings = snapshot($$props.snapshot.settings);
+    const next = rebaseDraft(get(draftSettings), get(confirmedSettingsRevision), incomingSettings);
     if (next.draftSettings !== get(draftSettings) || next.confirmedRevision !== get(confirmedSettingsRevision)) {
       set(draftSettings, next.draftSettings, true);
       set(confirmedSettingsRevision, next.confirmedRevision, true);
@@ -4175,13 +4284,14 @@ function App($$anchor, $$props) {
     profile[axis] = Math.max(0, Math.min(100, value));
   }
   function resetDraft() {
-    set(draftSettings, cloneSettings($$props.snapshot.settings), true);
-    set(confirmedSettingsRevision, settingsRevision($$props.snapshot.settings), true);
+    const serverSettings = snapshot($$props.snapshot.settings);
+    set(draftSettings, cloneSettings(serverSettings), true);
+    set(confirmedSettingsRevision, settingsRevision(serverSettings), true);
     set(saveError, null);
   }
   async function saveDraft() {
     if (!$$props.onSaveSettings || !get(draftSettings)) return;
-    const submittedDraft = cloneSettings(get(draftSettings));
+    const submittedDraft = cloneSettings(snapshot(get(draftSettings)));
     const submittedRevision = settingsRevision(submittedDraft);
     set(saveError, null);
     try {
@@ -4224,7 +4334,7 @@ function App($$anchor, $$props) {
     const value = event.currentTarget.valueAsNumber;
     if (Number.isFinite(value)) get(draftSettings).calibration_defaults[key] = value;
   }
-  var div = root_19();
+  var div = root_20();
   head("1n46o8q", ($$anchor2) => {
     effect(() => {
       $document.title = "Blind Control · Shadow";
@@ -4583,10 +4693,22 @@ function App($$anchor, $$props) {
       var div_36 = sibling(div_35, 2);
       var dd_10 = sibling(child(div_36));
       var text_43 = child(dd_10);
+      var div_37 = sibling(div_36, 2);
+      var dd_11 = sibling(child(div_37));
+      var text_44 = child(dd_11);
+      var div_38 = sibling(div_37, 2);
+      var dd_12 = sibling(child(div_38));
+      var text_45 = child(dd_12);
+      var div_39 = sibling(div_38, 2);
+      var dd_13 = sibling(child(div_39));
+      var text_46 = child(dd_13);
+      var div_40 = sibling(div_39, 2);
+      var dd_14 = sibling(child(div_40));
+      var text_47 = child(dd_14);
       var article_5 = sibling(article_4, 2);
-      var div_37 = sibling(child(article_5), 2);
+      var div_41 = sibling(child(article_5), 2);
       each(
-        div_37,
+        div_41,
         21,
         () => Object.entries($$props.snapshot.diagnosis.inputs),
         index,
@@ -4594,22 +4716,22 @@ function App($$anchor, $$props) {
           var $$array_2 = /* @__PURE__ */ user_derived(() => to_array(get($$item), 2));
           let key = () => get($$array_2)[0];
           let value = () => get($$array_2)[1];
-          var div_38 = root_10();
-          var span_13 = child(div_38);
-          var text_44 = child(span_13);
+          var div_42 = root_10();
+          var span_13 = child(div_42);
+          var text_48 = child(span_13);
           var code = sibling(span_13);
-          var text_45 = child(code);
+          var text_49 = child(code);
           template_effect(
             ($0, $1) => {
-              set_text(text_44, $0);
-              set_text(text_45, $1);
+              set_text(text_48, $0);
+              set_text(text_49, $1);
             },
             [
               () => labelFor(key()),
               () => typeof value() === "string" ? value() : JSON.stringify(value())
             ]
           );
-          append($$anchor3, div_38);
+          append($$anchor3, div_42);
         },
         ($$anchor3) => {
           var p_5 = root_11();
@@ -4617,14 +4739,14 @@ function App($$anchor, $$props) {
         }
       );
       var article_6 = sibling(article_5, 2);
-      var div_39 = child(article_6);
-      var button_1 = sibling(child(div_39));
-      var text_46 = child(button_1);
-      var details = sibling(div_39, 2);
+      var div_43 = child(article_6);
+      var button_1 = sibling(child(div_43));
+      var text_50 = child(button_1);
+      var details = sibling(div_43, 2);
       var pre = sibling(child(details), 2);
-      var text_47 = child(pre);
+      var text_51 = child(pre);
       template_effect(
-        ($0, $1, $2, $3, $4, $5, $6) => {
+        ($0, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10) => {
           set_text(text_29, $$props.snapshot.version);
           set_text(text_30, `${$0 ?? ""} → ${$1 ?? ""}`);
           set_text(text_31, $$props.snapshot.diagnosis.hierarchy.failure.status === "none" ? "belastbar" : $$props.snapshot.diagnosis.hierarchy.failure.status);
@@ -4634,8 +4756,12 @@ function App($$anchor, $$props) {
           set_text(text_41, $$props.snapshot.diagnosis.solar.observed_lux ?? "—");
           set_text(text_42, $$props.snapshot.diagnosis.solar.lux_trend ?? "—");
           set_text(text_43, $5);
-          set_text(text_46, get(copyState) === "copied" ? "Kopiert" : get(copyState) === "failed" ? "Kopieren fehlgeschlagen" : "Evidence kopieren");
-          set_text(text_47, $6);
+          set_text(text_44, $6);
+          set_text(text_45, $7);
+          set_text(text_46, $8);
+          set_text(text_47, $9);
+          set_text(text_50, get(copyState) === "copied" ? "Kopiert" : get(copyState) === "failed" ? "Kopieren fehlgeschlagen" : "Evidence kopieren");
+          set_text(text_51, $10);
         },
         [
           () => labelFor($$props.snapshot.diagnosis.hierarchy.master_mode),
@@ -4646,6 +4772,10 @@ function App($$anchor, $$props) {
             var _a2;
             return ((_a2 = $$props.snapshot.diagnosis.solar.incidence_factor) == null ? void 0 : _a2.toFixed(3)) ?? "—";
           },
+          () => $$props.snapshot.diagnosis.solar.capabilities.map(labelFor).join(", ") || "—",
+          () => $$props.snapshot.diagnosis.solar.missing_optional_capabilities.map(labelFor).join(", ") || "keine",
+          () => $$props.snapshot.diagnosis.solar.used_evidence.map(labelFor).join(", ") || "—",
+          () => $$props.snapshot.diagnosis.solar.derived_evidence.map(labelFor).join(", ") || "keine",
           () => $$props.snapshot.diagnosis.solar.reason.replaceAll("_", " "),
           () => JSON.stringify($$props.snapshot.debug_payload, null, 2)
         ]
@@ -4654,13 +4784,13 @@ function App($$anchor, $$props) {
       append($$anchor2, section_1);
     };
     var alternate_1 = ($$anchor2) => {
-      var section_2 = root_18();
+      var section_2 = root_19();
       var article_7 = child(section_2);
-      var div_40 = child(article_7);
-      var span_14 = sibling(child(div_40));
-      var text_48 = child(span_14);
-      var div_41 = sibling(div_40, 2);
-      var label_1 = child(div_41);
+      var div_44 = child(article_7);
+      var span_14 = sibling(child(div_44));
+      var text_52 = child(span_14);
+      var div_45 = sibling(div_44, 2);
+      var label_1 = child(div_45);
       var input = sibling(child(label_1));
       var label_2 = sibling(label_1, 2);
       var input_1 = sibling(child(label_2));
@@ -4671,39 +4801,39 @@ function App($$anchor, $$props) {
       var label_5 = sibling(label_4, 2);
       var input_4 = child(label_5);
       var article_8 = sibling(article_7, 2);
-      var div_42 = child(article_8);
-      var div_43 = sibling(child(div_42));
-      var span_15 = child(div_43);
-      var text_49 = child(span_15);
+      var div_46 = child(article_8);
+      var div_47 = sibling(child(div_46));
+      var span_15 = child(div_47);
+      var text_53 = child(span_15);
       var button_2 = sibling(span_15);
       var button_3 = sibling(button_2);
-      var text_50 = child(button_3);
-      var node_7 = sibling(div_42, 2);
+      var text_54 = child(button_3);
+      var node_7 = sibling(div_46, 2);
       {
         var consequent_6 = ($$anchor3) => {
           var p_6 = root_13();
-          var text_51 = child(p_6);
-          template_effect(() => set_text(text_51, get(saveError)));
+          var text_55 = child(p_6);
+          template_effect(() => set_text(text_55, get(saveError)));
           append($$anchor3, p_6);
         };
         if_block(node_7, ($$render) => {
           if (get(saveError)) $$render(consequent_6);
         });
       }
-      var div_44 = sibling(node_7, 2);
-      var node_8 = sibling(child(div_44), 2);
+      var div_48 = sibling(node_7, 2);
+      var node_8 = sibling(child(div_48), 2);
       each(node_8, 17, () => Object.entries(get(editableSettings).profiles), index, ($$anchor3, $$item) => {
         var $$array_3 = /* @__PURE__ */ user_derived(() => to_array(get($$item), 2));
         let key = () => get($$array_3)[0];
         let profile = () => get($$array_3)[1];
-        var div_45 = root_14();
-        var strong_9 = child(div_45);
-        var text_52 = child(strong_9);
+        var div_49 = root_14();
+        var strong_9 = child(div_49);
+        var text_56 = child(strong_9);
         var input_5 = sibling(strong_9, 2);
         var input_6 = sibling(input_5, 2);
         template_effect(
           ($0) => {
-            set_text(text_52, $0);
+            set_text(text_56, $0);
             set_attribute(input_5, "aria-label", `${key()} normal`);
             set_value(input_5, profile().normal);
             set_attribute(input_6, "aria-label", `${key()} invertiert`);
@@ -4713,20 +4843,20 @@ function App($$anchor, $$props) {
         );
         delegated("change", input_5, (event) => updateProfile(key(), "normal", event.currentTarget.valueAsNumber));
         delegated("change", input_6, (event) => updateProfile(key(), "inverted", event.currentTarget.valueAsNumber));
-        append($$anchor3, div_45);
+        append($$anchor3, div_49);
       });
       var article_9 = sibling(article_8, 2);
-      var div_46 = sibling(child(article_9), 2);
-      each(div_46, 21, () => Object.entries(get(editableSettings).calibration_defaults), index, ($$anchor3, $$item) => {
+      var div_50 = sibling(child(article_9), 2);
+      each(div_50, 21, () => Object.entries(get(editableSettings).calibration_defaults), index, ($$anchor3, $$item) => {
         var $$array_4 = /* @__PURE__ */ user_derived(() => to_array(get($$item), 2));
         let key = () => get($$array_4)[0];
         let value = () => get($$array_4)[1];
         var label_6 = root_15();
-        var text_53 = child(label_6);
-        var input_7 = sibling(text_53);
+        var text_57 = child(label_6);
+        var input_7 = sibling(text_57);
         template_effect(
           ($0) => {
-            set_text(text_53, $0);
+            set_text(text_57, $0);
             set_value(input_7, value());
           },
           [() => labelFor(key())]
@@ -4735,46 +4865,60 @@ function App($$anchor, $$props) {
         append($$anchor3, label_6);
       });
       var article_10 = sibling(article_9, 2);
-      var div_47 = sibling(child(article_10), 4);
-      each(div_47, 21, () => get(editableSettings).binding_groups, index, ($$anchor3, group) => {
-        var section_3 = root_17();
+      var div_51 = sibling(child(article_10), 4);
+      each(div_51, 21, () => get(editableSettings).binding_groups, index, ($$anchor3, group) => {
+        var section_3 = root_18();
         var h3 = child(section_3);
-        var text_54 = child(h3);
+        var text_58 = child(h3);
         var node_9 = sibling(h3, 2);
         each(node_9, 17, () => get(group).fields, index, ($$anchor4, field) => {
-          var div_48 = root_16();
-          var strong_10 = child(div_48);
-          var text_55 = child(strong_10);
+          var div_52 = root_16();
+          var strong_10 = child(div_52);
+          var text_59 = child(strong_10);
           var span_16 = sibling(strong_10, 2);
-          var text_56 = child(span_16);
+          var text_60 = child(span_16);
           var small_3 = sibling(span_16, 2);
-          var text_57 = child(small_3);
+          var text_61 = child(small_3);
           template_effect(
             ($0) => {
-              set_text(text_55, $0);
+              set_text(text_59, $0);
               set_class(span_16, 1, clsx(get(field).configured ? "ready" : "warning"));
-              set_text(text_56, get(field).configured ? "konfiguriert" : "nicht konfiguriert");
-              set_text(text_57, `${get(field).owner ?? ""} · ${get(field).max_age_seconds === null ? "stateful" : `${get(field).max_age_seconds} s`} · ${get(field).require_timestamp ? "Zeitbeleg erforderlich" : "kein Zeitbeleg erforderlich"}`);
+              set_text(text_60, get(field).configured ? "konfiguriert" : "nicht konfiguriert");
+              set_text(text_61, `${get(field).requirement === "required" ? "Pflicht" : get(field).requirement === "conditional" ? "bedingt erforderlich" : "optional"} · ${get(field).owner ?? ""} · ${get(field).max_age_seconds === null ? "stateful" : `${get(field).max_age_seconds} s`} · ${get(field).require_timestamp ? "Zeitbeleg erforderlich" : "kein Zeitbeleg erforderlich"}`);
             },
             [() => labelFor(get(field).key)]
           );
-          append($$anchor4, div_48);
+          append($$anchor4, div_52);
         });
-        template_effect(() => set_text(text_54, get(group).label));
+        var node_10 = sibling(node_9, 2);
+        {
+          var consequent_7 = ($$anchor4) => {
+            var p_7 = root_17();
+            var text_62 = child(p_7);
+            template_effect(($0) => set_text(text_62, `Opening-Safety-Polarität: ${$0 ?? ""}. Ohne explizite Polarität bleibt eine Kippfreigabe blockiert.`), [
+              () => labelFor(get(editableSettings).opening_safety_polarity)
+            ]);
+            append($$anchor4, p_7);
+          };
+          if_block(node_10, ($$render) => {
+            if (get(group).key === "opening_safety_cover_bindings") $$render(consequent_7);
+          });
+        }
+        template_effect(() => set_text(text_58, `${get(group).label ?? ""} · ${get(group).readiness === "ready" ? "bereit" : "Pflicht-Evidence fehlt"}`));
         append($$anchor3, section_3);
       });
       template_effect(
         ($0, $1) => {
           set_class(span_14, 1, $0);
-          set_text(text_48, $1);
+          set_text(text_52, $1);
           set_value(input, get(editableSettings).window_azimuth);
           set_value(input_1, get(editableSettings).window_tilt);
           set_checked(input_2, get(editableSettings).axis_inverted);
           set_checked(input_3, get(editableSettings).automation_enabled);
           set_checked(input_4, get(editableSettings).apply_enabled);
-          set_text(text_49, get(draftDirty) ? "Ungespeicherter Entwurf" : "Serverstand bestätigt");
+          set_text(text_53, get(draftDirty) ? "Ungespeicherter Entwurf" : "Serverstand bestätigt");
           button_3.disabled = saving() || !$$props.onSaveSettings;
-          set_text(text_50, saving() ? "Speichere …" : "Shadow-Konfiguration speichern");
+          set_text(text_54, saving() ? "Speichere …" : "Shadow-Konfiguration speichern");
         },
         [
           () => `badge ${statusTone($$props.snapshot.overview.apply_status)}`,
@@ -4832,14 +4976,14 @@ var root = /* @__PURE__ */ from_html(`<main class="transport-state"><p class="ey
 var root_1 = /* @__PURE__ */ from_html(`<main class="transport-state error-state"><p class="eyebrow">BLIND CONTROL · SHADOW</p> <h1>Shadow-Projektion nicht verfügbar</h1> <p> </p> <button class="quiet-button" type="button">Erneut verbinden</button></main>`);
 function Shell($$anchor, $$props) {
   push($$props, true);
-  let snapshot = /* @__PURE__ */ state(null);
+  let snapshot2 = /* @__PURE__ */ state(null);
   let error = /* @__PURE__ */ state(null);
   let loading = /* @__PURE__ */ state(true);
   let saving = /* @__PURE__ */ state(false);
   async function refresh() {
     try {
       const next = await fetchSnapshot($$props.hass);
-      set(snapshot, next, true);
+      set(snapshot2, next, true);
       set(error, null);
       return next;
     } catch (cause) {
@@ -4871,7 +5015,7 @@ function Shell($$anchor, $$props) {
     var consequent = ($$anchor2) => {
       App($$anchor2, {
         get snapshot() {
-          return get(snapshot);
+          return get(snapshot2);
         },
         onSaveSettings: saveSettings,
         get saving() {
@@ -4893,7 +5037,7 @@ function Shell($$anchor, $$props) {
       append($$anchor2, main_1);
     };
     if_block(node, ($$render) => {
-      if (get(snapshot)) $$render(consequent);
+      if (get(snapshot2)) $$render(consequent);
       else if (get(loading)) $$render(consequent_1, 1);
       else $$render(alternate, -1);
     });

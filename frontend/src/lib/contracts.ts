@@ -64,11 +64,14 @@ export type BindingFreshness = {
 export type BindingField = BindingFreshness & {
   key: string;
   configured: boolean;
+  requirement: 'required' | 'conditional' | 'optional';
 };
 
 export type BindingGroup = {
   key: string;
   label: string;
+  readiness: 'ready' | 'missing_required';
+  missing_required: string[];
   fields: BindingField[];
 };
 
@@ -78,6 +81,7 @@ export type UxSettings = {
   window_tilt: number;
   automation_enabled: boolean;
   apply_enabled: boolean;
+  opening_safety_polarity: 'unspecified' | 'positive_safe' | 'negative_unsafe';
   binding_groups: BindingGroup[];
   observation_freshness_seconds: number;
   binding_freshness: Record<string, BindingFreshness>;
@@ -153,6 +157,11 @@ export type UxSnapshot = {
       cloud_shadow: boolean;
       sources: string[];
       reason: string;
+      capabilities: string[];
+      missing_optional_capabilities: string[];
+      used_evidence: string[];
+      derived_evidence: string[];
+      quality_blockers: { key: string; quality: string; reason: string }[];
     };
     reasons: string[];
     inputs: Record<string, unknown>;

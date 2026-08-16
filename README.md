@@ -47,11 +47,16 @@ this AP2 follow-up is a Draft PR only.
   separate technical layer
 - Failure holds only a current/last proven safe position or blocks Apply; it
   never invents a 100 % open fallback; a quality gate also blocks an already
-  composed daylight target when Temperature, Activity or Lux/Solar evidence is
-  missing, unknown, unavailable, stale or conflicting
+  composed daylight target when mandatory Temperature, Activity or
+  geometry/Lux evidence is missing, unknown, unavailable, stale or conflicting;
+  trend, model radiation and cloud evidence remain capability-aware additions
 - native OptionsFlow Entity Selectors grouped for Core State,
   Opening/Safety/Cover, Solar, Temperature/Weather and Legacy comparison;
   the panel shows redacted configured/not-configured status only
+- field-specific Core-State Presence/Activity/Day adapters, explicit Opening
+  polarity, and standard-cover availability/current-position handling
+- HA 2026.8 `async_reload(entry_id)` lifecycle and Svelte-5-proxy-safe draft
+  rebasing are contract-tested without a live reload or browser preview
 - setup starts the owner-bound read-only ShadowCoordinator and publishes a
   snapshot through a read-only WebSocket projection and exactly one native
   diagnostic status sensor using the same redacted contract; no actuator

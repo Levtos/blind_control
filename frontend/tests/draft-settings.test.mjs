@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  cloneSettings,
   rebaseDraft,
   settleSave,
 } from '../src/lib/draft-settings.js';
+import { proxy as svelteProxy } from '../node_modules/svelte/src/internal/client/proxy.js';
 
 const settings = () => ({
   axis_inverted: false,
@@ -32,6 +34,26 @@ test('poll during editing preserves the local profile draft', () => {
   assert.equal(poll.adopted, false);
   assert.equal(poll.dirty, true);
   assert.equal(poll.draftSettings.profiles.open.normal, 73);
+});
+
+test('real Svelte deep-state proxy is detached before transport cloning', () => {
+  const proxied = svelteProxy(settings());
+  proxied.profiles.open.normal = 72;
+  proxied.binding_groups.push({
+    key: 'solar',
+    label: 'Solar',
+    readiness: 'ready',
+    missing_required: [],
+    fields: [],
+  });
+
+  assert.throws(() => structuredClone(proxied), { name: 'DataCloneError' });
+  const detached = cloneSettings(proxied);
+
+  assert.equal(detached.profiles.open.normal, 72);
+  assert.equal(detached.binding_groups[0].key, 'solar');
+  assert.notEqual(detached, proxied);
+  assert.notEqual(detached.profiles, proxied.profiles);
 });
 
 test('a clean draft adopts an external server settings change', () => {

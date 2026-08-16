@@ -86,7 +86,7 @@
         "sections": {
           "core_state_bindings": {
             "name": "Core State",
-            "description": "Optional canonical household and activity contracts.",
+            "description": "Required canonical household and activity contracts for automatic decisions.",
             "data": {
               "bio_state": "Canonical bio state",
               "activity_state": "Canonical activity state",
@@ -97,36 +97,38 @@
               "privacy": "Privacy context"
             },
             "data_description": {
-              "bio_state": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "activity_state": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "day_state": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "day_context": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "away": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "private_time": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "privacy": "Optional owner-selected evidence. Leave empty when the contract is not configured."
+              "bio_state": "Required owner evidence for automatic decisions.",
+              "activity_state": "Required Core-State evidence; Blind Control adapts documented state attributes for glare.",
+              "day_state": "Required canonical nine-phase day state.",
+              "day_context": "Required canonical day context.",
+              "away": "Required presence evidence; true means away.",
+              "private_time": "Required private-time context evidence.",
+              "privacy": "Required privacy context evidence."
             }
           },
           "opening_safety_cover_bindings": {
             "name": "Opening / Safety / Cover",
-            "description": "Optional technical safety and readiness evidence.",
+            "description": "Required Opening, cover availability/readiness and position evidence; tilted safety is conditional.",
             "data": {
               "opening_state": "Opening safety state",
               "opening_safe_for_blind": "Opening explicitly safe for the blind",
               "cover_available": "Cover availability",
               "cover_ready": "Cover apply readiness",
-              "cover_position": "Cover position evidence"
+              "cover_position": "Cover position evidence",
+              "opening_safety_polarity": "Opening safety signal polarity"
             },
             "data_description": {
-              "opening_state": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "opening_state": "Required positive Opening contract evidence.",
               "opening_safe_for_blind": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "cover_available": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "cover_ready": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "cover_position": "Optional owner-selected evidence. Leave empty when the contract is not configured."
+              "cover_available": "Required HA availability or explicit availability evidence.",
+              "cover_ready": "Required technical apply-readiness evidence.",
+              "cover_position": "Required standard-cover current-position evidence.",
+              "opening_safety_polarity": "Explicitly select whether the bound signal means safe or unsafe. Unspecified polarity blocks tilted-opening safety."
             }
           },
           "solar_bindings": {
             "name": "Solar",
-            "description": "Optional window-related solar evidence.",
+            "description": "Sun geometry and outdoor illuminance are required for daylight; trend, model radiation and clouds are optional evidence.",
             "data": {
               "outdoor_lux": "Outdoor illuminance",
               "lux_trend": "Illuminance trend",
@@ -137,10 +139,10 @@
               "cloud_cover": "Cloud cover"
             },
             "data_description": {
-              "outdoor_lux": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "outdoor_lux": "Required local daylight illuminance evidence.",
               "lux_trend": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "sun_elevation": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "sun_azimuth": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "sun_elevation": "Required sun-elevation evidence.",
+              "sun_azimuth": "Required sun-azimuth evidence.",
               "expected_direct_radiation": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
               "expected_diffuse_radiation": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
               "cloud_cover": "Optional owner-selected evidence. Leave empty when the contract is not configured."
@@ -148,7 +150,7 @@
           },
           "temperature_weather_bindings": {
             "name": "Temperature / Weather",
-            "description": "Optional climate and weather evidence.",
+            "description": "Indoor and outdoor temperature are required; trends and weather signals are optional evidence.",
             "data": {
               "indoor_temperature": "Indoor temperature",
               "outdoor_temperature": "Outdoor temperature",
@@ -161,8 +163,8 @@
               "air_movement": "Air movement"
             },
             "data_description": {
-              "indoor_temperature": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "outdoor_temperature": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "indoor_temperature": "Required indoor-temperature evidence.",
+              "outdoor_temperature": "Required outdoor-temperature evidence.",
               "indoor_temperature_trend": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
               "outdoor_temperature_trend": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
               "weather_alert": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
@@ -285,7 +287,7 @@
         "sections": {
           "core_state_bindings": {
             "name": "Core State",
-            "description": "Optional canonical household and activity contracts.",
+            "description": "Required canonical household and activity contracts for automatic decisions.",
             "data": {
               "bio_state": "Canonical bio state",
               "activity_state": "Canonical activity state",
@@ -296,36 +298,38 @@
               "privacy": "Privacy context"
             },
             "data_description": {
-              "bio_state": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "activity_state": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "day_state": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "day_context": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "away": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "private_time": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "privacy": "Optional owner-selected evidence. Leave empty when the contract is not configured."
+              "bio_state": "Required owner evidence for automatic decisions.",
+              "activity_state": "Required Core-State evidence; Blind Control adapts documented state attributes for glare.",
+              "day_state": "Required canonical nine-phase day state.",
+              "day_context": "Required canonical day context.",
+              "away": "Required presence evidence; true means away.",
+              "private_time": "Required private-time context evidence.",
+              "privacy": "Required privacy context evidence."
             }
           },
           "opening_safety_cover_bindings": {
             "name": "Opening / Safety / Cover",
-            "description": "Optional technical safety and readiness evidence.",
+            "description": "Required Opening, cover availability/readiness and position evidence; tilted safety is conditional.",
             "data": {
               "opening_state": "Opening safety state",
               "opening_safe_for_blind": "Opening explicitly safe for the blind",
               "cover_available": "Cover availability",
               "cover_ready": "Cover apply readiness",
-              "cover_position": "Cover position evidence"
+              "cover_position": "Cover position evidence",
+              "opening_safety_polarity": "Opening safety signal polarity"
             },
             "data_description": {
-              "opening_state": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "opening_state": "Required positive Opening contract evidence.",
               "opening_safe_for_blind": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "cover_available": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "cover_ready": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "cover_position": "Optional owner-selected evidence. Leave empty when the contract is not configured."
+              "cover_available": "Required HA availability or explicit availability evidence.",
+              "cover_ready": "Required technical apply-readiness evidence.",
+              "cover_position": "Required standard-cover current-position evidence.",
+              "opening_safety_polarity": "Explicitly select whether the bound signal means safe or unsafe. Unspecified polarity blocks tilted-opening safety."
             }
           },
           "solar_bindings": {
             "name": "Solar",
-            "description": "Optional window-related solar evidence.",
+            "description": "Sun geometry and outdoor illuminance are required for daylight; trend, model radiation and clouds are optional evidence.",
             "data": {
               "outdoor_lux": "Outdoor illuminance",
               "lux_trend": "Illuminance trend",
@@ -336,10 +340,10 @@
               "cloud_cover": "Cloud cover"
             },
             "data_description": {
-              "outdoor_lux": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "outdoor_lux": "Required local daylight illuminance evidence.",
               "lux_trend": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "sun_elevation": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "sun_azimuth": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "sun_elevation": "Required sun-elevation evidence.",
+              "sun_azimuth": "Required sun-azimuth evidence.",
               "expected_direct_radiation": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
               "expected_diffuse_radiation": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
               "cloud_cover": "Optional owner-selected evidence. Leave empty when the contract is not configured."
@@ -347,7 +351,7 @@
           },
           "temperature_weather_bindings": {
             "name": "Temperature / Weather",
-            "description": "Optional climate and weather evidence.",
+            "description": "Indoor and outdoor temperature are required; trends and weather signals are optional evidence.",
             "data": {
               "indoor_temperature": "Indoor temperature",
               "outdoor_temperature": "Outdoor temperature",
@@ -360,8 +364,8 @@
               "air_movement": "Air movement"
             },
             "data_description": {
-              "indoor_temperature": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
-              "outdoor_temperature": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "indoor_temperature": "Required indoor-temperature evidence.",
+              "outdoor_temperature": "Required outdoor-temperature evidence.",
               "indoor_temperature_trend": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
               "outdoor_temperature_trend": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
               "weather_alert": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
@@ -388,6 +392,15 @@
             }
           }
         }
+      }
+    }
+  },
+  "selector": {
+    "opening_safety_polarity": {
+      "options": {
+        "unspecified": "Not configured (blocks tilted opening)",
+        "positive_safe": "Positive signal means safe",
+        "negative_unsafe": "Positive signal means unsafe"
       }
     }
   },

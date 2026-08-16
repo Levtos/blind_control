@@ -86,7 +86,7 @@
         "sections": {
           "core_state_bindings": {
             "name": "Core State",
-            "description": "Optionale kanonische Haushalts- und Aktivitätsverträge.",
+            "description": "Erforderliche kanonische Haushalts- und Aktivitätsverträge für automatische Entscheidungen.",
             "data": {
               "bio_state": "Kanonischer Bio-State",
               "activity_state": "Kanonischer Aktivitätsstatus",
@@ -97,36 +97,38 @@
               "privacy": "Privacy-Kontext"
             },
             "data_description": {
-              "bio_state": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "activity_state": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "day_state": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "day_context": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "away": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "private_time": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "privacy": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist."
+              "bio_state": "Erforderliche Owner-Evidence für automatische Entscheidungen.",
+              "activity_state": "Erforderliche Core-State-Evidence; dokumentierte Attribute werden für Glare adaptiert.",
+              "day_state": "Erforderlicher kanonischer Neun-Phasen-Day-State.",
+              "day_context": "Erforderlicher kanonischer Tageskontext.",
+              "away": "Erforderliche Presence-Evidence; true bedeutet abwesend.",
+              "private_time": "Erforderliche Private-Time-Evidence.",
+              "privacy": "Erforderliche Privacy-Evidence."
             }
           },
           "opening_safety_cover_bindings": {
             "name": "Opening / Safety / Cover",
-            "description": "Optionale technische Safety- und Readiness-Evidence.",
+            "description": "Opening, Cover-Verfügbarkeit, Readiness und Position sind erforderlich; Kipp-Safety ist bedingt.",
             "data": {
               "opening_state": "Opening-Safety-Status",
               "opening_safe_for_blind": "Opening ausdrücklich sicher für das Rollo",
               "cover_available": "Cover-Verfügbarkeit",
               "cover_ready": "Cover-Apply-Readiness",
-              "cover_position": "Coverpositions-Evidence"
+              "cover_position": "Coverpositions-Evidence",
+              "opening_safety_polarity": "Polarität des Opening-Safety-Signals"
             },
             "data_description": {
-              "opening_state": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "opening_state": "Erforderliche positive Opening-Contract-Evidence.",
               "opening_safe_for_blind": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "cover_available": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "cover_ready": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "cover_position": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist."
+              "cover_available": "Erforderliche HA-Verfügbarkeits- oder explizite Availability-Evidence.",
+              "cover_ready": "Erforderliche technische Apply-Readiness-Evidence.",
+              "cover_position": "Erforderliche aktuelle Positions-Evidence eines Standard-Covers.",
+              "opening_safety_polarity": "Explizit auswählen, ob das gebundene Signal sicher oder unsicher bedeutet. Ohne Polarität bleibt Kipp-Safety blockiert."
             }
           },
           "solar_bindings": {
             "name": "Solar",
-            "description": "Optionale fensterbezogene Solar-Evidence.",
+            "description": "Sonnengeometrie und Außenlux sind bei Tageslicht erforderlich; Trend, Modellstrahlung und Wolken sind optional.",
             "data": {
               "outdoor_lux": "Außen-Lux",
               "lux_trend": "Lux-Trend",
@@ -137,10 +139,10 @@
               "cloud_cover": "Wolkenbedeckung"
             },
             "data_description": {
-              "outdoor_lux": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "outdoor_lux": "Erforderliche lokale Tageslicht-Lux-Evidence.",
               "lux_trend": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "sun_elevation": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "sun_azimuth": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "sun_elevation": "Erforderliche Sonnenhöhen-Evidence.",
+              "sun_azimuth": "Erforderliche Sonnenazimut-Evidence.",
               "expected_direct_radiation": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
               "expected_diffuse_radiation": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
               "cloud_cover": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist."
@@ -148,7 +150,7 @@
           },
           "temperature_weather_bindings": {
             "name": "Temperatur / Wetter",
-            "description": "Optionale Klima- und Wetter-Evidence.",
+            "description": "Innen- und Außentemperatur sind erforderlich; Trends und Wetter-Signale sind optional.",
             "data": {
               "indoor_temperature": "Innentemperatur",
               "outdoor_temperature": "Außentemperatur",
@@ -161,8 +163,8 @@
               "air_movement": "Luftbewegung"
             },
             "data_description": {
-              "indoor_temperature": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "outdoor_temperature": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "indoor_temperature": "Erforderliche Innentemperatur-Evidence.",
+              "outdoor_temperature": "Erforderliche Außentemperatur-Evidence.",
               "indoor_temperature_trend": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
               "outdoor_temperature_trend": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
               "weather_alert": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
@@ -285,7 +287,7 @@
         "sections": {
           "core_state_bindings": {
             "name": "Core State",
-            "description": "Optionale kanonische Haushalts- und Aktivitätsverträge.",
+            "description": "Erforderliche kanonische Haushalts- und Aktivitätsverträge für automatische Entscheidungen.",
             "data": {
               "bio_state": "Kanonischer Bio-State",
               "activity_state": "Kanonischer Aktivitätsstatus",
@@ -296,36 +298,38 @@
               "privacy": "Privacy-Kontext"
             },
             "data_description": {
-              "bio_state": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "activity_state": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "day_state": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "day_context": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "away": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "private_time": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "privacy": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist."
+              "bio_state": "Erforderliche Owner-Evidence für automatische Entscheidungen.",
+              "activity_state": "Erforderliche Core-State-Evidence; dokumentierte Attribute werden für Glare adaptiert.",
+              "day_state": "Erforderlicher kanonischer Neun-Phasen-Day-State.",
+              "day_context": "Erforderlicher kanonischer Tageskontext.",
+              "away": "Erforderliche Presence-Evidence; true bedeutet abwesend.",
+              "private_time": "Erforderliche Private-Time-Evidence.",
+              "privacy": "Erforderliche Privacy-Evidence."
             }
           },
           "opening_safety_cover_bindings": {
             "name": "Opening / Safety / Cover",
-            "description": "Optionale technische Safety- und Readiness-Evidence.",
+            "description": "Opening, Cover-Verfügbarkeit, Readiness und Position sind erforderlich; Kipp-Safety ist bedingt.",
             "data": {
               "opening_state": "Opening-Safety-Status",
               "opening_safe_for_blind": "Opening ausdrücklich sicher für das Rollo",
               "cover_available": "Cover-Verfügbarkeit",
               "cover_ready": "Cover-Apply-Readiness",
-              "cover_position": "Coverpositions-Evidence"
+              "cover_position": "Coverpositions-Evidence",
+              "opening_safety_polarity": "Polarität des Opening-Safety-Signals"
             },
             "data_description": {
-              "opening_state": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "opening_state": "Erforderliche positive Opening-Contract-Evidence.",
               "opening_safe_for_blind": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "cover_available": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "cover_ready": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "cover_position": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist."
+              "cover_available": "Erforderliche HA-Verfügbarkeits- oder explizite Availability-Evidence.",
+              "cover_ready": "Erforderliche technische Apply-Readiness-Evidence.",
+              "cover_position": "Erforderliche aktuelle Positions-Evidence eines Standard-Covers.",
+              "opening_safety_polarity": "Explizit auswählen, ob das gebundene Signal sicher oder unsicher bedeutet. Ohne Polarität bleibt Kipp-Safety blockiert."
             }
           },
           "solar_bindings": {
             "name": "Solar",
-            "description": "Optionale fensterbezogene Solar-Evidence.",
+            "description": "Sonnengeometrie und Außenlux sind bei Tageslicht erforderlich; Trend, Modellstrahlung und Wolken sind optional.",
             "data": {
               "outdoor_lux": "Außen-Lux",
               "lux_trend": "Lux-Trend",
@@ -336,10 +340,10 @@
               "cloud_cover": "Wolkenbedeckung"
             },
             "data_description": {
-              "outdoor_lux": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "outdoor_lux": "Erforderliche lokale Tageslicht-Lux-Evidence.",
               "lux_trend": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "sun_elevation": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "sun_azimuth": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "sun_elevation": "Erforderliche Sonnenhöhen-Evidence.",
+              "sun_azimuth": "Erforderliche Sonnenazimut-Evidence.",
               "expected_direct_radiation": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
               "expected_diffuse_radiation": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
               "cloud_cover": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist."
@@ -347,7 +351,7 @@
           },
           "temperature_weather_bindings": {
             "name": "Temperatur / Wetter",
-            "description": "Optionale Klima- und Wetter-Evidence.",
+            "description": "Innen- und Außentemperatur sind erforderlich; Trends und Wetter-Signale sind optional.",
             "data": {
               "indoor_temperature": "Innentemperatur",
               "outdoor_temperature": "Außentemperatur",
@@ -360,8 +364,8 @@
               "air_movement": "Luftbewegung"
             },
             "data_description": {
-              "indoor_temperature": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
-              "outdoor_temperature": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "indoor_temperature": "Erforderliche Innentemperatur-Evidence.",
+              "outdoor_temperature": "Erforderliche Außentemperatur-Evidence.",
               "indoor_temperature_trend": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
               "outdoor_temperature_trend": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
               "weather_alert": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
@@ -388,6 +392,15 @@
             }
           }
         }
+      }
+    }
+  },
+  "selector": {
+    "opening_safety_polarity": {
+      "options": {
+        "unspecified": "Nicht konfiguriert (Kippstellung blockiert)",
+        "positive_safe": "Positives Signal bedeutet sicher",
+        "negative_unsafe": "Positives Signal bedeutet unsicher"
       }
     }
   },

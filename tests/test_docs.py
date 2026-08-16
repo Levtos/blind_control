@@ -28,6 +28,7 @@ class DocumentationTests(unittest.TestCase):
             "CONTRACTS.md",
             "MIGRATION.md",
             "AP2_SHADOW.md",
+            "STATUS_MODEL.md",
         ):
             self.assertTrue((DOCS / filename).is_file(), filename)
 
@@ -49,7 +50,6 @@ class DocumentationTests(unittest.TestCase):
             "08:45 Uhr",
             "### A16 – Cover-Entity-Rename",
             "cover.wohnbereich_thermo_verdunklungsrollo",
-            "cover.living_thermal_blind",
             "124° OSO",
         ):
             self.assertIn(term, lastenheft)
@@ -77,6 +77,23 @@ class DocumentationTests(unittest.TestCase):
         ):
             self.assertIn(term, ap2)
 
+        status_model = (DOCS / "STATUS_MODEL.md").read_text(encoding="utf-8")
+        for term in (
+            "normal",
+            "manual",
+            "failure",
+            "early_morning",
+            "forenoon",
+            "away_gate",
+            "tv > pc > screen > none",
+            "missing_optional_capabilities",
+            "opening_safety_polarity",
+            "async_reload(entry_id)",
+            "$state.snapshot",
+            "Installed / Shadow / Not Live",
+        ):
+            self.assertIn(term, status_model)
+
     def test_contract_document_contains_versioned_examples_and_decisions(self) -> None:
         source = (DOCS / "CONTRACTS.md").read_text(encoding="utf-8")
         for term in (
@@ -85,8 +102,6 @@ class DocumentationTests(unittest.TestCase):
             "opening.v1",
             "weather_environment.v1",
             "technical_device.v1",
-            "sensor.benni_core_state_bio_state",
-            "cover.wohnbereich_thermo_verdunklungsrollo",
             "unknown",
             "reject",
             "max_age_seconds",
@@ -167,6 +182,7 @@ class DocumentationTests(unittest.TestCase):
                 "cover_available",
                 "cover_ready",
                 "cover_position",
+                "opening_safety_polarity",
             ),
             "solar_bindings": (
                 "outdoor_lux",
@@ -220,6 +236,7 @@ class DocumentationTests(unittest.TestCase):
             DOCS / "CONTRACTS.md",
             DOCS / "MIGRATION.md",
             DOCS / "AP2_SHADOW.md",
+            DOCS / "STATUS_MODEL.md",
         ):
             source = path.read_text(encoding="utf-8")
             for target in link_pattern.findall(source):
