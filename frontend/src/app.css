@@ -1,3 +1,4 @@
+/* Vite embeds this stylesheet in the panel bundle. */
 :host {
   display: block;
   min-width: 320px;

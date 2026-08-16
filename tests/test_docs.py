@@ -186,6 +186,7 @@ class DocumentationTests(unittest.TestCase):
         css = (FRONTEND / "src" / "app.css").read_text(encoding="utf-8")
         transport = (FRONTEND / "src" / "lib" / "transport.ts").read_text(encoding="utf-8")
         panel = (PACKAGE / "panel.py").read_text(encoding="utf-8")
+        vite = (FRONTEND / "vite.config.ts").read_text(encoding="utf-8")
 
         self.assertIn("customElements.define('blind-control-panel'", main)
         self.assertIn("set hass(value", main)
@@ -202,6 +203,8 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("async_register_static_paths", panel)
         self.assertIn("async_register_built_in_panel", panel)
         self.assertIn("js_url", panel)
+        self.assertIn("normalizePanelStylesheet", vite)
+        self.assertIn("replaceAll('\\r\\n', '\\n')", vite)
         bundle = PACKAGE / "frontend" / "blind-control-panel.js"
         self.assertTrue(bundle.is_file())
         bundle_source = bundle.read_text(encoding="utf-8")
