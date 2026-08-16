@@ -99,9 +99,10 @@ Der frühe AP2-Slice versioniert zusätzlich:
 
 | Contract | Inhalt | Sicherheitsgrenze |
 | --- | --- | --- |
-| `blind_control.decision.v1` | Kandidaten, Gewinner, pausierte Äste, fachliches Ziel, Safety, Apply-Intent | kein ausführbarer Gerätepfad |
+| `blind_control.decision.v2` | Kandidaten, hierarchischer Gewinner, aktive/pausierte Äste, Failure-Quality, fachliches Ziel, Safety, Apply-Intent | kein ausführbarer Gerätepfad |
 | `blind_control.shadow.v1` | Inputs, Trace, Legacy-Diffs und Shadow-Flags | `shadow_only=true`, `actuation_executed=false`, `write_path_reachable=false` |
-| `blind_control.ux.v1` | laufende Snapshot-Projektion für Übersicht, Diagnose und OptionsFlow-Einstellungen | kein Geräte-/Cover-Command und kein Service-Pfad |
+| `blind_control.ux.v2` | laufende Snapshot-Projektion für Übersicht, Diagnose und OptionsFlow-Einstellungen | kein Geräte-/Cover-Command und kein Service-Pfad |
+| `blind_control.automation_projection.v1` | kleine redigierte Automations-/Diagnoseprojektion über genau eine Sensorentität | kein Service, kein Gerätepfad |
 
 Alle externen Inputwerte werden als `InputObservation` mit `source`,
 `quality`, `reason` und optionalem Zeitbezug übergeben. Nur `fresh` ist für
@@ -109,9 +110,17 @@ positive fachliche oder technische Aussagen verwendbar. Die Fachmodule
 erzeugen keine externe Rohwahrheit und enthalten keine produktiven Entity-IDs.
 Die laufende HA-Anbindung liest ausschließlich über owner-konfigurierte
 Bindings; fehlende oder stale Inputs bleiben sichtbar und werden nicht als
-positive Werte ersetzt. Die UX erhält den aktuellen `blind_control.ux.v1`
+positive Werte ersetzt. Die UX erhält den aktuellen `blind_control.ux.v2`
 Snapshot über den read-only WebSocket-Read-Pfad; Konfigurationsänderungen
 werden ausschließlich als validierte ConfigEntry-/OptionsFlow-Daten gespeichert.
+
+Das automatische Quality-Gate wird nicht durch ein schon gebildetes
+fachliches Target umgangen. Sobald Temperatur, Activity/Belegung oder der
+relevante Lux-/Solar-Block nicht fresh und vollständig belastbar ist, führt
+das Ergebnis `quality_blockers[]` mit Feld, Quality und Reason und setzt den
+Mastermodus auf `failure`. Damit ist ein `base_daylight`-Target kein
+Öffnungsbefehl: die letzte nachweislich sichere Position wird gehalten oder
+Apply bleibt blockiert.
 
 AP2 konkretisiert die Freshness feldweise: stabile Core-State-Contracts sind
 nicht allein wegen eines alten `last_updated`-Werts stale; zeitkritische
@@ -130,3 +139,66 @@ Feldern. Innerhalb desselben Keys bleibt der Override aktiv; ein Key-Wechsel
 endet ihn mit `override_context_changed`, der Eintritt in kanonisches Waking
 mit `waking_context_superseded`. Das ist ein Lifecycle-Ereignis, kein
 heuristischer Zustandsersatz.
+
+## 7. AP2 Decision- und UX-Contract v2
+
+`blind_control.decision.v2` ersetzt für neue Consumer die flache
+Entscheidungsdarstellung. `active_mode` und `winner_keys` bleiben nur
+abwärtskompatible Diagnosefelder; sie dürfen nicht als alleinige
+Entscheidungshierarchie interpretiert werden.
+
+| Feld | Semantik |
+| --- | --- |
+| `master_mode` | ausschließlich `normal`, `manual` oder `failure` |
+| `winner.category`, `winner.variant`, `winner.candidate_key`, `winner.target_position` | fachlicher Gewinner; `pc`/`tv` sind Varianten von `glare`, Climate-Varianten sind `heat`, `cold`, `storm`, `cool_air` |
+| `active_branches[]` | nur fachlich aktive oder bewusst pausierte aktive Anforderungen mit Kategorie, Variante, Candidate-Key, `active`, `paused`, `winner`, Ziel, Quality, redigierter Source, Reason und `suppressed_by`; inaktive Diagnosekandidaten gehören nicht hinein |
+| `failure.status`, `failure.reason`, `failure.hold_target`, `failure.quality_blockers[]` | konkrete Entscheidungsunfähigkeit mit allen fehlenden Quality-Evidences, Position halten oder Apply blockiert; kein unsichtbarer Open-Fallback |
+| `fachlicher_target` | Ergebnis der unveränderten Minimum-Komposition kompatibler Anforderungen |
+| `effective_target` | gehaltenes, technisch zugelassenes oder durch positiv bestätigte Safety bestimmtes Ziel |
+| `safety`, `apply` | technische Entscheidungen, ausdrücklich getrennt vom fachlichen Mastermodus |
+
+`normal` projiziert `neutral`, `waking`, `sleep`, `away`, `privacy`,
+`glare -> general|tv|pc` oder `climate -> heat|cold|storm|cool_air`.
+Waking pausiert die festgelegten Umweltäste sichtbar. Ein nachgewiesener
+fremder Override liefert `manual -> override`; Safety und der festgelegte
+Lifecycle können dessen effektives Ziel technisch überstimmen, ohne daraus
+eine neue freie Automatik abzuleiten.
+
+Failure wird nur bei fehlender belastbarer Entscheidungsgrundlage gesetzt; ein
+bekannter neutraler Context bleibt `normal`. Bei Failure wird eine frische,
+nachweislich sichere aktuelle oder letzte Position gehalten, sonst Apply
+blockiert. Nur positive Opening-Safety darf das konfigurierte, achsenspezifische
+Safety-Open-Profil freigeben. Opening-Quality `unknown`, `stale`,
+`unavailable` oder `conflict` führt nie zu einer Öffnungsfahrt. Ebenso darf
+`base_daylight` bei `missing`, `unknown`, `unavailable`, `stale` oder
+`conflict` in Temperatur-, Activity-/Belegungs- und Lux-/Solar-Evidence keine
+neue Öffnung auslösen.
+
+`blind_control.ux.v2` enthält den v2-Entscheidungsbaum, die getrennte
+technische Ebene, die flache Diagnoseansicht, Solar-/Quality-/Alt-Neu-Evidence
+und den Settings-Status. Public Source-Werte werden zu Owner-Kategorien
+redigiert; Bindings und Entity-IDs erscheinen nicht in Snapshot-,
+WebSocket- oder Clipboard-Payloads.
+
+### 7.1 Binding- und OptionsFlow-Contract
+
+Bindings werden im nativen Home-Assistant-OptionsFlow ausschließlich über
+`selector({"entity": {}})` verarbeitet. Die Sections heißen Core State,
+Opening/Safety/Cover, Solar, Temperatur/Wetter und Legacy-Vergleich. Leere
+optionale Werte werden beim Persistieren entfernt. Der WebSocket-Optionspfad
+ist admin-geschützt, akzeptiert aber keine Binding-Mappings; dafür ist allein
+der OptionsFlow zuständig. Die Panel-Projektion enthält für jedes Feld nur
+`configured`, `owner`, `max_age_seconds` und `require_timestamp`.
+
+### 7.2 Kleine Automations-/Diagnoseprojektion
+
+`blind_control.automation_projection.v1` ist ein read-only, versioniertes
+Objekt mit `master_mode`, `active_category`, `active_variant`, kompatiblen
+`winner_*`-Feldern, `failure_status`, `failure_reason`,
+`failure_quality_blockers`, `fachlicher_target`, `effective_target`, Safety-,
+Apply- und Shadow-Flags. Die Integration stellt exakt eine diagnostische native
+Status-Sensorentität bereit. Deren Zustand ist `master_mode`; der übrige
+redigierte Contract liegt in den Attributen. Sie erhält nur einen stabilen
+Unique-ID-Suffix aus der ConfigEntry-Instanz, keine vorab erfundene Entity-ID,
+und besitzt weder Service noch Write-/Coverpfad. WebSocket, Panel und Sensor
+verwenden dieselbe redigierte Projektion.

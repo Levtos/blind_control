@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+import threading
 import types
 import unittest
 from contextlib import contextmanager
@@ -44,11 +45,38 @@ class FakeHass:
     def __init__(self, states):
         self.states = FakeStates(states)
         self.tasks = []
+        self.jobs = []
+
+    def add_job(self, callback):
+        self.jobs.append(callback)
+        callback()
 
     def async_create_task(self, coroutine):
         task = asyncio.create_task(coroutine)
         self.tasks.append(task)
         return task
+
+
+class ThreadAwareFakeHass(FakeHass):
+    """Record the actual worker-to-HA-loop scheduling path."""
+
+    def __init__(self, states, loop) -> None:
+        super().__init__(states)
+        self.loop = loop
+        self.loop_thread_id = threading.get_ident()
+        self.add_job_thread_ids: list[int] = []
+        self.create_task_thread_ids: list[int] = []
+
+    def add_job(self, callback) -> None:
+        self.add_job_thread_ids.append(threading.get_ident())
+        self.loop.call_soon_threadsafe(callback)
+
+    def async_create_task(self, coroutine):
+        self.create_task_thread_ids.append(threading.get_ident())
+        if threading.get_ident() != self.loop_thread_id:
+            coroutine.close()
+            raise AssertionError("async_create_task escaped the Home Assistant event loop")
+        return super().async_create_task(coroutine)
 
 
 class FakeEntry:
@@ -265,6 +293,10 @@ class CoordinatorTests(unittest.TestCase):
             entry.runtime_data = types.SimpleNamespace(snapshot=None, ux_snapshot=None)
 
             snapshot = await coordinator.async_start()
+            published: list[object] = []
+            remove_listener = coordinator.async_add_snapshot_listener(
+                lambda: published.append(coordinator.snapshot)
+            )
             self.assertEqual(len(registry.state_callbacks), 1)
             self.assertEqual(len(registry.time_callbacks), 1)
             self.assertEqual(registry.intervals[0], timedelta(seconds=60))
@@ -273,17 +305,41 @@ class CoordinatorTests(unittest.TestCase):
             await hass.tasks[-1]
             self.assertEqual(snapshot.inputs["bio_state"]["value"], "awake")
             self.assertEqual(entry.runtime_data.snapshot.inputs["bio_state"]["value"], "sleeping")
+            self.assertEqual(len(published), 1)
 
             registry.time_callbacks[0](None)
             await hass.tasks[-1]
             self.assertIs(entry.runtime_data.snapshot, coordinator.snapshot)
-            self.assertEqual(entry.runtime_data.ux_snapshot["version"], "blind_control.ux.v1")
+            self.assertEqual(entry.runtime_data.ux_snapshot["version"], "blind_control.ux.v2")
+            self.assertEqual(len(published), 2)
             self.assertFalse(coordinator.snapshot.actuation_executed)
             self.assertFalse(coordinator.snapshot.write_path_reachable)
+            remove_listener()
             coordinator.stop()
             self.assertEqual(registry.unsubscribed, 2)
 
         with fake_home_assistant_event_modules() as registry:
+            asyncio.run(exercise())
+
+    def test_worker_callback_schedules_task_only_after_reaching_ha_event_loop(self) -> None:
+        async def exercise() -> None:
+            loop = asyncio.get_running_loop()
+            hass = ThreadAwareFakeHass(self.states, loop)
+            entry = FakeEntry()
+            coordinator = ShadowCoordinator(hass, entry, self.config, ShadowRuntime(self.config))
+            entry.runtime_data = types.SimpleNamespace(snapshot=None, ux_snapshot=None)
+            await coordinator.async_start()
+
+            await asyncio.to_thread(coordinator._state_changed, None)
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
+            await hass.tasks[-1]
+
+            self.assertNotEqual(hass.add_job_thread_ids[-1], hass.loop_thread_id)
+            self.assertEqual(hass.create_task_thread_ids[-1], hass.loop_thread_id)
+            coordinator.stop()
+
+        with fake_home_assistant_event_modules():
             asyncio.run(exercise())
 
     def test_coordinator_timer_uses_shortest_field_freshness(self) -> None:

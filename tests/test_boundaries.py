@@ -21,7 +21,6 @@ class BoundaryTests(unittest.TestCase):
     def test_product_code_has_no_actuation_or_active_apply_surface(self) -> None:
         forbidden = (
             "async_call",
-            "async_forward_entry_setups",
             "async_register_service",
             "call_service",
             "set_cover_position",
@@ -30,6 +29,16 @@ class BoundaryTests(unittest.TestCase):
             source = path.read_text(encoding="utf-8")
             for token in forbidden:
                 self.assertNotIn(token, source, f"{token} in {path}")
+
+    def test_only_read_only_sensor_platform_is_forwarded(self) -> None:
+        source = (PACKAGE / "__init__.py").read_text(encoding="utf-8")
+        sensor = (PACKAGE / "sensor.py").read_text(encoding="utf-8")
+
+        self.assertIn("PLATFORMS: tuple[Platform, ...] = (Platform.SENSOR,)", source)
+        self.assertIn("async_forward_entry_setups(entry, PLATFORMS)", source)
+        self.assertIn("async_unload_platforms(entry, PLATFORMS)", source)
+        self.assertIn("SensorEntity", sensor)
+        self.assertNotIn("async_call", sensor)
 
 
 if __name__ == "__main__":

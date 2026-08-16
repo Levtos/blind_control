@@ -10,9 +10,12 @@ export type UiStatus =
   | 'error'
   | 'blocked';
 
+export type MasterMode = 'normal' | 'manual' | 'failure';
+
 export type Candidate = {
   key: string;
   category: string;
+  variant: string | null;
   active: boolean;
   target_position: number | null;
   source: string;
@@ -20,6 +23,34 @@ export type Candidate = {
   quality: string;
   paused: boolean;
   suppressed_by: string | null;
+};
+
+export type DecisionWinner = {
+  category: string;
+  variant: string | null;
+  candidate_key: string;
+  target_position: number | null;
+};
+
+export type DecisionBranch = {
+  category: string;
+  variant: string | null;
+  candidate_key: string;
+  active: boolean;
+  paused: boolean;
+  winner: boolean;
+  target_position: number | null;
+  quality: string;
+  source: string;
+  reason: string;
+  suppressed_by: string | null;
+};
+
+export type FailureDecision = {
+  status: string;
+  reason: string | null;
+  hold_target: number | null;
+  quality_blockers: { key: string; quality: string; reason: string }[];
 };
 
 export type PositionProfile = { normal: number; inverted: number };
@@ -30,9 +61,15 @@ export type BindingFreshness = {
   owner: string;
 };
 
-export type BindingStatus = {
-  input_bindings: Record<string, boolean>;
-  legacy_bindings: Record<string, boolean>;
+export type BindingField = BindingFreshness & {
+  key: string;
+  configured: boolean;
+};
+
+export type BindingGroup = {
+  key: string;
+  label: string;
+  fields: BindingField[];
 };
 
 export type UxSettings = {
@@ -41,9 +78,7 @@ export type UxSettings = {
   window_tilt: number;
   automation_enabled: boolean;
   apply_enabled: boolean;
-  input_bindings: Record<string, string>;
-  legacy_bindings: Record<string, string>;
-  binding_status: BindingStatus;
+  binding_groups: BindingGroup[];
   observation_freshness_seconds: number;
   binding_freshness: Record<string, BindingFreshness>;
   profiles: Record<string, PositionProfile>;
@@ -51,9 +86,13 @@ export type UxSettings = {
 };
 
 export type UxSnapshot = {
-  version: 'blind_control.ux.v1';
+  version: 'blind_control.ux.v2';
   evaluated_at: string;
   overview: {
+    master_mode: MasterMode;
+    winner: DecisionWinner | null;
+    active_branches: DecisionBranch[];
+    failure: FailureDecision;
     active_mode: string;
     winner_keys: string[];
     fachlicher_target: number | null;
@@ -80,11 +119,28 @@ export type UxSnapshot = {
       started_at: string | null;
       context_key: Record<string, string> | null;
     };
+    technical: {
+      opening_state: string;
+      safety: Record<string, unknown>;
+      apply: Record<string, unknown>;
+      cover_available: boolean | null;
+      cover_ready: boolean | null;
+      shadow_only: boolean;
+      actuation_executed: boolean;
+      write_path_reachable: boolean;
+    };
     shadow_only: boolean;
     actuation_executed: boolean;
     write_path_reachable: boolean;
   };
   diagnosis: {
+    hierarchy: {
+      master_mode: MasterMode;
+      winner: DecisionWinner | null;
+      active_branches: DecisionBranch[];
+      failure: FailureDecision;
+      legacy_flat: { active_mode: string; winner_keys: string[] };
+    };
     candidates: Candidate[];
     paused_requirements: { key: string; reason: string; source: string }[];
     solar: {
@@ -112,5 +168,25 @@ export type UxSnapshot = {
     legacy_evidence: Record<string, unknown>;
   };
   settings: UxSettings;
+  automation_projection: {
+    version: 'blind_control.automation_projection.v1';
+    master_mode: MasterMode;
+    winner_category: string | null;
+    winner_variant: string | null;
+    active_category: string | null;
+    active_variant: string | null;
+    fachlicher_target: number | null;
+    effective_target: number | null;
+    failure_status: string;
+    failure_reason: string | null;
+    failure_quality_blockers: { key: string; quality: string; reason: string }[];
+    safety_status: string;
+    apply_status: string;
+    safety_blocked: boolean;
+    apply_blocked: boolean;
+    shadow_only: boolean;
+    actuation_executed: boolean;
+    write_path_reachable: boolean;
+  };
   debug_payload: Record<string, unknown>;
 };

@@ -10,9 +10,19 @@ from __future__ import annotations
 import asyncio
 import math
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
+
+try:
+    from homeassistant.core import callback
+except ImportError:  # pragma: no cover - enables the HA-independent contract tests
+
+    def callback[**P, R](func: Callable[P, R]) -> Callable[P, R]:
+        """Fallback marker when Home Assistant is intentionally absent in tests."""
+
+        return func
+
 
 from .config import (
     INPUT_BINDING_KEYS,
@@ -134,6 +144,7 @@ class ShadowCoordinator:
         self.snapshot: ShadowSnapshot | None = None
         self.ux_snapshot: dict[str, object] | None = None
         self._unsubscribers: list[object] = []
+        self._snapshot_listeners: list[Callable[[], None]] = []
         self._refresh_task: asyncio.Task[object] | None = None
         self._restart_baseline_established = False
 
@@ -178,6 +189,7 @@ class ShadowCoordinator:
             if callable(unsubscribe):
                 unsubscribe()
         self._unsubscribers.clear()
+        self._snapshot_listeners.clear()
         if self._refresh_task is not None and not self._refresh_task.done():
             self._refresh_task.cancel()
         self._refresh_task = None
@@ -214,15 +226,62 @@ class ShadowCoordinator:
         if runtime_data is not None:
             runtime_data.snapshot = snapshot
             runtime_data.ux_snapshot = self.ux_snapshot
+        self._notify_snapshot_listeners()
         return snapshot
 
+    @callback
+    def async_add_snapshot_listener(self, listener: Callable[[], None]) -> Callable[[], None]:
+        """Subscribe a read-only platform projection to future Shadow snapshots."""
+
+        self._snapshot_listeners.append(listener)
+
+        @callback
+        def _remove_listener() -> None:
+            if listener in self._snapshot_listeners:
+                self._snapshot_listeners.remove(listener)
+
+        return _remove_listener
+
+    @callback
+    def _notify_snapshot_listeners(self) -> None:
+        """Notify only in-memory read-only consumers after an evaluated snapshot."""
+
+        for listener in tuple(self._snapshot_listeners):
+            listener()
+
+    @callback
     def _state_changed(self, *_args: object) -> None:
+        """Receive state events in HA's event loop and request a refresh safely."""
+
         self._schedule_refresh()
 
+    @callback
     def _time_changed(self, *_args: object) -> None:
+        """Receive timer events in HA's event loop and request a refresh safely."""
+
         self._schedule_refresh()
 
+    @callback
     def _schedule_refresh(self) -> None:
+        """Hop through Home Assistant's thread-safe scheduler before task creation."""
+
+        add_job = getattr(self.hass, "add_job", None)
+        if callable(add_job):
+            add_job(self._schedule_refresh_in_event_loop)
+            return
+
+        loop = getattr(self.hass, "loop", None)
+        if loop is not None:
+            loop.call_soon_threadsafe(self._schedule_refresh_in_event_loop)
+            return
+
+        # This fallback is only for the minimal local fakes used by pure tests.
+        asyncio.get_running_loop().call_soon(self._schedule_refresh_in_event_loop)
+
+    @callback
+    def _schedule_refresh_in_event_loop(self) -> None:
+        """Create the coroutine only after the scheduler reached HA's event loop."""
+
         if self._refresh_task is not None and not self._refresh_task.done():
             return
         create_task = getattr(self.hass, "async_create_task", None)

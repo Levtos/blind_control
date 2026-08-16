@@ -4,6 +4,7 @@
   "version": "0.2.0",
   "type": "module",
   "scripts": {
+    "test": "node --test tests/draft-settings.test.mjs",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "build": "vite build"
   },

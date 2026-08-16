@@ -19,15 +19,8 @@ export async function updateOptions(hass: HassContext, settings: UxSettings): Pr
     ...settings.calibration_defaults,
   } as Record<string, unknown>;
   delete options.calibration_defaults;
-  delete options.binding_status;
-
-  for (const key of ['input_bindings', 'legacy_bindings'] as const) {
-    const configured = Object.fromEntries(
-      Object.entries(settings[key]).filter(([, value]) => value.trim().length > 0),
-    );
-    delete options[key];
-    if (Object.keys(configured).length > 0) options[key] = configured;
-  }
+  delete options.binding_groups;
+  delete options.binding_freshness;
 
   await hass.connection.sendMessagePromise({
     type: 'blind_control/update_options',

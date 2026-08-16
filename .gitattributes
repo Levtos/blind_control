@@ -1,0 +1,4 @@
+# The Vite panel embeds this stylesheet verbatim. Keep its generated bundle
+# byte-stable across Windows development and Linux CI.
+frontend/src/app.css text eol=lf
+custom_components/blind_control/frontend/blind-control-panel.js text eol=lf

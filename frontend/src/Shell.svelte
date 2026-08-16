@@ -11,23 +11,27 @@
   let loading = $state(true);
   let saving = $state(false);
 
-  async function refresh(): Promise<void> {
+  async function refresh(): Promise<UxSnapshot | null> {
     try {
       const next = await fetchSnapshot(hass);
       snapshot = next;
       error = null;
+      return next;
     } catch (cause) {
       error = cause instanceof Error ? cause.message : 'Shadow snapshot unavailable';
+      return null;
     } finally {
       loading = false;
     }
   }
 
-  async function saveSettings(settings: UxSettings): Promise<void> {
+  async function saveSettings(settings: UxSettings): Promise<UxSettings> {
     saving = true;
     try {
       await updateOptions(hass, settings);
-      await refresh();
+      const confirmed = await refresh();
+      if (!confirmed) throw new Error('Confirmed Shadow snapshot unavailable');
+      return confirmed.settings;
     } finally {
       saving = false;
     }

@@ -57,6 +57,9 @@ class DocumentationTests(unittest.TestCase):
         ap2 = (DOCS / "AP2_SHADOW.md").read_text(encoding="utf-8")
         for term in (
             "blind_control.shadow.v1",
+            "blind_control.decision.v2",
+            "blind_control.ux.v2",
+            "Installed / Shadow / Not Live",
             "shadow_only = true",
             "write_path_reachable = false",
             "waking",
@@ -66,6 +69,11 @@ class DocumentationTests(unittest.TestCase):
             "activity_state = none",
             "override_context_changed",
             "Not Live",
+            "hass.add_job",
+            "native Entity-Selectoren",
+            "quality_blockers[]",
+            "Status-Sensorentität",
+            "inhaltsbasierte Revision",
         ):
             self.assertIn(term, ap2)
 
@@ -84,6 +92,13 @@ class DocumentationTests(unittest.TestCase):
             "max_age_seconds",
             "require_timestamp",
             "waking_context_superseded",
+            "AP2 Decision- und UX-Contract v2",
+            "master_mode",
+            "active_branches[]",
+            "automation_projection.v1",
+            'selector({"entity": {}})',
+            "failure.quality_blockers[]",
+            "Status-Sensorentität",
         ):
             self.assertIn(term, source)
 
@@ -135,6 +150,67 @@ class DocumentationTests(unittest.TestCase):
             )
             self.assertEqual(source_keys, key_paths(translated), locale)
 
+    def test_native_entity_selector_labels_are_complete_and_human_readable(self) -> None:
+        binding_groups = {
+            "core_state_bindings": (
+                "bio_state",
+                "activity_state",
+                "day_state",
+                "day_context",
+                "away",
+                "private_time",
+                "privacy",
+            ),
+            "opening_safety_cover_bindings": (
+                "opening_state",
+                "opening_safe_for_blind",
+                "cover_available",
+                "cover_ready",
+                "cover_position",
+            ),
+            "solar_bindings": (
+                "outdoor_lux",
+                "lux_trend",
+                "sun_elevation",
+                "sun_azimuth",
+                "expected_direct_radiation",
+                "expected_diffuse_radiation",
+                "cloud_cover",
+            ),
+            "temperature_weather_bindings": (
+                "indoor_temperature",
+                "outdoor_temperature",
+                "indoor_temperature_trend",
+                "outdoor_temperature_trend",
+                "weather_alert",
+                "precipitation_trend",
+                "wind_trend",
+                "pressure_trend",
+                "air_movement",
+            ),
+            "legacy_comparison_bindings": (
+                "active_mode",
+                "effective_target",
+                "safety_status",
+                "apply_status",
+            ),
+        }
+
+        for filename in ("strings.json", "translations/de.json", "translations/en.json"):
+            document = json.loads((PACKAGE / filename).read_text(encoding="utf-8"))
+            for flow, step in (("config", "user"), ("options", "init")):
+                form = document[flow]["step"][step]
+                for section, fields in binding_groups.items():
+                    labels = form["sections"][section]["data"]
+                    descriptions = form["sections"][section]["data_description"]
+                    for field in fields:
+                        with self.subTest(file=filename, flow=flow, field=field):
+                            self.assertIn(field, labels)
+                            self.assertNotEqual(labels[field], field)
+                            self.assertTrue(labels[field].strip())
+                            self.assertIn(field, descriptions)
+                            self.assertTrue(descriptions[field].strip())
+
     def test_relative_document_links_resolve(self) -> None:
         link_pattern = re.compile(r"\]\((?!https?://|#)([^)]+)\)")
         for path in (
@@ -157,7 +233,7 @@ class DocumentationTests(unittest.TestCase):
         source = "\n".join(
             path.read_text(encoding="utf-8")
             for path in (FRONTEND / "src").rglob("*")
-            if path.is_file() and path.suffix in {".ts", ".svelte", ".css"}
+            if path.is_file() and path.suffix in {".ts", ".js", ".svelte", ".css"}
         )
         self.assertNotIn("SUPERVISOR_TOKEN", source)
         self.assertNotIn("localStorage", source)
@@ -166,12 +242,20 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("blind_control/update_options", source)
         self.assertIn("navigator.clipboard", source)
         self.assertIn("statusTone", source)
+        self.assertIn("master_mode", source)
+        self.assertIn("active_branches", source)
+        self.assertIn("rebaseDraft", source)
+        self.assertIn("settingsRevision", source)
+        self.assertNotIn("lastSnapshot", source)
+        self.assertNotIn("editableSettings.input_bindings", source)
+        self.assertNotIn("editableSettings.legacy_bindings", source)
 
     def test_frontend_is_an_installable_ha_panel_with_official_context(self) -> None:
         main = (FRONTEND / "src" / "main.ts").read_text(encoding="utf-8")
         css = (FRONTEND / "src" / "app.css").read_text(encoding="utf-8")
         transport = (FRONTEND / "src" / "lib" / "transport.ts").read_text(encoding="utf-8")
         panel = (PACKAGE / "panel.py").read_text(encoding="utf-8")
+        vite = (FRONTEND / "vite.config.ts").read_text(encoding="utf-8")
 
         self.assertIn("customElements.define('blind-control-panel'", main)
         self.assertIn("set hass(value", main)
@@ -188,6 +272,8 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("async_register_static_paths", panel)
         self.assertIn("async_register_built_in_panel", panel)
         self.assertIn("js_url", panel)
+        self.assertIn("normalizePanelStylesheet", vite)
+        self.assertIn("replaceAll('\\r\\n', '\\n')", vite)
         bundle = PACKAGE / "frontend" / "blind-control-panel.js"
         self.assertTrue(bundle.is_file())
         bundle_source = bundle.read_text(encoding="utf-8")
@@ -197,18 +283,30 @@ class DocumentationTests(unittest.TestCase):
         self.assertFalse((PACKAGE / "frontend" / "index.html").exists())
         self.assertFalse(any(path.suffix == ".css" for path in (PACKAGE / "frontend").rglob("*")))
 
-    def test_ux_contains_all_binding_fields_and_live_household_projection(self) -> None:
+    def test_ux_contains_hierarchical_bindings_and_live_household_projection(self) -> None:
         ux = (PACKAGE / "ux_contract.py").read_text(encoding="utf-8")
         app = (FRONTEND / "src" / "App.svelte").read_text(encoding="utf-8")
+        config_flow = (PACKAGE / "config_flow.py").read_text(encoding="utf-8")
+        coordinator = (PACKAGE / "coordinator.py").read_text(encoding="utf-8")
+
+        for term in ('"cover_position"', '"household"', '"master_mode"', '"active_branches"'):
+            self.assertIn(term, ux)
         for term in (
-            '"cover_position"',
-            '"household"',
-            "inputBindingKeys",
-            "legacyBindingKeys",
-            "editableSettings.input_bindings[key] ?? ''",
-            "editableSettings.legacy_bindings[key] ?? ''",
+            "Native Entity-Selectoren",
+            "binding_groups",
+            "nicht konfiguriert",
+            "FACHLICHER ENTSCHEIDUNGSBAUM",
+            "TECHNISCHE EBENE",
+            "HAUSHALT & KONTEXT",
+            "snapshot.overview.household",
         ):
-            self.assertIn(term, ux + app)
+            self.assertIn(term, app)
+        self.assertNotIn("input_bindings", app)
+        self.assertNotIn("legacy_bindings", app)
+        self.assertIn('selector({"entity": {}})', config_flow)
+        self.assertIn("section(", config_flow)
+        self.assertIn('getattr(self.hass, "add_job"', coordinator)
+        self.assertIn("_schedule_refresh_in_event_loop", coordinator)
 
 
 if __name__ == "__main__":

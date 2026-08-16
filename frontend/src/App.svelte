@@ -1,40 +1,19 @@
 <script lang="ts">
-  import type { Candidate, UxSettings, UxSnapshot } from './lib/contracts';
+  import type {
+    Candidate,
+    DecisionBranch,
+    UxSettings,
+    UxSnapshot,
+  } from './lib/contracts';
+  import {
+    cloneSettings,
+    rebaseDraft,
+    settingsRevision,
+    settleSave,
+  } from './lib/draft-settings.js';
 
   type Tab = 'overview' | 'diagnosis' | 'settings';
   type ProfileAxis = 'normal' | 'inverted';
-
-  const inputBindingKeys = [
-    'bio_state',
-    'activity_state',
-    'day_state',
-    'day_context',
-    'away',
-    'private_time',
-    'privacy',
-    'opening_state',
-    'opening_safe_for_blind',
-    'cover_available',
-    'cover_ready',
-    'cover_position',
-    'outdoor_lux',
-    'lux_trend',
-    'sun_elevation',
-    'sun_azimuth',
-    'expected_direct_radiation',
-    'expected_diffuse_radiation',
-    'cloud_cover',
-    'indoor_temperature',
-    'outdoor_temperature',
-    'indoor_temperature_trend',
-    'outdoor_temperature_trend',
-    'weather_alert',
-    'precipitation_trend',
-    'wind_trend',
-    'pressure_trend',
-    'air_movement',
-  ];
-  const legacyBindingKeys = ['active_mode', 'effective_target', 'safety_status', 'apply_status'];
 
   let {
     snapshot,
@@ -42,53 +21,116 @@
     saving = false,
   }: {
     snapshot: UxSnapshot;
-    onSaveSettings?: (settings: UxSettings) => Promise<void>;
+    onSaveSettings?: (settings: UxSettings) => Promise<UxSettings>;
     saving?: boolean;
   } = $props();
+
   let activeTab = $state<Tab>('overview');
-  const cloneSettings = (settings: UxSettings): UxSettings => structuredClone(settings);
   let draftSettings = $state<UxSettings | null>(null);
-  let editableSettings = $derived(draftSettings ?? snapshot.settings);
-  let lastSnapshot = $state<UxSnapshot | undefined>();
+  let confirmedSettingsRevision = $state<string | null>(null);
+  let saveError = $state<string | null>(null);
   let copyState = $state<'idle' | 'copied' | 'failed'>('idle');
-  let activeCandidates = $derived(snapshot.diagnosis.candidates.filter((candidate) => candidate.active));
+  let editableSettings = $derived(draftSettings ?? snapshot.settings);
+  let draftDirty = $derived(
+    draftSettings !== null
+      && confirmedSettingsRevision !== null
+      && settingsRevision(draftSettings) !== confirmedSettingsRevision,
+  );
+  let activeBranches = $derived(snapshot.overview.active_branches);
+  let supportingBranches = $derived(activeBranches.filter((branch) => !branch.winner && !branch.paused));
+  let pausedBranches = $derived(activeBranches.filter((branch) => branch.paused));
 
   $effect(() => {
-    if (lastSnapshot !== snapshot) {
-      draftSettings = structuredClone(snapshot.settings);
-      lastSnapshot = snapshot;
+    const next = rebaseDraft(
+      draftSettings,
+      confirmedSettingsRevision,
+      snapshot.settings,
+    );
+    if (
+      next.draftSettings !== draftSettings
+      || next.confirmedRevision !== confirmedSettingsRevision
+    ) {
+      draftSettings = next.draftSettings;
+      confirmedSettingsRevision = next.confirmedRevision;
     }
   });
 
-  const modeLabels: Record<string, string> = {
-    daylight: 'Tageslicht',
+  const labels: Record<string, string> = {
+    normal: 'Regulär',
+    manual: 'Manuell',
+    failure: 'Fehler',
+    neutral: 'Neutral',
     waking: 'Waking',
     sleep: 'Schlaf',
     away: 'Abwesend',
     privacy: 'Privacy',
     private_time: 'Private Zeit',
-    none: 'Kein Modus',
+    glare: 'Blendung',
+    general: 'Allgemein',
+    tv: 'TV',
+    pc: 'PC',
+    climate: 'Klima',
+    heat: 'Hitze',
+    cold: 'Kälte',
+    storm: 'Gewitter',
+    cool_air: 'Kühle Luft',
+    override: 'Override',
+    manual_override: 'Manueller Override',
+    bio_state: 'Bio',
+    activity_state: 'Aktivität',
+    day_state: 'Tag',
+    day_context: 'Tageskontext',
+    daylight: 'Tageslicht',
+    ready: 'bereit',
+    blocked: 'blockiert',
+    safe_position: 'Safety-Position',
+    safety_ready: 'Safety bereit',
+    shadow_ready: 'Shadow bereit',
   };
 
-  const labelFor = (value: string): string => modeLabels[value] ?? value.replaceAll('_', ' ');
+  const labelFor = (value: string | null | undefined): string => {
+    if (!value) return '—';
+    return labels[value] ?? value.replaceAll('_', ' ');
+  };
+
+  const branchLabel = (
+    branch: { category: string; variant: string | null } | null,
+  ): string => {
+    if (!branch) return '—';
+    return branch.variant
+      ? `${labelFor(branch.category)} → ${labelFor(branch.variant)}`
+      : labelFor(branch.category);
+  };
 
   const positionLabel = (value: number | null): string =>
     value === null ? '—' : `${Math.round(value)} %`;
 
-  const statusLabel = (value: string): string => value.replaceAll('_', ' ');
+  const statusLabel = (value: string | null | undefined): string => labelFor(value);
 
-  const statusTone = (value: string): string => {
-    if (value === 'ready' || value === 'safety_ready' || value === 'shadow_ready') return 'ready';
-    if (value === 'blocked') return 'blocked';
-    if (value === 'error' || value === 'unavailable') return 'error';
+  const failureBlockersLabel = (
+    blockers: { key: string; quality: string; reason: string }[],
+  ): string => blockers
+    .map((blocker) => `${labelFor(blocker.key)} (${labelFor(blocker.quality)})`)
+    .join(', ');
+
+  const statusTone = (value: string | null | undefined): string => {
+    if (value === 'ready' || value === 'safe_position' || value === 'safety_ready' || value === 'shadow_ready') return 'ready';
+    if (value === 'failure' || value === 'error' || value === 'unavailable') return 'error';
+    if (value === 'blocked' || value === 'manual' || value === 'holding_safe_position') return 'warning';
     return 'warning';
   };
 
   const householdLabel = (value: boolean | null): string =>
     value === null ? '—' : value ? 'ja' : 'nein';
 
-  const candidateClass = (candidate: Candidate): string =>
+  const contextValue = (value: string | boolean | null): string =>
+    typeof value === 'boolean' ? householdLabel(value) : statusLabel(value);
+
+  const candidateClass = (candidate: Candidate | DecisionBranch): string =>
     candidate.paused ? 'candidate paused' : candidate.active ? 'candidate active' : 'candidate';
+
+  const recordValue = (record: Record<string, unknown>, key: string): string =>
+    statusLabel(typeof record[key] === 'string' ? record[key] : null);
 
   function updateProfile(key: string, axis: ProfileAxis, value: number): void {
     if (!draftSettings) return;
@@ -98,11 +140,35 @@
   }
 
   function resetDraft(): void {
-    draftSettings = structuredClone(snapshot.settings);
+    draftSettings = cloneSettings(snapshot.settings);
+    confirmedSettingsRevision = settingsRevision(snapshot.settings);
+    saveError = null;
   }
 
   async function saveDraft(): Promise<void> {
-    if (onSaveSettings && draftSettings) await onSaveSettings(cloneSettings(draftSettings));
+    if (!onSaveSettings || !draftSettings) return;
+    const submittedDraft = cloneSettings(draftSettings);
+    const submittedRevision = settingsRevision(submittedDraft);
+    saveError = null;
+    try {
+      const confirmedSettings = await onSaveSettings(submittedDraft);
+      if (draftSettings && settingsRevision(draftSettings) === submittedRevision) {
+        const settled = settleSave(
+          draftSettings,
+          confirmedSettingsRevision,
+          confirmedSettings,
+        );
+        draftSettings = settled.draftSettings;
+        confirmedSettingsRevision = settled.confirmedRevision;
+      } else {
+        confirmedSettingsRevision = settingsRevision(confirmedSettings);
+      }
+    } catch {
+      const preserved = settleSave(draftSettings, confirmedSettingsRevision, null);
+      draftSettings = preserved.draftSettings;
+      confirmedSettingsRevision = preserved.confirmedRevision;
+      saveError = 'Speichern fehlgeschlagen. Der lokale Entwurf bleibt erhalten.';
+    }
   }
 
   async function copyDebugPayload(): Promise<void> {
@@ -116,20 +182,16 @@
     }
   }
 
-  function updateBinding(kind: 'input_bindings' | 'legacy_bindings', key: string, event: Event): void {
-    if (!draftSettings) return;
-    const value = (event.currentTarget as HTMLInputElement).value.trim();
-    draftSettings[kind][key] = value;
-    draftSettings.binding_status[kind][key] = value.length > 0;
-  }
-
   function updateNumber(key: 'window_azimuth' | 'window_tilt', event: Event): void {
     if (!draftSettings) return;
     const value = (event.currentTarget as HTMLInputElement).valueAsNumber;
     if (Number.isFinite(value)) draftSettings[key] = value;
   }
 
-  function updateBoolean(key: 'axis_inverted' | 'automation_enabled' | 'apply_enabled', event: Event): void {
+  function updateBoolean(
+    key: 'axis_inverted' | 'automation_enabled' | 'apply_enabled',
+    event: Event,
+  ): void {
     if (draftSettings) draftSettings[key] = (event.currentTarget as HTMLInputElement).checked;
   }
 
@@ -147,9 +209,9 @@
 <div class="panel-root">
   <header class="app-header">
     <div>
-      <p class="eyebrow">BLIND CONTROL · SHADOW</p>
+      <p class="eyebrow">BLIND CONTROL · SHADOW · NOT LIVE</p>
       <h1>Wohnzimmer-Rollo</h1>
-      <p class="subtitle">Deterministischer Entscheidungs- und Diagnosevertrag</p>
+      <p class="subtitle">Versionierter Entscheidungs-, Safety- und Shadow-Vertrag</p>
     </div>
     <div class="header-status">
       <span class={`status-dot ${statusTone(snapshot.overview.apply_status)}`}></span>
@@ -181,49 +243,83 @@
       <article class="hero-card card">
         <div class="card-heading">
           <div>
-            <p class="eyebrow">AKTIVER MODUS</p>
-            <h2>{labelFor(snapshot.overview.active_mode)}</h2>
+            <p class="eyebrow">MASTERMODUS</p>
+            <h2>{labelFor(snapshot.overview.master_mode)}</h2>
           </div>
-          <span class={`badge ${statusTone(snapshot.overview.safety_status)}`}>{statusLabel(snapshot.overview.safety_status)}</span>
+          <span class={`badge ${statusTone(snapshot.overview.master_mode)}`}>{statusLabel(snapshot.overview.master_mode)}</span>
         </div>
         <div class="target-row">
           <span class="target-value">{positionLabel(snapshot.overview.effective_target)}</span>
-          <span class="muted">technisch freigegebenes Ziel</span>
+          <span class="muted">effektives beziehungsweise gehaltenes Ziel</span>
         </div>
         <div class="metric-strip">
+          <div><span>Gewinner</span><strong>{branchLabel(snapshot.overview.winner)}</strong></div>
           <div><span>Fachliches Ziel</span><strong>{positionLabel(snapshot.overview.fachlicher_target)}</strong></div>
-          <div><span>Gewinner</span><strong>{snapshot.overview.winner_keys.join(', ') || '—'}</strong></div>
-          <div><span>Opening</span><strong>{statusLabel(snapshot.overview.opening_state)}</strong></div>
+          <div><span>Safety</span><strong>{statusLabel(snapshot.overview.safety_status)}</strong></div>
         </div>
+        {#if snapshot.overview.failure.status !== 'none'}
+          <p class="callout failure-callout">
+            Failure · {snapshot.overview.failure.reason?.replaceAll('_', ' ') ?? 'unbekannter Grund'} ·
+            {snapshot.overview.failure.hold_target === null
+              ? 'Apply blockiert'
+              : `Position halten: ${positionLabel(snapshot.overview.failure.hold_target)}`}
+            {#if snapshot.overview.failure.quality_blockers.length}
+              · Fehlende belastbare Evidence: {failureBlockersLabel(snapshot.overview.failure.quality_blockers)}
+            {/if}
+          </p>
+        {/if}
       </article>
 
       <article class="card status-card">
         <div class="card-heading">
-          <div><p class="eyebrow">TECHNISCHE GRENZE</p><h2>Safety & Apply</h2></div>
-          <span class={`badge ${statusTone(snapshot.overview.safety_status)}`}>{statusLabel(snapshot.overview.safety_status)}</span>
+          <div><p class="eyebrow">TECHNISCHE EBENE</p><h2>Safety & Apply</h2></div>
+          <span class={`badge ${statusTone(snapshot.overview.apply_status)}`}>{statusLabel(snapshot.overview.apply_status)}</span>
         </div>
         <dl class="facts">
-          <div><dt>Apply</dt><dd class={statusTone(snapshot.overview.apply_status)}>{statusLabel(snapshot.overview.apply_status)}</dd></div>
-          <div><dt>Manual Override</dt><dd>{snapshot.overview.override.active ? 'aktiv' : 'inaktiv'}</dd></div>
+          <div><dt>Opening</dt><dd>{statusLabel(snapshot.overview.technical.opening_state)}</dd></div>
+          <div><dt>Safety</dt><dd class={statusTone(recordValue(snapshot.overview.technical.safety, 'status'))}>{recordValue(snapshot.overview.technical.safety, 'status')}</dd></div>
+          <div><dt>Apply</dt><dd class={statusTone(recordValue(snapshot.overview.technical.apply, 'status'))}>{recordValue(snapshot.overview.technical.apply, 'status')}</dd></div>
           <div><dt>Coverposition</dt><dd>{positionLabel(snapshot.overview.cover_position)}</dd></div>
-          <div><dt>Haushalt / Away</dt><dd>{householdLabel(snapshot.overview.household.away)}</dd></div>
-          <div><dt>Private Zeit</dt><dd>{householdLabel(snapshot.overview.household.private_time)}</dd></div>
-          <div><dt>Shadow</dt><dd>{snapshot.overview.shadow_only ? 'nur Berechnung' : 'unbekannt'}</dd></div>
+          <div><dt>Cover bereit</dt><dd>{householdLabel(snapshot.overview.technical.cover_ready)}</dd></div>
+          <div><dt>Manual Override</dt><dd>{snapshot.overview.override.active ? 'aktiv' : 'inaktiv'}</dd></div>
         </dl>
-        <p class="callout">Keine Geräteaktion ist in diesem Contract erreichbar.</p>
+        <p class="eyebrow">HAUSHALT & KONTEXT</p>
+        <dl class="facts">
+          {#each Object.entries(snapshot.overview.household) as [key, value]}
+            <div><dt>{labelFor(key)}</dt><dd>{contextValue(value)}</dd></div>
+          {/each}
+        </dl>
+        <p class="callout">Safety und Apply sind technisch getrennt; der Mastermodus bleibt fachlich lesbar.</p>
       </article>
 
       <article class="card span-2">
-        <div class="card-heading"><div><p class="eyebrow">ENTSCHEIDUNGSBAUM</p><h2>Aktive Kandidaten</h2></div><span class="muted">{activeCandidates.length} aktiv</span></div>
+        <div class="card-heading">
+          <div><p class="eyebrow">FACHLICHER ENTSCHEIDUNGSBAUM</p><h2>Kategorie → Variante → Nebenäste</h2></div>
+          <span class="muted">{activeBranches.length} aktiv oder pausiert</span>
+        </div>
+        {#if snapshot.overview.winner}
+          <div class="winner-tree">
+            <span>Gewinner</span>
+            <strong>{labelFor(snapshot.overview.master_mode)} → {branchLabel(snapshot.overview.winner)}</strong>
+            <span>{positionLabel(snapshot.overview.winner.target_position)}</span>
+          </div>
+        {:else}
+          <p class="empty-state">Keine fachlich belastbare Gewinneranforderung vorhanden.</p>
+        {/if}
         <div class="candidate-grid">
-          {#each activeCandidates as candidate}
-            <div class={candidateClass(candidate)}>
-              <div class="candidate-top"><strong>{labelFor(candidate.key)}</strong><span>{positionLabel(candidate.target_position)}</span></div>
-              <p>{candidate.reason.replaceAll('_', ' ')}</p>
-              <small>{candidate.quality} · {candidate.source}</small>
+          {#each supportingBranches as branch}
+            <div class={candidateClass(branch)}>
+              <div class="candidate-top"><strong>{branchLabel(branch)}</strong><span>{positionLabel(branch.target_position)}</span></div>
+              <p>Aktiver Nebenast · {branch.reason.replaceAll('_', ' ')}</p>
+              <small>{branch.quality} · {branch.source}</small>
             </div>
-          {:else}
-            <p class="empty-state">Keine positive Anforderung liegt vor.</p>
+          {/each}
+          {#each pausedBranches as branch}
+            <div class={candidateClass(branch)}>
+              <div class="candidate-top"><strong>{branchLabel(branch)}</strong><span>pausiert</span></div>
+              <p>{branch.suppressed_by ? `unterdrückt durch ${labelFor(branch.suppressed_by)}` : branch.reason.replaceAll('_', ' ')}</p>
+              <small>{branch.quality} · {branch.source}</small>
+            </div>
           {/each}
         </div>
       </article>
@@ -231,18 +327,24 @@
   {:else if activeTab === 'diagnosis'}
     <section class="diagnosis-layout" aria-label="Diagnose">
       <article class="card">
-        <div class="card-heading"><div><p class="eyebrow">DECISION TRACE</p><h2>Kandidaten & pausierte Äste</h2></div><span class="badge">{snapshot.version}</span></div>
+        <div class="card-heading"><div><p class="eyebrow">DECISION TRACE</p><h2>Hierarchie und flache Diagnose</h2></div><span class="badge">{snapshot.version}</span></div>
+        <div class="winner-tree">
+          <span>Master</span>
+          <strong>{labelFor(snapshot.diagnosis.hierarchy.master_mode)} → {branchLabel(snapshot.diagnosis.hierarchy.winner)}</strong>
+          <span>{snapshot.diagnosis.hierarchy.failure.status === 'none' ? 'belastbar' : snapshot.diagnosis.hierarchy.failure.status}</span>
+        </div>
+        <h3>Flache Kandidatenliste (Diagnose)</h3>
         <div class="trace-list">
           {#each snapshot.diagnosis.candidates as candidate}
             <div class={candidateClass(candidate)}>
-              <div class="candidate-top"><strong>{labelFor(candidate.key)}</strong><span>{candidate.active ? positionLabel(candidate.target_position) : 'inaktiv'}</span></div>
+              <div class="candidate-top"><strong>{branchLabel(candidate)}</strong><span>{candidate.active ? positionLabel(candidate.target_position) : 'inaktiv'}</span></div>
               <p>{candidate.reason.replaceAll('_', ' ')}</p>
               <small>{candidate.paused ? `pausiert durch ${candidate.suppressed_by}` : candidate.quality} · {candidate.source}</small>
             </div>
           {/each}
         </div>
         {#if snapshot.diagnosis.paused_requirements.length}
-          <h3>Pausiert</h3>
+          <h3>Pausiert / unterdrückt</h3>
           <ul class="plain-list">
             {#each snapshot.diagnosis.paused_requirements as item}
               <li><strong>{labelFor(item.key)}</strong><span>{item.reason.replaceAll('_', ' ')}</span></li>
@@ -262,7 +364,7 @@
           </dl>
         </article>
         <article class="card">
-          <div class="card-heading"><div><p class="eyebrow">INPUT QUALITY</p><h2>Quellen</h2></div></div>
+          <div class="card-heading"><div><p class="eyebrow">INPUT QUALITY</p><h2>Owner-gebundene Inputs</h2></div></div>
           <div class="source-list">
             {#each Object.entries(snapshot.diagnosis.inputs) as [key, value]}
               <div><span>{labelFor(key)}</span><code>{typeof value === 'string' ? value : JSON.stringify(value)}</code></div>
@@ -272,7 +374,7 @@
           </div>
         </article>
         <article class="card debug-card">
-          <div class="card-heading"><div><p class="eyebrow">EXPORT</p><h2>Debug-Payload</h2></div><button class="quiet-button" type="button" onclick={copyDebugPayload}>{copyState === 'copied' ? 'Kopiert' : copyState === 'failed' ? 'Kopieren fehlgeschlagen' : 'Evidence kopieren'}</button></div>
+          <div class="card-heading"><div><p class="eyebrow">EXPORT</p><h2>Redigierte Debug-Evidence</h2></div><button class="quiet-button" type="button" onclick={copyDebugPayload}>{copyState === 'copied' ? 'Kopiert' : copyState === 'failed' ? 'Kopieren fehlgeschlagen' : 'Evidence kopieren'}</button></div>
           <details>
             <summary>Kopierbare Shadow-Evidence anzeigen</summary>
             <pre>{JSON.stringify(snapshot.debug_payload, null, 2)}</pre>
@@ -291,11 +393,14 @@
           <label class="toggle"><input type="checkbox" checked={editableSettings.automation_enabled} onchange={(event) => updateBoolean('automation_enabled', event)} /> Automatik aktiv</label>
           <label class="toggle"><input type="checkbox" checked={editableSettings.apply_enabled} onchange={(event) => updateBoolean('apply_enabled', event)} /> Apply-Gate aktiv</label>
         </div>
-        <p class="hint">Die Werte stammen aus der laufenden Shadow-Projektion. Speicherung läuft über den ConfigEntry-/OptionsFlow-Transport und erreicht keinen Cover-Service.</p>
+        <p class="hint">Die Werte stammen aus der laufenden Shadow-Projektion. Speicherung erreicht niemals einen Cover-Service.</p>
       </article>
 
       <article class="card span-2">
-        <div class="card-heading"><div><p class="eyebrow">PROFILE</p><h2>Normal / Invertiert</h2></div><div class="button-row"><button class="quiet-button" type="button" onclick={resetDraft}>Entwurf zurücksetzen</button><button class="primary-button" type="button" disabled={saving || !onSaveSettings} onclick={() => void saveDraft()}>{saving ? 'Speichere …' : 'Über OptionsFlow speichern'}</button></div></div>
+        <div class="card-heading"><div><p class="eyebrow">PROFILE</p><h2>Normal / Invertiert</h2></div><div class="button-row"><span class="muted">{draftDirty ? 'Ungespeicherter Entwurf' : 'Serverstand bestätigt'}</span><button class="quiet-button" type="button" onclick={resetDraft}>Entwurf zurücksetzen</button><button class="primary-button" type="button" disabled={saving || !onSaveSettings} onclick={() => void saveDraft()}>{saving ? 'Speichere …' : 'Shadow-Konfiguration speichern'}</button></div></div>
+        {#if saveError}
+          <p class="callout failure-callout">{saveError}</p>
+        {/if}
         <div class="profile-table" role="table" aria-label="Positionsprofile">
           <div class="profile-row profile-header" role="row"><span>Profil</span><span>Normal</span><span>Invertiert</span></div>
           {#each Object.entries(editableSettings.profiles) as [key, profile]}
@@ -318,22 +423,20 @@
       </article>
 
       <article class="card span-2">
-        <div class="card-heading"><div><p class="eyebrow">OWNER-BINDINGS</p><h2>Reale HA-Quellen</h2></div><span class="muted">OptionsFlow</span></div>
-        <p class="hint">Entity IDs werden ausschließlich vom Owner konfiguriert; ohne frische Bindung bleibt die entsprechende Entscheidung blockiert.</p>
+        <div class="card-heading"><div><p class="eyebrow">OWNER-BINDINGS</p><h2>Native Entity-Selectoren</h2></div><span class="muted">OptionsFlow</span></div>
+        <p class="hint">Bearbeitung erfolgt ausschließlich über Blind Control → Konfigurieren im nativen Home-Assistant-OptionsFlow. Entity-IDs werden im Panel nicht angezeigt oder entgegengenommen.</p>
         <div class="binding-grid">
-          {#each inputBindingKeys as key}
-            <label>
-              {labelFor(key)}
-              <input type="text" value={editableSettings.input_bindings[key] ?? ''} onchange={(event) => updateBinding('input_bindings', key, event)} />
-              <small>{editableSettings.binding_status.input_bindings[key] ? 'konfiguriert' : 'nicht konfiguriert'} · {editableSettings.binding_freshness[key]?.owner ?? 'unassigned'} · {editableSettings.binding_freshness[key]?.max_age_seconds === null ? 'stateful' : `${editableSettings.binding_freshness[key]?.max_age_seconds ?? '—'} s`}</small>
-            </label>
-          {/each}
-          {#each legacyBindingKeys as key}
-            <label>
-              Legacy · {labelFor(key)}
-              <input type="text" value={editableSettings.legacy_bindings[key] ?? ''} onchange={(event) => updateBinding('legacy_bindings', key, event)} />
-              <small>{editableSettings.binding_status.legacy_bindings[key] ? 'konfiguriert' : 'nicht konfiguriert'} · {editableSettings.binding_freshness[key]?.owner ?? 'legacy_policy'} · {editableSettings.binding_freshness[key]?.max_age_seconds ?? '—'} s</small>
-            </label>
+          {#each editableSettings.binding_groups as group}
+            <section class="binding-group">
+              <h3>{group.label}</h3>
+              {#each group.fields as field}
+                <div class="binding-row">
+                  <strong>{labelFor(field.key)}</strong>
+                  <span class={field.configured ? 'ready' : 'warning'}>{field.configured ? 'konfiguriert' : 'nicht konfiguriert'}</span>
+                  <small>{field.owner} · {field.max_age_seconds === null ? 'stateful' : `${field.max_age_seconds} s`} · {field.require_timestamp ? 'Zeitbeleg erforderlich' : 'kein Zeitbeleg erforderlich'}</small>
+                </div>
+              {/each}
+            </section>
           {/each}
         </div>
       </article>

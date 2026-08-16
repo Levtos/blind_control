@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from .config import INPUT_BINDING_KEYS, LEGACY_BINDING_KEYS, BlindControlConfig
+from .config import BINDING_GROUPS, BlindControlConfig
 from .contracts import redact_diagnostic_value
 from .shadow import ShadowSnapshot
 
-UX_CONTRACT_VERSION = "blind_control.ux.v1"
+UX_CONTRACT_VERSION = "blind_control.ux.v2"
+AUTOMATION_PROJECTION_VERSION = "blind_control.automation_projection.v1"
 
 
 def build_ux_snapshot(snapshot: ShadowSnapshot, config: BlindControlConfig) -> dict[str, object]:
@@ -31,10 +32,28 @@ def build_ux_snapshot(snapshot: ShadowSnapshot, config: BlindControlConfig) -> d
         observation = input_values.get(key, {})
         return observation.get("value") if isinstance(observation, dict) else None
 
+    winner = trace_projection.get("winner")
+    failure = trace_projection.get("failure", {})
+    active_branches = trace_projection.get("active_branches", [])
+    technical = {
+        "opening_state": trace.safety.opening_state,
+        "safety": trace_projection.get("safety", {}),
+        "apply": trace_projection.get("apply", {}),
+        "cover_available": input_value("cover_available"),
+        "cover_ready": input_value("cover_ready"),
+        "shadow_only": snapshot.shadow_only,
+        "actuation_executed": snapshot.actuation_executed,
+        "write_path_reachable": snapshot.write_path_reachable,
+    }
+    automation_projection = build_automation_projection(snapshot)
     return {
         "version": UX_CONTRACT_VERSION,
         "evaluated_at": snapshot.evaluated_at.isoformat(),
         "overview": {
+            "master_mode": trace.master_mode.value,
+            "winner": winner,
+            "active_branches": active_branches,
+            "failure": failure,
             "active_mode": trace.active_mode,
             "winner_keys": list(trace.winner_keys),
             "fachlicher_target": trace.fachlicher_target,
@@ -56,11 +75,22 @@ def build_ux_snapshot(snapshot: ShadowSnapshot, config: BlindControlConfig) -> d
             "safety_status": trace.safety.status,
             "apply_status": trace.apply.status,
             "override": trace_projection.get("override", {}),
+            "technical": technical,
             "shadow_only": snapshot.shadow_only,
             "actuation_executed": snapshot.actuation_executed,
             "write_path_reachable": snapshot.write_path_reachable,
         },
         "diagnosis": {
+            "hierarchy": {
+                "master_mode": trace.master_mode.value,
+                "winner": winner,
+                "active_branches": active_branches,
+                "failure": failure,
+                "legacy_flat": {
+                    "active_mode": trace.active_mode,
+                    "winner_keys": list(trace.winner_keys),
+                },
+            },
             "candidates": trace_projection.get("candidates", []),
             "paused_requirements": trace_projection.get("paused_requirements", []),
             "solar": trace_projection.get("solar", {}),
@@ -75,16 +105,7 @@ def build_ux_snapshot(snapshot: ShadowSnapshot, config: BlindControlConfig) -> d
             "window_tilt": config.window_tilt,
             "automation_enabled": config.automation_enabled,
             "apply_enabled": config.apply_enabled,
-            "input_bindings": {key: "" for key in INPUT_BINDING_KEYS},
-            "legacy_bindings": {key: "" for key in LEGACY_BINDING_KEYS},
-            "binding_status": {
-                "input_bindings": {
-                    key: key in dict(config.input_bindings) for key in INPUT_BINDING_KEYS
-                },
-                "legacy_bindings": {
-                    key: key in dict(config.legacy_bindings) for key in LEGACY_BINDING_KEYS
-                },
-            },
+            "binding_groups": _binding_groups(config),
             "observation_freshness_seconds": config.observation_freshness_seconds,
             "binding_freshness": config.binding_freshness_mapping(),
             "profiles": {name: profile.as_dict() for name, profile in config.profiles},
@@ -108,5 +129,68 @@ def build_ux_snapshot(snapshot: ShadowSnapshot, config: BlindControlConfig) -> d
                 "position_tolerance": config.position_tolerance,
             },
         },
+        "automation_projection": automation_projection,
         "debug_payload": debug_payload,
     }
+
+
+def build_automation_projection(snapshot: ShadowSnapshot) -> dict[str, object]:
+    """Return the single, redacted read-only contract shared by HA and UX.
+
+    The fields are deliberately small enough for an entity state projection and
+    expose no bindings, raw source values, services, or actuator controls.
+    ``winner_*`` remains as a compatible name while ``active_*`` is the native
+    automation-facing vocabulary.
+    """
+
+    trace = snapshot.trace
+    winner = trace.winner
+    projection = {
+        "version": AUTOMATION_PROJECTION_VERSION,
+        "master_mode": trace.master_mode.value,
+        "active_category": winner.category if winner else None,
+        "active_variant": winner.variant if winner else None,
+        "winner_category": winner.category if winner else None,
+        "winner_variant": winner.variant if winner else None,
+        "fachlicher_target": trace.fachlicher_target,
+        "effective_target": trace.effective_target,
+        "failure_status": trace.failure.status,
+        "failure_reason": trace.failure.reason,
+        "failure_quality_blockers": [
+            blocker.as_dict() for blocker in trace.failure.quality_blockers
+        ],
+        "safety_status": trace.safety.status,
+        "apply_status": trace.apply.status,
+        "safety_blocked": trace.safety.status == "blocked",
+        "apply_blocked": trace.apply.status == "blocked",
+        "shadow_only": snapshot.shadow_only,
+        "actuation_executed": snapshot.actuation_executed,
+        "write_path_reachable": snapshot.write_path_reachable,
+    }
+    redacted = redact_diagnostic_value(projection)
+    return redacted if isinstance(redacted, dict) else {}
+
+
+def _binding_groups(config: BlindControlConfig) -> list[dict[str, object]]:
+    """Project optional binding slots without returning their private entity IDs."""
+
+    input_bindings = dict(config.input_bindings)
+    legacy_bindings = dict(config.legacy_bindings)
+    groups: list[dict[str, object]] = []
+    for key, label, fields, legacy in BINDING_GROUPS:
+        bindings = legacy_bindings if legacy else input_bindings
+        groups.append(
+            {
+                "key": key,
+                "label": label,
+                "fields": [
+                    {
+                        "key": field,
+                        "configured": field in bindings,
+                        **config.binding_policy(field, legacy=legacy).as_dict(),
+                    }
+                    for field in fields
+                ],
+            }
+        )
+    return groups

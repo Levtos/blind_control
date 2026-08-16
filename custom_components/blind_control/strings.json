@@ -3,7 +3,192 @@
     "step": {
       "user": {
         "title": "Blind Control",
-        "description": "AP2 creates a configurable, non-actuating Shadow entry. It computes inputs, decisions, traces, and snapshots without a device-write path."
+        "description": "AP2 creates a configurable, non-actuating Shadow entry. It computes inputs, decisions, traces, and snapshots without a device-write path.",
+        "data": {
+          "window_azimuth": "Window azimuth",
+          "window_tilt": "Window tilt",
+          "axis_inverted": "Invert position axis",
+          "automation_enabled": "Automation enabled",
+          "apply_enabled": "Apply gate enabled",
+          "observation_freshness_seconds": "Default observation freshness",
+          "heat_outdoor_threshold": "Outdoor heat threshold",
+          "heat_indoor_threshold": "Indoor heat threshold",
+          "heat_radiation_threshold": "Heat radiation threshold",
+          "heat_confidence_threshold": "Heat confidence threshold",
+          "glare_confidence_threshold": "Glare confidence threshold",
+          "cloud_shadow_lux_drop": "Cloud-shadow illuminance drop",
+          "cloud_shadow_ratio": "Cloud-shadow ratio",
+          "diffuse_lux_threshold": "Diffuse-bright illuminance threshold",
+          "night_lux_threshold": "Night illuminance threshold",
+          "cold_outdoor_threshold": "Cold-insulation outdoor threshold",
+          "cool_air_delta": "Cool-air temperature difference",
+          "storm_precipitation_trend_threshold": "Storm precipitation trend threshold",
+          "storm_wind_trend_threshold": "Storm wind trend threshold",
+          "storm_pressure_drop_threshold": "Storm pressure-drop threshold",
+          "storm_required_signals": "Required storm signals",
+          "apply_cooldown_seconds": "Apply cooldown",
+          "position_tolerance": "Position tolerance",
+          "position_window_safety_normal": "Window safety position (normal axis)",
+          "position_window_safety_inverted": "Window safety position (inverted axis)",
+          "position_privacy_bed_normal": "Bed privacy position (normal axis)",
+          "position_privacy_bed_inverted": "Bed privacy position (inverted axis)",
+          "position_waking_normal": "Waking position (normal axis)",
+          "position_waking_inverted": "Waking position (inverted axis)",
+          "position_sleep_normal": "Sleep position (normal axis)",
+          "position_sleep_inverted": "Sleep position (inverted axis)",
+          "position_away_normal": "Away position (normal axis)",
+          "position_away_inverted": "Away position (inverted axis)",
+          "position_private_time_normal": "Private-time position (normal axis)",
+          "position_private_time_inverted": "Private-time position (inverted axis)",
+          "position_privacy_normal": "Privacy position (normal axis)",
+          "position_privacy_inverted": "Privacy position (inverted axis)",
+          "position_heat_protection_normal": "Heat-protection position (normal axis)",
+          "position_heat_protection_inverted": "Heat-protection position (inverted axis)",
+          "position_glare_general_normal": "General glare position (normal axis)",
+          "position_glare_general_inverted": "General glare position (inverted axis)",
+          "position_glare_tv_normal": "TV glare position (normal axis)",
+          "position_glare_tv_inverted": "TV glare position (inverted axis)",
+          "position_glare_pc_normal": "PC glare position (normal axis)",
+          "position_glare_pc_inverted": "PC glare position (inverted axis)",
+          "position_cold_insulation_normal": "Cold-insulation position (normal axis)",
+          "position_cold_insulation_inverted": "Cold-insulation position (inverted axis)",
+          "position_storm_approaching_normal": "Storm position (normal axis)",
+          "position_storm_approaching_inverted": "Storm position (inverted axis)",
+          "position_cool_air_available_normal": "Cool-air position (normal axis)",
+          "position_cool_air_available_inverted": "Cool-air position (inverted axis)",
+          "position_open_normal": "Open position (normal axis)",
+          "position_open_inverted": "Open position (inverted axis)",
+          "position_manual_override_normal": "Manual-override position (normal axis)",
+          "position_manual_override_inverted": "Manual-override position (inverted axis)"
+        },
+        "data_description": {
+          "window_azimuth": "Direction of the configured window surface in degrees clockwise from north.",
+          "window_tilt": "Tilt of the configured window surface in degrees.",
+          "axis_inverted": "Use the explicitly configured inverted profile values.",
+          "automation_enabled": "Disables automatic Shadow intent when switched off.",
+          "apply_enabled": "Absolute gate for the non-actuating apply intent.",
+          "observation_freshness_seconds": "Default maximum age for time-critical owner observations.",
+          "heat_outdoor_threshold": "Outdoor temperature at which thermal protection may become relevant.",
+          "heat_indoor_threshold": "Indoor temperature at which thermal protection may become relevant.",
+          "heat_radiation_threshold": "Minimum expected direct radiation for the heat model.",
+          "heat_confidence_threshold": "Minimum solar confidence required by the heat model.",
+          "glare_confidence_threshold": "Minimum solar confidence required by the glare model.",
+          "cloud_shadow_lux_drop": "Observed illuminance drop used as one cloud-shadow signal.",
+          "cloud_shadow_ratio": "Cloud or model ratio used for cloud-shadow evidence.",
+          "diffuse_lux_threshold": "Local illuminance threshold for diffuse brightness.",
+          "night_lux_threshold": "Fallback illuminance threshold when no fresh solar geometry exists.",
+          "cold_outdoor_threshold": "Outdoor temperature for cold-insulation evaluation.",
+          "cool_air_delta": "Minimum indoor-to-outdoor temperature difference for cool air.",
+          "storm_required_signals": "Number of independent weather signals required for storm evidence.",
+          "apply_cooldown_seconds": "Cooldown for the Shadow apply intent; the latest target remains visible.",
+          "position_tolerance": "Position difference tolerated before a new target is distinguished."
+        },
+        "sections": {
+          "core_state_bindings": {
+            "name": "Core State",
+            "description": "Optional canonical household and activity contracts.",
+            "data": {
+              "bio_state": "Canonical bio state",
+              "activity_state": "Canonical activity state",
+              "day_state": "Canonical day state",
+              "day_context": "Canonical day context",
+              "away": "Canonical away status",
+              "private_time": "Private-time context",
+              "privacy": "Privacy context"
+            },
+            "data_description": {
+              "bio_state": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "activity_state": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "day_state": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "day_context": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "away": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "private_time": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "privacy": "Optional owner-selected evidence. Leave empty when the contract is not configured."
+            }
+          },
+          "opening_safety_cover_bindings": {
+            "name": "Opening / Safety / Cover",
+            "description": "Optional technical safety and readiness evidence.",
+            "data": {
+              "opening_state": "Opening safety state",
+              "opening_safe_for_blind": "Opening explicitly safe for the blind",
+              "cover_available": "Cover availability",
+              "cover_ready": "Cover apply readiness",
+              "cover_position": "Cover position evidence"
+            },
+            "data_description": {
+              "opening_state": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "opening_safe_for_blind": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "cover_available": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "cover_ready": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "cover_position": "Optional owner-selected evidence. Leave empty when the contract is not configured."
+            }
+          },
+          "solar_bindings": {
+            "name": "Solar",
+            "description": "Optional window-related solar evidence.",
+            "data": {
+              "outdoor_lux": "Outdoor illuminance",
+              "lux_trend": "Illuminance trend",
+              "sun_elevation": "Sun elevation",
+              "sun_azimuth": "Sun azimuth",
+              "expected_direct_radiation": "Expected direct radiation",
+              "expected_diffuse_radiation": "Expected diffuse radiation",
+              "cloud_cover": "Cloud cover"
+            },
+            "data_description": {
+              "outdoor_lux": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "lux_trend": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "sun_elevation": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "sun_azimuth": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "expected_direct_radiation": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "expected_diffuse_radiation": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "cloud_cover": "Optional owner-selected evidence. Leave empty when the contract is not configured."
+            }
+          },
+          "temperature_weather_bindings": {
+            "name": "Temperature / Weather",
+            "description": "Optional climate and weather evidence.",
+            "data": {
+              "indoor_temperature": "Indoor temperature",
+              "outdoor_temperature": "Outdoor temperature",
+              "indoor_temperature_trend": "Indoor temperature trend",
+              "outdoor_temperature_trend": "Outdoor temperature trend",
+              "weather_alert": "Weather alert",
+              "precipitation_trend": "Precipitation trend",
+              "wind_trend": "Wind trend",
+              "pressure_trend": "Air-pressure trend",
+              "air_movement": "Air movement"
+            },
+            "data_description": {
+              "indoor_temperature": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "outdoor_temperature": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "indoor_temperature_trend": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "outdoor_temperature_trend": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "weather_alert": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "precipitation_trend": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "wind_trend": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "pressure_trend": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "air_movement": "Optional owner-selected evidence. Leave empty when the contract is not configured."
+            }
+          },
+          "legacy_comparison_bindings": {
+            "name": "Legacy comparison",
+            "description": "Optional old-policy evidence for field-wise Shadow diffs.",
+            "data": {
+              "active_mode": "Legacy active mode",
+              "effective_target": "Legacy effective target",
+              "safety_status": "Legacy safety status",
+              "apply_status": "Legacy apply status"
+            },
+            "data_description": {
+              "active_mode": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "effective_target": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "safety_status": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "apply_status": "Optional owner-selected evidence. Leave empty when the contract is not configured."
+            }
+          }
+        }
       }
     },
     "error": {
@@ -17,7 +202,260 @@
     "step": {
       "init": {
         "title": "Blind Control Shadow settings",
-        "description": "Changes recompute the Shadow snapshot and never create a cover-write path."
+        "description": "Changes recompute the Shadow snapshot and never create a cover-write path.",
+        "data": {
+          "window_azimuth": "Window azimuth",
+          "window_tilt": "Window tilt",
+          "axis_inverted": "Invert position axis",
+          "automation_enabled": "Automation enabled",
+          "apply_enabled": "Apply gate enabled",
+          "observation_freshness_seconds": "Default observation freshness",
+          "heat_outdoor_threshold": "Outdoor heat threshold",
+          "heat_indoor_threshold": "Indoor heat threshold",
+          "heat_radiation_threshold": "Heat radiation threshold",
+          "heat_confidence_threshold": "Heat confidence threshold",
+          "glare_confidence_threshold": "Glare confidence threshold",
+          "cloud_shadow_lux_drop": "Cloud-shadow illuminance drop",
+          "cloud_shadow_ratio": "Cloud-shadow ratio",
+          "diffuse_lux_threshold": "Diffuse-bright illuminance threshold",
+          "night_lux_threshold": "Night illuminance threshold",
+          "cold_outdoor_threshold": "Cold-insulation outdoor threshold",
+          "cool_air_delta": "Cool-air temperature difference",
+          "storm_precipitation_trend_threshold": "Storm precipitation trend threshold",
+          "storm_wind_trend_threshold": "Storm wind trend threshold",
+          "storm_pressure_drop_threshold": "Storm pressure-drop threshold",
+          "storm_required_signals": "Required storm signals",
+          "apply_cooldown_seconds": "Apply cooldown",
+          "position_tolerance": "Position tolerance",
+          "position_window_safety_normal": "Window safety position (normal axis)",
+          "position_window_safety_inverted": "Window safety position (inverted axis)",
+          "position_privacy_bed_normal": "Bed privacy position (normal axis)",
+          "position_privacy_bed_inverted": "Bed privacy position (inverted axis)",
+          "position_waking_normal": "Waking position (normal axis)",
+          "position_waking_inverted": "Waking position (inverted axis)",
+          "position_sleep_normal": "Sleep position (normal axis)",
+          "position_sleep_inverted": "Sleep position (inverted axis)",
+          "position_away_normal": "Away position (normal axis)",
+          "position_away_inverted": "Away position (inverted axis)",
+          "position_private_time_normal": "Private-time position (normal axis)",
+          "position_private_time_inverted": "Private-time position (inverted axis)",
+          "position_privacy_normal": "Privacy position (normal axis)",
+          "position_privacy_inverted": "Privacy position (inverted axis)",
+          "position_heat_protection_normal": "Heat-protection position (normal axis)",
+          "position_heat_protection_inverted": "Heat-protection position (inverted axis)",
+          "position_glare_general_normal": "General glare position (normal axis)",
+          "position_glare_general_inverted": "General glare position (inverted axis)",
+          "position_glare_tv_normal": "TV glare position (normal axis)",
+          "position_glare_tv_inverted": "TV glare position (inverted axis)",
+          "position_glare_pc_normal": "PC glare position (normal axis)",
+          "position_glare_pc_inverted": "PC glare position (inverted axis)",
+          "position_cold_insulation_normal": "Cold-insulation position (normal axis)",
+          "position_cold_insulation_inverted": "Cold-insulation position (inverted axis)",
+          "position_storm_approaching_normal": "Storm position (normal axis)",
+          "position_storm_approaching_inverted": "Storm position (inverted axis)",
+          "position_cool_air_available_normal": "Cool-air position (normal axis)",
+          "position_cool_air_available_inverted": "Cool-air position (inverted axis)",
+          "position_open_normal": "Open position (normal axis)",
+          "position_open_inverted": "Open position (inverted axis)",
+          "position_manual_override_normal": "Manual-override position (normal axis)",
+          "position_manual_override_inverted": "Manual-override position (inverted axis)"
+        },
+        "data_description": {
+          "window_azimuth": "Direction of the configured window surface in degrees clockwise from north.",
+          "window_tilt": "Tilt of the configured window surface in degrees.",
+          "axis_inverted": "Use the explicitly configured inverted profile values.",
+          "automation_enabled": "Disables automatic Shadow intent when switched off.",
+          "apply_enabled": "Absolute gate for the non-actuating apply intent.",
+          "observation_freshness_seconds": "Default maximum age for time-critical owner observations.",
+          "heat_outdoor_threshold": "Outdoor temperature at which thermal protection may become relevant.",
+          "heat_indoor_threshold": "Indoor temperature at which thermal protection may become relevant.",
+          "heat_radiation_threshold": "Minimum expected direct radiation for the heat model.",
+          "heat_confidence_threshold": "Minimum solar confidence required by the heat model.",
+          "glare_confidence_threshold": "Minimum solar confidence required by the glare model.",
+          "cloud_shadow_lux_drop": "Observed illuminance drop used as one cloud-shadow signal.",
+          "cloud_shadow_ratio": "Cloud or model ratio used for cloud-shadow evidence.",
+          "diffuse_lux_threshold": "Local illuminance threshold for diffuse brightness.",
+          "night_lux_threshold": "Fallback illuminance threshold when no fresh solar geometry exists.",
+          "cold_outdoor_threshold": "Outdoor temperature for cold-insulation evaluation.",
+          "cool_air_delta": "Minimum indoor-to-outdoor temperature difference for cool air.",
+          "storm_required_signals": "Number of independent weather signals required for storm evidence.",
+          "apply_cooldown_seconds": "Cooldown for the Shadow apply intent; the latest target remains visible.",
+          "position_tolerance": "Position difference tolerated before a new target is distinguished."
+        },
+        "sections": {
+          "core_state_bindings": {
+            "name": "Core State",
+            "description": "Optional canonical household and activity contracts.",
+            "data": {
+              "bio_state": "Canonical bio state",
+              "activity_state": "Canonical activity state",
+              "day_state": "Canonical day state",
+              "day_context": "Canonical day context",
+              "away": "Canonical away status",
+              "private_time": "Private-time context",
+              "privacy": "Privacy context"
+            },
+            "data_description": {
+              "bio_state": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "activity_state": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "day_state": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "day_context": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "away": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "private_time": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "privacy": "Optional owner-selected evidence. Leave empty when the contract is not configured."
+            }
+          },
+          "opening_safety_cover_bindings": {
+            "name": "Opening / Safety / Cover",
+            "description": "Optional technical safety and readiness evidence.",
+            "data": {
+              "opening_state": "Opening safety state",
+              "opening_safe_for_blind": "Opening explicitly safe for the blind",
+              "cover_available": "Cover availability",
+              "cover_ready": "Cover apply readiness",
+              "cover_position": "Cover position evidence"
+            },
+            "data_description": {
+              "opening_state": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "opening_safe_for_blind": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "cover_available": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "cover_ready": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "cover_position": "Optional owner-selected evidence. Leave empty when the contract is not configured."
+            }
+          },
+          "solar_bindings": {
+            "name": "Solar",
+            "description": "Optional window-related solar evidence.",
+            "data": {
+              "outdoor_lux": "Outdoor illuminance",
+              "lux_trend": "Illuminance trend",
+              "sun_elevation": "Sun elevation",
+              "sun_azimuth": "Sun azimuth",
+              "expected_direct_radiation": "Expected direct radiation",
+              "expected_diffuse_radiation": "Expected diffuse radiation",
+              "cloud_cover": "Cloud cover"
+            },
+            "data_description": {
+              "outdoor_lux": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "lux_trend": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "sun_elevation": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "sun_azimuth": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "expected_direct_radiation": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "expected_diffuse_radiation": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "cloud_cover": "Optional owner-selected evidence. Leave empty when the contract is not configured."
+            }
+          },
+          "temperature_weather_bindings": {
+            "name": "Temperature / Weather",
+            "description": "Optional climate and weather evidence.",
+            "data": {
+              "indoor_temperature": "Indoor temperature",
+              "outdoor_temperature": "Outdoor temperature",
+              "indoor_temperature_trend": "Indoor temperature trend",
+              "outdoor_temperature_trend": "Outdoor temperature trend",
+              "weather_alert": "Weather alert",
+              "precipitation_trend": "Precipitation trend",
+              "wind_trend": "Wind trend",
+              "pressure_trend": "Air-pressure trend",
+              "air_movement": "Air movement"
+            },
+            "data_description": {
+              "indoor_temperature": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "outdoor_temperature": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "indoor_temperature_trend": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "outdoor_temperature_trend": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "weather_alert": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "precipitation_trend": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "wind_trend": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "pressure_trend": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "air_movement": "Optional owner-selected evidence. Leave empty when the contract is not configured."
+            }
+          },
+          "legacy_comparison_bindings": {
+            "name": "Legacy comparison",
+            "description": "Optional old-policy evidence for field-wise Shadow diffs.",
+            "data": {
+              "active_mode": "Legacy active mode",
+              "effective_target": "Legacy effective target",
+              "safety_status": "Legacy safety status",
+              "apply_status": "Legacy apply status"
+            },
+            "data_description": {
+              "active_mode": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "effective_target": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "safety_status": "Optional owner-selected evidence. Leave empty when the contract is not configured.",
+              "apply_status": "Optional owner-selected evidence. Leave empty when the contract is not configured."
+            }
+          }
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "status": {
+        "name": "Shadow status",
+        "state": {
+          "normal": "Normal",
+          "manual": "Manual",
+          "failure": "Failure"
+        },
+        "state_attributes": {
+          "contract_version": {
+            "name": "Contract version"
+          },
+          "master_mode": {
+            "name": "Master mode"
+          },
+          "active_category": {
+            "name": "Active category"
+          },
+          "active_variant": {
+            "name": "Active variant"
+          },
+          "winner_category": {
+            "name": "Winner category"
+          },
+          "winner_variant": {
+            "name": "Winner variant"
+          },
+          "fachlicher_target": {
+            "name": "Policy target"
+          },
+          "effective_target": {
+            "name": "Effective target"
+          },
+          "failure_status": {
+            "name": "Failure status"
+          },
+          "failure_reason": {
+            "name": "Failure reason"
+          },
+          "failure_quality_blockers": {
+            "name": "Failure quality blockers"
+          },
+          "safety_status": {
+            "name": "Safety status"
+          },
+          "apply_status": {
+            "name": "Apply status"
+          },
+          "safety_blocked": {
+            "name": "Safety blocked"
+          },
+          "apply_blocked": {
+            "name": "Apply blocked"
+          },
+          "shadow_only": {
+            "name": "Shadow only"
+          },
+          "actuation_executed": {
+            "name": "Actuation executed"
+          },
+          "write_path_reachable": {
+            "name": "Write path reachable"
+          }
+        }
       }
     }
   }

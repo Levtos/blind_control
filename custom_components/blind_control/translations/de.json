@@ -3,7 +3,192 @@
     "step": {
       "user": {
         "title": "Blind Control",
-        "description": "AP2 erstellt einen konfigurierbaren, nicht-aktiven Shadow-Eintrag. Inputs, Entscheidungen, Trace und Snapshot werden ohne Geräte-Schreibpfad berechnet."
+        "description": "AP2 erstellt einen konfigurierbaren, nicht-aktiven Shadow-Eintrag. Inputs, Entscheidungen, Trace und Snapshot werden ohne Geräte-Schreibpfad berechnet.",
+        "data": {
+          "window_azimuth": "Fensterazimut",
+          "window_tilt": "Fensterneigung",
+          "axis_inverted": "Positionsachse invertieren",
+          "automation_enabled": "Automatik aktiv",
+          "apply_enabled": "Apply-Gate aktiv",
+          "observation_freshness_seconds": "Standard-Freshness der Beobachtungen",
+          "heat_outdoor_threshold": "Außentemperatur-Schwelle für Hitzeschutz",
+          "heat_indoor_threshold": "Innentemperatur-Schwelle für Hitzeschutz",
+          "heat_radiation_threshold": "Strahlungs-Schwelle für Hitzeschutz",
+          "heat_confidence_threshold": "Confidence-Schwelle für Hitzeschutz",
+          "glare_confidence_threshold": "Confidence-Schwelle für Blendungsschutz",
+          "cloud_shadow_lux_drop": "Lux-Abfall für Wolkenabschattung",
+          "cloud_shadow_ratio": "Schwelle für Wolkenabschattung",
+          "diffuse_lux_threshold": "Lux-Schwelle für diffuses Licht",
+          "night_lux_threshold": "Lux-Schwelle für Nacht-Fallback",
+          "cold_outdoor_threshold": "Außentemperatur-Schwelle für Kälteisolierung",
+          "cool_air_delta": "Temperaturdifferenz für kühle Luft",
+          "storm_precipitation_trend_threshold": "Niederschlagstrend-Schwelle für Gewitter",
+          "storm_wind_trend_threshold": "Windtrend-Schwelle für Gewitter",
+          "storm_pressure_drop_threshold": "Luftdruckabfall-Schwelle für Gewitter",
+          "storm_required_signals": "Erforderliche Gewittersignale",
+          "apply_cooldown_seconds": "Apply-Cooldown",
+          "position_tolerance": "Positionstoleranz",
+          "position_window_safety_normal": "Fenster-Safety-Position (Normalachse)",
+          "position_window_safety_inverted": "Fenster-Safety-Position (invertierte Achse)",
+          "position_privacy_bed_normal": "Bett-Privacy-Position (Normalachse)",
+          "position_privacy_bed_inverted": "Bett-Privacy-Position (invertierte Achse)",
+          "position_waking_normal": "Waking-Position (Normalachse)",
+          "position_waking_inverted": "Waking-Position (invertierte Achse)",
+          "position_sleep_normal": "Schlafposition (Normalachse)",
+          "position_sleep_inverted": "Schlafposition (invertierte Achse)",
+          "position_away_normal": "Abwesenheitsposition (Normalachse)",
+          "position_away_inverted": "Abwesenheitsposition (invertierte Achse)",
+          "position_private_time_normal": "Private-Time-Position (Normalachse)",
+          "position_private_time_inverted": "Private-Time-Position (invertierte Achse)",
+          "position_privacy_normal": "Privacy-Position (Normalachse)",
+          "position_privacy_inverted": "Privacy-Position (invertierte Achse)",
+          "position_heat_protection_normal": "Hitzeschutz-Position (Normalachse)",
+          "position_heat_protection_inverted": "Hitzeschutz-Position (invertierte Achse)",
+          "position_glare_general_normal": "Allgemeine Blendungsposition (Normalachse)",
+          "position_glare_general_inverted": "Allgemeine Blendungsposition (invertierte Achse)",
+          "position_glare_tv_normal": "TV-Blendungsposition (Normalachse)",
+          "position_glare_tv_inverted": "TV-Blendungsposition (invertierte Achse)",
+          "position_glare_pc_normal": "PC-Blendungsposition (Normalachse)",
+          "position_glare_pc_inverted": "PC-Blendungsposition (invertierte Achse)",
+          "position_cold_insulation_normal": "Kälteisolierungsposition (Normalachse)",
+          "position_cold_insulation_inverted": "Kälteisolierungsposition (invertierte Achse)",
+          "position_storm_approaching_normal": "Gewitterposition (Normalachse)",
+          "position_storm_approaching_inverted": "Gewitterposition (invertierte Achse)",
+          "position_cool_air_available_normal": "Kühle-Luft-Position (Normalachse)",
+          "position_cool_air_available_inverted": "Kühle-Luft-Position (invertierte Achse)",
+          "position_open_normal": "Offenposition (Normalachse)",
+          "position_open_inverted": "Offenposition (invertierte Achse)",
+          "position_manual_override_normal": "Manuelle-Override-Position (Normalachse)",
+          "position_manual_override_inverted": "Manuelle-Override-Position (invertierte Achse)"
+        },
+        "data_description": {
+          "window_azimuth": "Ausrichtung der konfigurierten Fensterfläche in Grad im Uhrzeigersinn ab Norden.",
+          "window_tilt": "Neigung der konfigurierten Fensterfläche in Grad.",
+          "axis_inverted": "Verwendet die ausdrücklich konfigurierten Werte der invertierten Achse.",
+          "automation_enabled": "Deaktiviert automatische Shadow-Intents, wenn ausgeschaltet.",
+          "apply_enabled": "Absolutes Gate für den nicht-aktuierenden Apply-Intent.",
+          "observation_freshness_seconds": "Standard-Maximalalter für zeitkritische Owner-Beobachtungen.",
+          "heat_outdoor_threshold": "Außentemperatur, ab der thermischer Schutz relevant werden kann.",
+          "heat_indoor_threshold": "Innentemperatur, ab der thermischer Schutz relevant werden kann.",
+          "heat_radiation_threshold": "Minimale erwartete Direktstrahlung für das Hitzemodell.",
+          "heat_confidence_threshold": "Minimale Solar-Confidence für das Hitzemodell.",
+          "glare_confidence_threshold": "Minimale Solar-Confidence für das Blendungsmodell.",
+          "cloud_shadow_lux_drop": "Beobachteter Lux-Abfall als ein Wolkenabschattungssignal.",
+          "cloud_shadow_ratio": "Wolken- oder Modellverhältnis für Wolkenabschattungs-Evidence.",
+          "diffuse_lux_threshold": "Lokale Lux-Schwelle für diffuse Helligkeit.",
+          "night_lux_threshold": "Lux-Fallback-Schwelle ohne frische Sonnengeometrie.",
+          "cold_outdoor_threshold": "Außentemperatur für die Kälteisolierungsbewertung.",
+          "cool_air_delta": "Mindestdifferenz Innen- zu Außentemperatur für kühle Luft.",
+          "storm_required_signals": "Anzahl unabhängiger Wettersignale für Gewitter-Evidence.",
+          "apply_cooldown_seconds": "Cooldown für den Shadow-Apply-Intent; das jüngste Ziel bleibt sichtbar.",
+          "position_tolerance": "Tolerierte Positionsdifferenz vor einem unterscheidbaren neuen Ziel."
+        },
+        "sections": {
+          "core_state_bindings": {
+            "name": "Core State",
+            "description": "Optionale kanonische Haushalts- und Aktivitätsverträge.",
+            "data": {
+              "bio_state": "Kanonischer Bio-State",
+              "activity_state": "Kanonischer Aktivitätsstatus",
+              "day_state": "Kanonischer Tagesstatus",
+              "day_context": "Kanonischer Tageskontext",
+              "away": "Kanonischer Abwesenheitsstatus",
+              "private_time": "Private-Time-Kontext",
+              "privacy": "Privacy-Kontext"
+            },
+            "data_description": {
+              "bio_state": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "activity_state": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "day_state": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "day_context": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "away": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "private_time": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "privacy": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist."
+            }
+          },
+          "opening_safety_cover_bindings": {
+            "name": "Opening / Safety / Cover",
+            "description": "Optionale technische Safety- und Readiness-Evidence.",
+            "data": {
+              "opening_state": "Opening-Safety-Status",
+              "opening_safe_for_blind": "Opening ausdrücklich sicher für das Rollo",
+              "cover_available": "Cover-Verfügbarkeit",
+              "cover_ready": "Cover-Apply-Readiness",
+              "cover_position": "Coverpositions-Evidence"
+            },
+            "data_description": {
+              "opening_state": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "opening_safe_for_blind": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "cover_available": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "cover_ready": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "cover_position": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist."
+            }
+          },
+          "solar_bindings": {
+            "name": "Solar",
+            "description": "Optionale fensterbezogene Solar-Evidence.",
+            "data": {
+              "outdoor_lux": "Außen-Lux",
+              "lux_trend": "Lux-Trend",
+              "sun_elevation": "Sonnenhöhe",
+              "sun_azimuth": "Sonnenazimut",
+              "expected_direct_radiation": "Erwartete Direktstrahlung",
+              "expected_diffuse_radiation": "Erwartete Diffusstrahlung",
+              "cloud_cover": "Wolkenbedeckung"
+            },
+            "data_description": {
+              "outdoor_lux": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "lux_trend": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "sun_elevation": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "sun_azimuth": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "expected_direct_radiation": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "expected_diffuse_radiation": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "cloud_cover": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist."
+            }
+          },
+          "temperature_weather_bindings": {
+            "name": "Temperatur / Wetter",
+            "description": "Optionale Klima- und Wetter-Evidence.",
+            "data": {
+              "indoor_temperature": "Innentemperatur",
+              "outdoor_temperature": "Außentemperatur",
+              "indoor_temperature_trend": "Innentemperatur-Trend",
+              "outdoor_temperature_trend": "Außentemperatur-Trend",
+              "weather_alert": "Wetterwarnung",
+              "precipitation_trend": "Niederschlagstrend",
+              "wind_trend": "Windtrend",
+              "pressure_trend": "Luftdrucktrend",
+              "air_movement": "Luftbewegung"
+            },
+            "data_description": {
+              "indoor_temperature": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "outdoor_temperature": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "indoor_temperature_trend": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "outdoor_temperature_trend": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "weather_alert": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "precipitation_trend": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "wind_trend": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "pressure_trend": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "air_movement": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist."
+            }
+          },
+          "legacy_comparison_bindings": {
+            "name": "Legacy-Vergleich",
+            "description": "Optionale alte Policy-Evidence für feldweise Shadow-Diffs.",
+            "data": {
+              "active_mode": "Legacy-Aktivmodus",
+              "effective_target": "Legacy-effektives Ziel",
+              "safety_status": "Legacy-Safety-Status",
+              "apply_status": "Legacy-Apply-Status"
+            },
+            "data_description": {
+              "active_mode": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "effective_target": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "safety_status": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "apply_status": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist."
+            }
+          }
+        }
       }
     },
     "error": {
@@ -17,7 +202,260 @@
     "step": {
       "init": {
         "title": "Blind-Control-Shadow-Einstellungen",
-        "description": "Änderungen berechnen den Shadow-Snapshot neu und erzeugen niemals einen Cover-Schreibpfad."
+        "description": "Änderungen berechnen den Shadow-Snapshot neu und erzeugen niemals einen Cover-Schreibpfad.",
+        "data": {
+          "window_azimuth": "Fensterazimut",
+          "window_tilt": "Fensterneigung",
+          "axis_inverted": "Positionsachse invertieren",
+          "automation_enabled": "Automatik aktiv",
+          "apply_enabled": "Apply-Gate aktiv",
+          "observation_freshness_seconds": "Standard-Freshness der Beobachtungen",
+          "heat_outdoor_threshold": "Außentemperatur-Schwelle für Hitzeschutz",
+          "heat_indoor_threshold": "Innentemperatur-Schwelle für Hitzeschutz",
+          "heat_radiation_threshold": "Strahlungs-Schwelle für Hitzeschutz",
+          "heat_confidence_threshold": "Confidence-Schwelle für Hitzeschutz",
+          "glare_confidence_threshold": "Confidence-Schwelle für Blendungsschutz",
+          "cloud_shadow_lux_drop": "Lux-Abfall für Wolkenabschattung",
+          "cloud_shadow_ratio": "Schwelle für Wolkenabschattung",
+          "diffuse_lux_threshold": "Lux-Schwelle für diffuses Licht",
+          "night_lux_threshold": "Lux-Schwelle für Nacht-Fallback",
+          "cold_outdoor_threshold": "Außentemperatur-Schwelle für Kälteisolierung",
+          "cool_air_delta": "Temperaturdifferenz für kühle Luft",
+          "storm_precipitation_trend_threshold": "Niederschlagstrend-Schwelle für Gewitter",
+          "storm_wind_trend_threshold": "Windtrend-Schwelle für Gewitter",
+          "storm_pressure_drop_threshold": "Luftdruckabfall-Schwelle für Gewitter",
+          "storm_required_signals": "Erforderliche Gewittersignale",
+          "apply_cooldown_seconds": "Apply-Cooldown",
+          "position_tolerance": "Positionstoleranz",
+          "position_window_safety_normal": "Fenster-Safety-Position (Normalachse)",
+          "position_window_safety_inverted": "Fenster-Safety-Position (invertierte Achse)",
+          "position_privacy_bed_normal": "Bett-Privacy-Position (Normalachse)",
+          "position_privacy_bed_inverted": "Bett-Privacy-Position (invertierte Achse)",
+          "position_waking_normal": "Waking-Position (Normalachse)",
+          "position_waking_inverted": "Waking-Position (invertierte Achse)",
+          "position_sleep_normal": "Schlafposition (Normalachse)",
+          "position_sleep_inverted": "Schlafposition (invertierte Achse)",
+          "position_away_normal": "Abwesenheitsposition (Normalachse)",
+          "position_away_inverted": "Abwesenheitsposition (invertierte Achse)",
+          "position_private_time_normal": "Private-Time-Position (Normalachse)",
+          "position_private_time_inverted": "Private-Time-Position (invertierte Achse)",
+          "position_privacy_normal": "Privacy-Position (Normalachse)",
+          "position_privacy_inverted": "Privacy-Position (invertierte Achse)",
+          "position_heat_protection_normal": "Hitzeschutz-Position (Normalachse)",
+          "position_heat_protection_inverted": "Hitzeschutz-Position (invertierte Achse)",
+          "position_glare_general_normal": "Allgemeine Blendungsposition (Normalachse)",
+          "position_glare_general_inverted": "Allgemeine Blendungsposition (invertierte Achse)",
+          "position_glare_tv_normal": "TV-Blendungsposition (Normalachse)",
+          "position_glare_tv_inverted": "TV-Blendungsposition (invertierte Achse)",
+          "position_glare_pc_normal": "PC-Blendungsposition (Normalachse)",
+          "position_glare_pc_inverted": "PC-Blendungsposition (invertierte Achse)",
+          "position_cold_insulation_normal": "Kälteisolierungsposition (Normalachse)",
+          "position_cold_insulation_inverted": "Kälteisolierungsposition (invertierte Achse)",
+          "position_storm_approaching_normal": "Gewitterposition (Normalachse)",
+          "position_storm_approaching_inverted": "Gewitterposition (invertierte Achse)",
+          "position_cool_air_available_normal": "Kühle-Luft-Position (Normalachse)",
+          "position_cool_air_available_inverted": "Kühle-Luft-Position (invertierte Achse)",
+          "position_open_normal": "Offenposition (Normalachse)",
+          "position_open_inverted": "Offenposition (invertierte Achse)",
+          "position_manual_override_normal": "Manuelle-Override-Position (Normalachse)",
+          "position_manual_override_inverted": "Manuelle-Override-Position (invertierte Achse)"
+        },
+        "data_description": {
+          "window_azimuth": "Ausrichtung der konfigurierten Fensterfläche in Grad im Uhrzeigersinn ab Norden.",
+          "window_tilt": "Neigung der konfigurierten Fensterfläche in Grad.",
+          "axis_inverted": "Verwendet die ausdrücklich konfigurierten Werte der invertierten Achse.",
+          "automation_enabled": "Deaktiviert automatische Shadow-Intents, wenn ausgeschaltet.",
+          "apply_enabled": "Absolutes Gate für den nicht-aktuierenden Apply-Intent.",
+          "observation_freshness_seconds": "Standard-Maximalalter für zeitkritische Owner-Beobachtungen.",
+          "heat_outdoor_threshold": "Außentemperatur, ab der thermischer Schutz relevant werden kann.",
+          "heat_indoor_threshold": "Innentemperatur, ab der thermischer Schutz relevant werden kann.",
+          "heat_radiation_threshold": "Minimale erwartete Direktstrahlung für das Hitzemodell.",
+          "heat_confidence_threshold": "Minimale Solar-Confidence für das Hitzemodell.",
+          "glare_confidence_threshold": "Minimale Solar-Confidence für das Blendungsmodell.",
+          "cloud_shadow_lux_drop": "Beobachteter Lux-Abfall als ein Wolkenabschattungssignal.",
+          "cloud_shadow_ratio": "Wolken- oder Modellverhältnis für Wolkenabschattungs-Evidence.",
+          "diffuse_lux_threshold": "Lokale Lux-Schwelle für diffuse Helligkeit.",
+          "night_lux_threshold": "Lux-Fallback-Schwelle ohne frische Sonnengeometrie.",
+          "cold_outdoor_threshold": "Außentemperatur für die Kälteisolierungsbewertung.",
+          "cool_air_delta": "Mindestdifferenz Innen- zu Außentemperatur für kühle Luft.",
+          "storm_required_signals": "Anzahl unabhängiger Wettersignale für Gewitter-Evidence.",
+          "apply_cooldown_seconds": "Cooldown für den Shadow-Apply-Intent; das jüngste Ziel bleibt sichtbar.",
+          "position_tolerance": "Tolerierte Positionsdifferenz vor einem unterscheidbaren neuen Ziel."
+        },
+        "sections": {
+          "core_state_bindings": {
+            "name": "Core State",
+            "description": "Optionale kanonische Haushalts- und Aktivitätsverträge.",
+            "data": {
+              "bio_state": "Kanonischer Bio-State",
+              "activity_state": "Kanonischer Aktivitätsstatus",
+              "day_state": "Kanonischer Tagesstatus",
+              "day_context": "Kanonischer Tageskontext",
+              "away": "Kanonischer Abwesenheitsstatus",
+              "private_time": "Private-Time-Kontext",
+              "privacy": "Privacy-Kontext"
+            },
+            "data_description": {
+              "bio_state": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "activity_state": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "day_state": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "day_context": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "away": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "private_time": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "privacy": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist."
+            }
+          },
+          "opening_safety_cover_bindings": {
+            "name": "Opening / Safety / Cover",
+            "description": "Optionale technische Safety- und Readiness-Evidence.",
+            "data": {
+              "opening_state": "Opening-Safety-Status",
+              "opening_safe_for_blind": "Opening ausdrücklich sicher für das Rollo",
+              "cover_available": "Cover-Verfügbarkeit",
+              "cover_ready": "Cover-Apply-Readiness",
+              "cover_position": "Coverpositions-Evidence"
+            },
+            "data_description": {
+              "opening_state": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "opening_safe_for_blind": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "cover_available": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "cover_ready": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "cover_position": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist."
+            }
+          },
+          "solar_bindings": {
+            "name": "Solar",
+            "description": "Optionale fensterbezogene Solar-Evidence.",
+            "data": {
+              "outdoor_lux": "Außen-Lux",
+              "lux_trend": "Lux-Trend",
+              "sun_elevation": "Sonnenhöhe",
+              "sun_azimuth": "Sonnenazimut",
+              "expected_direct_radiation": "Erwartete Direktstrahlung",
+              "expected_diffuse_radiation": "Erwartete Diffusstrahlung",
+              "cloud_cover": "Wolkenbedeckung"
+            },
+            "data_description": {
+              "outdoor_lux": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "lux_trend": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "sun_elevation": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "sun_azimuth": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "expected_direct_radiation": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "expected_diffuse_radiation": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "cloud_cover": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist."
+            }
+          },
+          "temperature_weather_bindings": {
+            "name": "Temperatur / Wetter",
+            "description": "Optionale Klima- und Wetter-Evidence.",
+            "data": {
+              "indoor_temperature": "Innentemperatur",
+              "outdoor_temperature": "Außentemperatur",
+              "indoor_temperature_trend": "Innentemperatur-Trend",
+              "outdoor_temperature_trend": "Außentemperatur-Trend",
+              "weather_alert": "Wetterwarnung",
+              "precipitation_trend": "Niederschlagstrend",
+              "wind_trend": "Windtrend",
+              "pressure_trend": "Luftdrucktrend",
+              "air_movement": "Luftbewegung"
+            },
+            "data_description": {
+              "indoor_temperature": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "outdoor_temperature": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "indoor_temperature_trend": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "outdoor_temperature_trend": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "weather_alert": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "precipitation_trend": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "wind_trend": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "pressure_trend": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "air_movement": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist."
+            }
+          },
+          "legacy_comparison_bindings": {
+            "name": "Legacy-Vergleich",
+            "description": "Optionale alte Policy-Evidence für feldweise Shadow-Diffs.",
+            "data": {
+              "active_mode": "Legacy-Aktivmodus",
+              "effective_target": "Legacy-effektives Ziel",
+              "safety_status": "Legacy-Safety-Status",
+              "apply_status": "Legacy-Apply-Status"
+            },
+            "data_description": {
+              "active_mode": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "effective_target": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "safety_status": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist.",
+              "apply_status": "Optionale vom Owner gewählte Evidence. Leer lassen, wenn der Contract nicht konfiguriert ist."
+            }
+          }
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "status": {
+        "name": "Shadow-Status",
+        "state": {
+          "normal": "Regulär",
+          "manual": "Manuell",
+          "failure": "Fehler"
+        },
+        "state_attributes": {
+          "contract_version": {
+            "name": "Contract-Version"
+          },
+          "master_mode": {
+            "name": "Mastermodus"
+          },
+          "active_category": {
+            "name": "Aktive Kategorie"
+          },
+          "active_variant": {
+            "name": "Aktive Variante"
+          },
+          "winner_category": {
+            "name": "Gewinnerkategorie"
+          },
+          "winner_variant": {
+            "name": "Gewinnervariante"
+          },
+          "fachlicher_target": {
+            "name": "Fachliches Ziel"
+          },
+          "effective_target": {
+            "name": "Effektives Ziel"
+          },
+          "failure_status": {
+            "name": "Failure-Status"
+          },
+          "failure_reason": {
+            "name": "Failure-Grund"
+          },
+          "failure_quality_blockers": {
+            "name": "Fehlende belastbare Eingangs-Evidence"
+          },
+          "safety_status": {
+            "name": "Safety-Status"
+          },
+          "apply_status": {
+            "name": "Apply-Status"
+          },
+          "safety_blocked": {
+            "name": "Safety blockiert"
+          },
+          "apply_blocked": {
+            "name": "Apply blockiert"
+          },
+          "shadow_only": {
+            "name": "Nur Shadow"
+          },
+          "actuation_executed": {
+            "name": "Aktuation ausgeführt"
+          },
+          "write_path_reachable": {
+            "name": "Schreibpfad erreichbar"
+          }
+        }
       }
     }
   }

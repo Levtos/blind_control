@@ -54,6 +54,15 @@ def ready_inputs() -> BlindControlInputs:
         cover_available=fresh(True, "technical_cover"),
         cover_ready=fresh(True, "technical_readiness"),
         cover_position=fresh(50.0, "technical_cover"),
+        outdoor_lux=fresh(14_000.0, "lux_sensor"),
+        lux_trend=fresh(0.0, "lux_sensor"),
+        sun_elevation=fresh(30.0, "sun_contract"),
+        sun_azimuth=fresh(304.0, "sun_contract"),
+        expected_direct_radiation=fresh(400.0, "weather_model"),
+        expected_diffuse_radiation=fresh(50.0, "weather_model"),
+        cloud_cover=fresh(0.1, "weather_model"),
+        indoor_temperature=fresh(22.0, "room_temperature"),
+        outdoor_temperature=fresh(20.0, "weather_temperature"),
     )
 
 
@@ -82,18 +91,93 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertFalse(snapshot.write_path_reachable)
         self.assertIsInstance(snapshot.as_dict()["trace"], dict)
         projection = build_ux_snapshot(snapshot, BlindControlConfig.defaults())
+        self.assertEqual(projection["version"], UX_CONTRACT_VERSION)
+        self.assertEqual(projection["overview"]["master_mode"], "normal")
+        self.assertEqual(projection["overview"]["winner"]["category"], "neutral")
         self.assertEqual(projection["overview"]["cover_position"], 50.0)
         self.assertFalse(projection["overview"]["household"]["away"])
         self.assertIn("cover_position", projection["settings"]["binding_freshness"])
+        self.assertEqual(
+            projection["automation_projection"]["version"],
+            "blind_control.automation_projection.v1",
+        )
+        self.assertIn("binding_groups", projection["settings"])
 
     def test_missing_inputs_never_fall_silently_to_open(self) -> None:
         trace = DecisionEngine().evaluate(BlindControlInputs.empty())
 
         self.assertIsNone(trace.fachlicher_target)
         self.assertIsNone(trace.effective_target)
+        self.assertEqual(trace.master_mode.value, "failure")
+        self.assertEqual(trace.failure.status, "apply_blocked")
         self.assertEqual(trace.safety.status, "blocked")
         self.assertIn("no_positive_open_reason_no_100_percent_fallback", trace.reasons)
         self.assertFalse(trace.apply.write_path_reachable)
+
+    def test_automatic_quality_gate_matrix_blocks_uncertain_daylight_opening(self) -> None:
+        """A target may exist, but unresolved protection evidence must still hold."""
+
+        complete = replace(ready_inputs(), cover_position=fresh(42.0, "technical_cover"))
+        fields = {
+            "indoor_temperature": 22.0,
+            "outdoor_temperature": 20.0,
+            "activity_state": "none",
+            "outdoor_lux": 14_000.0,
+            "lux_trend": 0.0,
+            "sun_elevation": 30.0,
+            "sun_azimuth": 304.0,
+            "expected_direct_radiation": 400.0,
+            "expected_diffuse_radiation": 50.0,
+            "cloud_cover": 0.1,
+        }
+        quality_cases = {
+            "valid": InputQuality.FRESH,
+            "missing": None,
+            "unknown": InputQuality.UNKNOWN,
+            "unavailable": InputQuality.UNAVAILABLE,
+            "stale": InputQuality.STALE,
+            "conflict": InputQuality.CONFLICT,
+        }
+
+        for key, value in fields.items():
+            for case, quality in quality_cases.items():
+                with self.subTest(field=key, quality=case):
+                    observation = (
+                        fresh(value, f"owner.{key}")
+                        if quality is InputQuality.FRESH
+                        else InputObservation.missing(f"owner.{key}", reason="matrix_missing")
+                        if quality is None
+                        else InputObservation(
+                            value=value,
+                            source=f"owner.{key}",
+                            quality=quality,
+                            reason=f"matrix_{case}",
+                        )
+                    )
+                    runtime = ShadowRuntime()
+                    runtime.evaluate(complete, now=0)
+                    trace = runtime.evaluate(replace(complete, **{key: observation}), now=1).trace
+
+                    if case == "valid":
+                        self.assertEqual(trace.master_mode.value, "normal")
+                        self.assertEqual(trace.failure.status, "none")
+                        self.assertEqual(trace.effective_target, 100)
+                        continue
+
+                    self.assertEqual(trace.fachlicher_target, 100)
+                    self.assertEqual(trace.master_mode.value, "failure")
+                    self.assertEqual(
+                        trace.failure.reason, "automatic_decision_quality_gate_blocked"
+                    )
+                    self.assertEqual(trace.effective_target, 42)
+                    self.assertEqual(trace.apply.status, "blocked")
+                    self.assertNotEqual(trace.effective_target, 100)
+                    blocker = next(
+                        item for item in trace.failure.quality_blockers if item.key == key
+                    )
+                    self.assertEqual(
+                        blocker.reason, "matrix_missing" if case == "missing" else f"matrix_{case}"
+                    )
 
     def test_cloud_shadow_keeps_heat_active_without_open_fallback(self) -> None:
         inputs = sunny_inputs(
@@ -124,9 +208,34 @@ class DecisionEngineTests(unittest.TestCase):
         cool_trace = DecisionEngine().evaluate(cool)
 
         self.assertIn("heat_protection", hot_trace.winner_keys)
+        self.assertEqual(hot_trace.master_mode.value, "normal")
+        self.assertEqual(hot_trace.winner.category, "climate")
+        self.assertEqual(hot_trace.winner.variant, "heat")
+        glare_pc = next(
+            branch for branch in hot_trace.active_branches if branch.candidate_key == "glare_pc"
+        )
+        self.assertTrue(glare_pc.active)
+        self.assertFalse(glare_pc.winner)
         self.assertIn("glare_pc", cool_trace.winner_keys)
+        self.assertEqual(cool_trace.winner.category, "glare")
+        self.assertEqual(cool_trace.winner.variant, "pc")
         self.assertEqual(cool_trace.fachlicher_target, 75)
         self.assertNotIn("base_daylight", cool_trace.winner_keys)
+
+    def test_normal_hierarchy_projects_glare_pc_and_tv_variants(self) -> None:
+        pc_trace = DecisionEngine().evaluate(
+            sunny_inputs(activity_state=fresh("pc", "core_state.activity"))
+        )
+        tv_trace = DecisionEngine().evaluate(
+            sunny_inputs(activity_state=fresh("tv", "core_state.activity"))
+        )
+
+        self.assertEqual(pc_trace.master_mode.value, "normal")
+        self.assertEqual(pc_trace.winner.category, "glare")
+        self.assertEqual(pc_trace.winner.variant, "pc")
+        self.assertEqual(tv_trace.master_mode.value, "normal")
+        self.assertEqual(tv_trace.winner.category, "glare")
+        self.assertEqual(tv_trace.winner.variant, "tv")
 
     def test_manual_override_holds_automation_until_allowed_lifecycle(self) -> None:
         runtime = ShadowRuntime()
@@ -140,6 +249,9 @@ class DecisionEngineTests(unittest.TestCase):
         trace = runtime.evaluate(inputs, now=20)
 
         self.assertEqual(trace.trace.active_mode, "manual_override")
+        self.assertEqual(trace.trace.master_mode.value, "manual")
+        self.assertEqual(trace.trace.winner.category, "override")
+        self.assertIsNone(trace.trace.winner.variant)
         self.assertEqual(trace.trace.fachlicher_target, 80)
         self.assertEqual(trace.trace.effective_target, 80)
         heat = next(item for item in trace.trace.candidates if item.key == "heat_protection")
@@ -193,6 +305,8 @@ class DecisionEngineTests(unittest.TestCase):
         awake_trace = DecisionEngine().evaluate(awake)
 
         self.assertEqual(waking_trace.active_mode, "waking")
+        self.assertEqual(waking_trace.master_mode.value, "normal")
+        self.assertEqual(waking_trace.winner.category, "waking")
         self.assertEqual(waking_trace.fachlicher_target, 100)
         self.assertTrue(
             all(
@@ -201,7 +315,48 @@ class DecisionEngineTests(unittest.TestCase):
                 if candidate.key in {"heat_protection", "glare_pc", "privacy"} and candidate.active
             )
         )
+        paused_branches = {
+            branch.candidate_key: branch for branch in waking_trace.active_branches if branch.paused
+        }
+        self.assertIn("heat_protection", paused_branches)
+        self.assertIn("glare_pc", paused_branches)
+        self.assertIn("privacy", paused_branches)
+        self.assertNotIn("cold_insulation", paused_branches)
         self.assertEqual(awake_trace.fachlicher_target, 15)
+
+    def test_waking_does_not_project_inactive_environment_branches_as_paused(self) -> None:
+        trace = DecisionEngine().evaluate(
+            replace(ready_inputs(), bio_state=fresh("waking", "core_state.bio"))
+        )
+
+        paused = {branch.candidate_key for branch in trace.active_branches if branch.paused}
+        self.assertEqual(trace.master_mode.value, "normal")
+        self.assertEqual(trace.winner.category, "waking")
+        self.assertFalse(
+            paused
+            & {
+                "heat_protection",
+                "cold_insulation",
+                "glare_general",
+                "glare_tv",
+                "glare_pc",
+            }
+        )
+
+    def test_sleep_and_away_are_normal_hierarchy_categories(self) -> None:
+        sleeping = DecisionEngine().evaluate(
+            replace(ready_inputs(), bio_state=fresh("sleep", "core_state.bio"))
+        )
+        away = DecisionEngine().evaluate(
+            replace(ready_inputs(), away=fresh(True, "core_state.away"))
+        )
+
+        self.assertEqual(sleeping.master_mode.value, "normal")
+        self.assertEqual(sleeping.winner.category, "sleep")
+        self.assertIsNone(sleeping.winner.variant)
+        self.assertEqual(away.master_mode.value, "normal")
+        self.assertEqual(away.winner.category, "away")
+        self.assertIsNone(away.winner.variant)
 
     def test_waking_clears_a_previous_override_and_pauses_cold_insulation(self) -> None:
         runtime = ShadowRuntime()
@@ -224,6 +379,12 @@ class DecisionEngineTests(unittest.TestCase):
         cold = next(item for item in snapshot.trace.candidates if item.key == "cold_insulation")
         self.assertTrue(cold.active)
         self.assertTrue(cold.paused)
+        cold_branch = next(
+            branch
+            for branch in snapshot.trace.active_branches
+            if branch.candidate_key == "cold_insulation"
+        )
+        self.assertTrue(cold_branch.paused)
 
     def test_waking_uses_only_canonical_bio_state(self) -> None:
         inputs = replace(
@@ -257,6 +418,17 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertEqual(trace.apply.status, "safety_ready")
         self.assertEqual(trace.apply.reason, "safety_target_bypasses_normal_cooldown")
 
+    def test_positive_opening_safety_uses_axis_specific_safe_open_position(self) -> None:
+        inputs = replace(ready_inputs(), opening_state=fresh("open", "opening_contract"))
+        normal = DecisionEngine().evaluate(inputs)
+        inverted = DecisionEngine(
+            replace(BlindControlConfig.defaults(), axis_inverted=True)
+        ).evaluate(inputs)
+
+        self.assertEqual(normal.effective_target, 100)
+        self.assertEqual(inverted.effective_target, 0)
+        self.assertEqual(inverted.safety.status, "safe_position")
+
     def test_stale_opening_does_not_become_closed(self) -> None:
         inputs = replace(ready_inputs(), opening_state=stale("closed", "opening_contract"))
         trace = DecisionEngine().evaluate(inputs)
@@ -264,6 +436,63 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertEqual(trace.safety.status, "blocked")
         self.assertIsNone(trace.effective_target)
         self.assertEqual(trace.safety.opening_state, "unknown")
+
+    def test_unusable_opening_quality_never_creates_opening_drive(self) -> None:
+        for quality in (
+            InputQuality.UNKNOWN,
+            InputQuality.STALE,
+            InputQuality.UNAVAILABLE,
+            InputQuality.CONFLICT,
+        ):
+            with self.subTest(quality=quality):
+                inputs = replace(
+                    ready_inputs(),
+                    opening_state=InputObservation(
+                        value="open",
+                        source="opening_contract",
+                        quality=quality,
+                        reason=f"opening_{quality.value}",
+                    ),
+                )
+                trace = DecisionEngine().evaluate(inputs)
+
+                self.assertEqual(trace.safety.status, "blocked")
+                self.assertIsNone(trace.effective_target)
+                self.assertNotEqual(trace.effective_target, 100)
+
+    def test_known_neutral_context_is_normal_not_failure(self) -> None:
+        neutral = DecisionEngine().evaluate(
+            replace(ready_inputs(), day_state=fresh("night", "core_state.day"))
+        )
+
+        self.assertEqual(neutral.master_mode.value, "normal")
+        self.assertEqual(neutral.failure.status, "none")
+        self.assertIsNone(neutral.fachlicher_target)
+        self.assertEqual(neutral.winner.category, "neutral")
+        self.assertEqual(neutral.winner.candidate_key, "neutral_context")
+
+    def test_failure_holds_last_proven_safe_position_or_blocks_apply(self) -> None:
+        failed_inputs = replace(ready_inputs(), day_state=stale("morning", "core_state.day"))
+        runtime_with_safe_position = ShadowRuntime()
+        runtime_with_safe_position.evaluate(ready_inputs(), now=0)
+        held = runtime_with_safe_position.evaluate(failed_inputs, now=1).trace
+        blocked = (
+            ShadowRuntime()
+            .evaluate(
+                replace(failed_inputs, cover_position=InputObservation.missing("technical_cover")),
+                now=1,
+            )
+            .trace
+        )
+
+        self.assertEqual(held.master_mode.value, "failure")
+        self.assertEqual(held.failure.status, "holding_safe_position")
+        self.assertEqual(held.effective_target, 50)
+        self.assertEqual(held.apply.status, "blocked")
+        self.assertNotEqual(held.effective_target, 100)
+        self.assertEqual(blocked.failure.status, "apply_blocked")
+        self.assertIsNone(blocked.effective_target)
+        self.assertEqual(blocked.apply.status, "blocked")
 
     def test_storm_releases_heat_but_tv_glare_remains(self) -> None:
         inputs = sunny_inputs(
@@ -459,6 +688,16 @@ class SolarAndLifecycleTests(unittest.TestCase):
         self.assertIn("settings", projection)
         self.assertIn("debug_payload", projection)
         self.assertFalse(projection["debug_payload"]["write_path_reachable"])
+
+    def test_debug_payload_redacts_owner_bound_sources(self) -> None:
+        snapshot = ShadowRuntime().evaluate(
+            replace(ready_inputs(), bio_state=fresh("awake", "sensor.bound_bio")), now=0
+        )
+        debug_payload = snapshot.debug_payload()
+
+        self.assertEqual(debug_payload["inputs"]["bio_state"]["source"], "owner_bound")
+        self.assertNotIn("sensor.bound_bio", repr(debug_payload))
+        self.assertNotIn("core_state.day", repr(debug_payload))
 
     def test_latest_target_only_cooldown(self) -> None:
         tracker = CooldownTracker(tolerance=0)
