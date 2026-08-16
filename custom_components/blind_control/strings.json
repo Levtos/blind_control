@@ -3,7 +3,29 @@
     "step": {
       "user": {
         "title": "Blind Control",
-        "description": "AP2 creates a configurable, non-actuating Shadow entry. It computes inputs, decisions, traces, and snapshots without a device-write path."
+        "description": "AP2 creates a configurable, non-actuating Shadow entry. It computes inputs, decisions, traces, and snapshots without a device-write path.",
+        "sections": {
+          "core_state_bindings": {
+            "name": "Core State",
+            "description": "Optional canonical household and activity contracts."
+          },
+          "opening_safety_cover_bindings": {
+            "name": "Opening / Safety / Cover",
+            "description": "Optional technical safety and readiness evidence."
+          },
+          "solar_bindings": {
+            "name": "Solar",
+            "description": "Optional window-related solar evidence."
+          },
+          "temperature_weather_bindings": {
+            "name": "Temperature / Weather",
+            "description": "Optional climate and weather evidence."
+          },
+          "legacy_comparison_bindings": {
+            "name": "Legacy comparison",
+            "description": "Optional old-policy evidence for field-wise Shadow diffs."
+          }
+        }
       }
     },
     "error": {
@@ -17,7 +39,29 @@
     "step": {
       "init": {
         "title": "Blind Control Shadow settings",
-        "description": "Changes recompute the Shadow snapshot and never create a cover-write path."
+        "description": "Changes recompute the Shadow snapshot and never create a cover-write path.",
+        "sections": {
+          "core_state_bindings": {
+            "name": "Core State",
+            "description": "Optional canonical household and activity contracts."
+          },
+          "opening_safety_cover_bindings": {
+            "name": "Opening / Safety / Cover",
+            "description": "Optional technical safety and readiness evidence."
+          },
+          "solar_bindings": {
+            "name": "Solar",
+            "description": "Optional window-related solar evidence."
+          },
+          "temperature_weather_bindings": {
+            "name": "Temperature / Weather",
+            "description": "Optional climate and weather evidence."
+          },
+          "legacy_comparison_bindings": {
+            "name": "Legacy comparison",
+            "description": "Optional old-policy evidence for field-wise Shadow diffs."
+          }
+        }
       }
     }
   }

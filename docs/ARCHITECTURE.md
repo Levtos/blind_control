@@ -118,3 +118,51 @@ Diagnose-/Apply-Intent-Aussage, keine ausführbare Home-Assistant-Aktion.
 Die vollständige AP2-Implementierungs- und Owner-/Freshness-Beschreibung steht
 in [AP2_SHADOW.md](AP2_SHADOW.md). Nicht belegte externe Bindings bleiben
 Blocker und werden nicht aus historischen IDs rekonstruiert.
+
+## 8. AP2-Laufzeitfortschreibung v0.2
+
+Die folgenden Aussagen supersedieren die vorläufige Beschreibung in Abschnitt
+7, soweit sie den laufenden AP2-Shadow-Coordinator betreffen. Status ist
+`Installed / Shadow / Not Live`; `benni_blind_policy` bleibt alleiniger
+produktiver Apply-Owner.
+
+```text
+Owner-selected ConfigEntry bindings
+        -> ShadowCoordinator (state listener + freshness timer, event loop)
+        -> BlindControlInputs / LegacyEvidence
+        -> Solar Exposure + DecisionEngine v2
+        -> DecisionTrace v2 / fieldwise Legacy diff
+        -> ShadowSnapshot v1
+        -> read-only UX v2 and automation projection v1
+```
+
+Der Coordinator beobachtet nur die im OptionsFlow gewählten Bindings und
+erstellt keine Plattform, keinen Service und keinen Aktuatorpfad. Seine
+State-, Zeit- und Refresh-Callbacks sind Home-Assistant-Callbacks; ein
+gegebenenfalls fremder Thread übergibt die Task-Erzeugung über den
+thread-sicheren HA-Scheduler zurück an den Event Loop. Dadurch entsteht kein
+`async_create_task`-Aufruf aus einem Worker-Thread.
+
+`blind_control.decision.v2` trennt den fachlichen Mastermodus
+`normal|manual|failure` von Safety und Apply. Unter `normal` enthält der Trace
+Kategorie, Variante, Original-Candidate-Key, Gewinner und alle kompatiblen
+aktiven oder pausierten Nebenäste. Bei Failure hält die Laufzeit nur eine
+nachweislich sichere Position; ohne diesen Nachweis wird Apply blockiert. Sie
+erzeugt niemals einen pauschalen Open-Fallback. Positiv bestätigte
+Opening-Safety verwendet weiterhin das achsenspezifisch konfigurierte
+Safety-Profil.
+
+Die installierbare Panel-UX erhält den offiziellen `hass`-Context und konsumiert
+allein den admin-geschützten Snapshot-Contract. Sie zeigt den fachlichen Baum
+und die technische Ebene getrennt. Binding-Bearbeitung bleibt im nativen
+OptionsFlow mit Entity-Selectoren und den Gruppen Core State,
+Opening/Safety/Cover, Solar, Temperatur/Wetter und Legacy-Vergleich; die
+öffentliche Projektion enthält nur `configured` und die Owner-/Freshness-Policy,
+nie Entity-IDs.
+
+`blind_control.automation_projection.v1` ist bewusst klein: Mastermodus,
+Gewinnerkategorie/-variante, fachliches und effektives Ziel sowie Safety-,
+Apply- und Shadow-Status. Sie ist für eine spätere explizit freigegebene
+Automations-/Diagnoseanbindung dokumentiert, erzeugt in AP2 aber keine neue
+Home-Assistant-Entity und umgeht damit weder die no-platform-forwarding-
+Grenze noch den Apply-Owner.

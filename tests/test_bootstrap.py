@@ -20,6 +20,17 @@ class _FakeSchema:
         self.schema = schema
 
 
+class _FakeSection:
+    def __init__(self, schema, options):
+        self.schema = schema
+        self.options = options
+
+
+class _FakeSelector:
+    def __init__(self, config):
+        self.config = config
+
+
 class _SchemaKey:
     def __init__(self, key, required):
         self.key = key
@@ -209,6 +220,13 @@ class _FakeOptionsFlow(_FakeConfigFlow):
     pass
 
 
+def _schema_value(schema: _FakeSchema, key: str):
+    for schema_key, value in schema.schema.items():
+        if getattr(schema_key, "key", schema_key) == key:
+            return value
+    raise KeyError(key)
+
+
 @contextmanager
 def _home_assistant_imports():
     voluptuous = _FakeVoluptuous("voluptuous")
@@ -219,6 +237,13 @@ def _home_assistant_imports():
     config_entries.OptionsFlow = _FakeOptionsFlow
     core = types.ModuleType("homeassistant.core")
     core.HomeAssistant = _FakeHomeAssistant
+    core.callback = lambda function: function
+    data_entry_flow = types.ModuleType("homeassistant.data_entry_flow")
+    data_entry_flow.section = lambda schema, options: _FakeSection(schema, options)
+    helpers = types.ModuleType("homeassistant.helpers")
+    selector_module = types.ModuleType("homeassistant.helpers.selector")
+    selector_module.selector = lambda config: _FakeSelector(config)
+    helpers.selector = selector_module
     components = types.ModuleType("homeassistant.components")
     websocket_api = _FakeWebsocket()
     frontend = _FakeFrontend("homeassistant.components.frontend")
@@ -229,6 +254,8 @@ def _home_assistant_imports():
     components.http = http
     homeassistant.config_entries = config_entries
     homeassistant.core = core
+    homeassistant.data_entry_flow = data_entry_flow
+    homeassistant.helpers = helpers
     homeassistant.components = components
     _FakeConfigFlow.configured_unique_ids.clear()
 
@@ -245,6 +272,9 @@ def _home_assistant_imports():
             "homeassistant": homeassistant,
             "homeassistant.config_entries": config_entries,
             "homeassistant.core": core,
+            "homeassistant.data_entry_flow": data_entry_flow,
+            "homeassistant.helpers": helpers,
+            "homeassistant.helpers.selector": selector_module,
             "homeassistant.components": components,
             "homeassistant.components.websocket_api": websocket_api,
             "homeassistant.components.frontend": frontend,
@@ -366,31 +396,44 @@ class BootstrapTests(unittest.TestCase):
                         "entry_id": "entry-1",
                         "options": {
                             "apply_enabled": False,
-                            "input_bindings": {"activity_state": "sensor.new_activity"},
                         },
                     },
                 )
             )
             self.assertEqual(len(hass.config_entries.updates), 1)
             self.assertFalse(hass.config_entries.updates[0][1]["apply_enabled"])
-            self.assertEqual(
-                hass.config_entries.updates[0][1]["input_bindings"],
-                {
-                    "bio_state": "sensor.private_bio",
-                    "activity_state": "sensor.new_activity",
-                },
+            binding_write = _FakeConnection(is_admin=True)
+            asyncio.run(
+                update_handler(
+                    hass,
+                    binding_write,
+                    {
+                        "id": 4,
+                        "entry_id": "entry-1",
+                        "options": {"input_bindings": {"activity_state": "sensor.new_activity"}},
+                    },
+                )
             )
+            self.assertEqual(binding_write.errors[0][1], "invalid_options")
+            self.assertEqual(len(hass.config_entries.updates), 1)
 
             read_only = _FakeConnection(is_admin=True)
-            asyncio.run(get_handler(hass, read_only, {"id": 4, "entry_id": "entry-1"}))
-            self.assertEqual(read_only.results[0][0], 4)
+            asyncio.run(get_handler(hass, read_only, {"id": 5, "entry_id": "entry-1"}))
+            self.assertEqual(read_only.results[0][0], 5)
             projection = read_only.results[0][1]
-            self.assertEqual(projection["version"], "blind_control.ux.v1")
+            self.assertEqual(projection["version"], "blind_control.ux.v2")
             serialized = json.dumps(projection)
             self.assertNotIn("sensor.private_bio", serialized)
             self.assertNotIn("sensor.private_legacy", serialized)
             self.assertNotIn("sensor.new_activity", serialized)
-            self.assertTrue(projection["settings"]["binding_status"]["input_bindings"]["bio_state"])
+            self.assertTrue(
+                next(
+                    field
+                    for group in projection["settings"]["binding_groups"]
+                    for field in group["fields"]
+                    if field["key"] == "bio_state"
+                )["configured"]
+            )
 
     def test_config_flow_is_singleton_and_persists_shadow_configuration(self) -> None:
         if importlib.util.find_spec("homeassistant") is None:
@@ -406,6 +449,12 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(form["step_id"], "user")
             self.assertIn("window_azimuth", form["data_schema"].schema)
             self.assertIn("position_waking_normal", form["data_schema"].schema)
+            core_state_section = _schema_value(form["data_schema"], "core_state_bindings")
+            self.assertIsInstance(core_state_section, _FakeSection)
+            self.assertTrue(core_state_section.options["collapsed"])
+            bio_selector = _schema_value(core_state_section.schema, "bio_state")
+            self.assertIsInstance(bio_selector, _FakeSelector)
+            self.assertEqual(bio_selector.config, {"entity": {}})
 
             from custom_components.blind_control.config import BlindControlConfig
 
@@ -436,11 +485,29 @@ class BootstrapTests(unittest.TestCase):
             for name, profile in config.profiles:
                 user_input[f"position_{name}_normal"] = profile.normal
                 user_input[f"position_{name}_inverted"] = profile.inverted
+            user_input["core_state_bindings"] = {"bio_state": "sensor.bound_bio"}
+            user_input["opening_safety_cover_bindings"] = {}
+            user_input["solar_bindings"] = {}
+            user_input["temperature_weather_bindings"] = {}
+            user_input["legacy_comparison_bindings"] = {}
 
             result = asyncio.run(flow.async_step_user(user_input))
             self.assertEqual(result["type"], "create_entry")
             self.assertEqual(result["title"], "Blind Control")
             self.assertEqual(result["data"]["config_version"], 1)
+            self.assertEqual(result["data"]["input_bindings"], {"bio_state": "sensor.bound_bio"})
+            existing = BlindControlConfig.from_mapping(result["data"])
+            cleared = loaded._mapping_from_form(
+                {"core_state_bindings": {"bio_state": ""}}, existing
+            )
+            self.assertNotIn("bio_state", cleared["input_bindings"])
+            options_flow = loaded.BlindControlOptionsFlow(
+                _FakeConfigEntry("entry-1", data=result["data"])
+            )
+            options_form = asyncio.run(options_flow.async_step_init())
+            self.assertIsInstance(
+                _schema_value(options_form["data_schema"], "solar_bindings"), _FakeSection
+            )
             with self.assertRaises(_DuplicateEntry):
                 asyncio.run(flow.async_step_user(user_input))
 

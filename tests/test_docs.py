@@ -57,6 +57,9 @@ class DocumentationTests(unittest.TestCase):
         ap2 = (DOCS / "AP2_SHADOW.md").read_text(encoding="utf-8")
         for term in (
             "blind_control.shadow.v1",
+            "blind_control.decision.v2",
+            "blind_control.ux.v2",
+            "Installed / Shadow / Not Live",
             "shadow_only = true",
             "write_path_reachable = false",
             "waking",
@@ -66,6 +69,8 @@ class DocumentationTests(unittest.TestCase):
             "activity_state = none",
             "override_context_changed",
             "Not Live",
+            "hass.add_job",
+            "native Entity-Selectoren",
         ):
             self.assertIn(term, ap2)
 
@@ -84,6 +89,11 @@ class DocumentationTests(unittest.TestCase):
             "max_age_seconds",
             "require_timestamp",
             "waking_context_superseded",
+            "AP2 Decision- und UX-Contract v2",
+            "master_mode",
+            "active_branches[]",
+            "automation_projection.v1",
+            'selector({"entity": {}})',
         ):
             self.assertIn(term, source)
 
@@ -166,6 +176,10 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("blind_control/update_options", source)
         self.assertIn("navigator.clipboard", source)
         self.assertIn("statusTone", source)
+        self.assertIn("master_mode", source)
+        self.assertIn("active_branches", source)
+        self.assertNotIn("editableSettings.input_bindings", source)
+        self.assertNotIn("editableSettings.legacy_bindings", source)
 
     def test_frontend_is_an_installable_ha_panel_with_official_context(self) -> None:
         main = (FRONTEND / "src" / "main.ts").read_text(encoding="utf-8")
@@ -197,18 +211,30 @@ class DocumentationTests(unittest.TestCase):
         self.assertFalse((PACKAGE / "frontend" / "index.html").exists())
         self.assertFalse(any(path.suffix == ".css" for path in (PACKAGE / "frontend").rglob("*")))
 
-    def test_ux_contains_all_binding_fields_and_live_household_projection(self) -> None:
+    def test_ux_contains_hierarchical_bindings_and_live_household_projection(self) -> None:
         ux = (PACKAGE / "ux_contract.py").read_text(encoding="utf-8")
         app = (FRONTEND / "src" / "App.svelte").read_text(encoding="utf-8")
+        config_flow = (PACKAGE / "config_flow.py").read_text(encoding="utf-8")
+        coordinator = (PACKAGE / "coordinator.py").read_text(encoding="utf-8")
+
+        for term in ('"cover_position"', '"household"', '"master_mode"', '"active_branches"'):
+            self.assertIn(term, ux)
         for term in (
-            '"cover_position"',
-            '"household"',
-            "inputBindingKeys",
-            "legacyBindingKeys",
-            "editableSettings.input_bindings[key] ?? ''",
-            "editableSettings.legacy_bindings[key] ?? ''",
+            "Native Entity-Selectoren",
+            "binding_groups",
+            "nicht konfiguriert",
+            "FACHLICHER ENTSCHEIDUNGSBAUM",
+            "TECHNISCHE EBENE",
+            "HAUSHALT & KONTEXT",
+            "snapshot.overview.household",
         ):
-            self.assertIn(term, ux + app)
+            self.assertIn(term, app)
+        self.assertNotIn("input_bindings", app)
+        self.assertNotIn("legacy_bindings", app)
+        self.assertIn('selector({"entity": {}})', config_flow)
+        self.assertIn("section(", config_flow)
+        self.assertIn('getattr(self.hass, "add_job"', coordinator)
+        self.assertIn("_schedule_refresh_in_event_loop", coordinator)
 
 
 if __name__ == "__main__":

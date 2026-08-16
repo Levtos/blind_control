@@ -9,10 +9,14 @@ from .contracts import (
     ApplyDecision,
     BlindControlInputs,
     Candidate,
+    DecisionBranch,
     DecisionTrace,
+    DecisionWinner,
+    FailureDecision,
     InputObservation,
     InputQuality,
     ManualOverride,
+    MasterMode,
     OpeningState,
     PausedRequirement,
     SafetyDecision,
@@ -22,7 +26,7 @@ from .contracts import (
 from .cooldown import CooldownTracker
 from .solar import calculate_solar_exposure
 
-DECISION_CONTRACT_VERSION = "blind_control.decision.v1"
+DECISION_CONTRACT_VERSION = "blind_control.decision.v2"
 DAYLIGHT_STATES = frozenset(
     {"dawn", "morning", "day", "midday", "afternoon", "late_afternoon", "evening"}
 )
@@ -45,6 +49,7 @@ class DecisionEngine:
         override: ManualOverride | None = None,
         now: float | None = None,
         cooldown: CooldownTracker | None = None,
+        failure_hold_target: float | None = None,
     ) -> DecisionTrace:
         override = override or ManualOverride.inactive()
         solar = calculate_solar_exposure(inputs, self.config)
@@ -133,18 +138,42 @@ class DecisionEngine:
             and candidate.target_position == fachlicher_target
         )
         active_mode = self._active_mode(candidates, waking=waking)
+        winner = self._winner(candidates, winner_keys, fachlicher_target)
+        active_branches = tuple(
+            DecisionBranch.from_candidate(
+                candidate,
+                winner=winner is not None and candidate.key == winner.candidate_key,
+            )
+            for candidate in candidates
+            if candidate.active or candidate.paused
+        )
+        failure = self._failure(inputs, fachlicher_target, failure_hold_target)
+        master_mode = self._master_mode(override=override, waking=waking, failure=failure)
         safety = self._safety(inputs, fachlicher_target)
         effective_target = safety.approved_target
         if safety.status == "ready":
             effective_target = fachlicher_target
-        apply = self._apply(
-            effective_target=effective_target,
-            safety=safety,
-            override=override,
-            cooldown=cooldown,
-            now=0.0 if now is None else now,
+        if failure.active and safety.status == "safe_position":
+            failure = replace(
+                failure,
+                status="safety_position",
+                hold_target=safety.approved_target,
+            )
+        elif failure.active:
+            effective_target = failure.hold_target
+
+        apply = (
+            self._failure_apply(failure, effective_target)
+            if failure.active and safety.status != "safe_position"
+            else self._apply(
+                effective_target=effective_target,
+                safety=safety,
+                override=override,
+                cooldown=cooldown,
+                now=0.0 if now is None else now,
+            )
         )
-        reasons = list(self._reasons(candidates, paused, fachlicher_target, safety, apply))
+        reasons = list(self._reasons(candidates, paused, fachlicher_target, failure, safety, apply))
         return DecisionTrace(
             version=DECISION_CONTRACT_VERSION,
             candidates=tuple(candidates),
@@ -153,6 +182,10 @@ class DecisionEngine:
             fachlicher_target=fachlicher_target,
             effective_target=effective_target,
             active_mode=active_mode,
+            master_mode=master_mode,
+            winner=winner,
+            active_branches=active_branches,
+            failure=failure,
             solar=solar,
             safety=safety,
             apply=apply,
@@ -165,7 +198,7 @@ class DecisionEngine:
         if not inputs.day_state.usable or not inputs.day_context.usable:
             return self._candidate(
                 "base_daylight",
-                "base_state",
+                "neutral",
                 False,
                 None,
                 _source(inputs.day_state, inputs.day_context),
@@ -176,7 +209,7 @@ class DecisionEngine:
         if day_state in DAYLIGHT_STATES:
             return self._candidate(
                 "base_daylight",
-                "base_state",
+                "neutral",
                 True,
                 self.config.target("open"),
                 inputs.day_state.source,
@@ -184,12 +217,12 @@ class DecisionEngine:
                 InputQuality.FRESH,
             )
         return self._candidate(
-            "base_daylight",
-            "base_state",
-            False,
+            "neutral_context",
+            "neutral",
+            True,
             None,
             inputs.day_state.source,
-            "day_state_is_not_a_positive_open_reason",
+            "known_non_daylight_neutral_context",
             InputQuality.FRESH,
         )
 
@@ -203,7 +236,7 @@ class DecisionEngine:
         candidates = [
             self._candidate(
                 "sleep",
-                "mode",
+                "sleep",
                 _is_value(inputs.bio_state, "sleep"),
                 self.config.target("sleep") if _is_value(inputs.bio_state, "sleep") else None,
                 inputs.bio_state.source,
@@ -214,7 +247,7 @@ class DecisionEngine:
             ),
             self._candidate(
                 "waking",
-                "exclusive_mode",
+                "waking",
                 waking,
                 self.config.target("waking") if waking else None,
                 inputs.bio_state.source,
@@ -223,7 +256,7 @@ class DecisionEngine:
             ),
             self._candidate(
                 "away",
-                "mode",
+                "away",
                 inputs.away.usable and bool(inputs.away.value),
                 self.config.target("away") if inputs.away.usable and inputs.away.value else None,
                 inputs.away.source,
@@ -234,7 +267,7 @@ class DecisionEngine:
             ),
             self._candidate(
                 "private_time",
-                "mode",
+                "privacy",
                 inputs.private_time.usable and bool(inputs.private_time.value),
                 self.config.target("private_time")
                 if inputs.private_time.usable and inputs.private_time.value
@@ -244,13 +277,14 @@ class DecisionEngine:
                 if inputs.private_time.usable and inputs.private_time.value
                 else "private_time_not_active",
                 inputs.private_time.quality,
+                variant="private_time",
             ),
         ]
         privacy_active = inputs.privacy.usable and bool(inputs.privacy.value)
         candidates.append(
             self._candidate(
                 "privacy",
-                "mode",
+                "privacy",
                 privacy_active,
                 self.config.target("privacy") if privacy_active else None,
                 inputs.privacy.source,
@@ -304,16 +338,17 @@ class DecisionEngine:
         return [
             self._candidate(
                 "heat_protection",
-                "environment",
+                "climate",
                 heat,
                 self.config.target("heat_protection") if heat else None,
                 _source(inputs.outdoor_temperature, solar),
                 heat_reason,
                 _quality(inputs.outdoor_temperature, inputs.indoor_temperature),
+                variant="heat",
             ),
             self._candidate(
                 "glare_general",
-                "environment",
+                "glare",
                 glare_general,
                 self.config.target("glare_general") if glare_general else None,
                 inputs.activity_state.source,
@@ -323,10 +358,11 @@ class DecisionEngine:
                 if _activity(inputs, SCREEN_ACTIVITY) and not glare_relevant
                 else "no_general_glare_activity",
                 inputs.activity_state.quality,
+                variant="general",
             ),
             self._candidate(
                 "glare_tv",
-                "environment",
+                "glare",
                 glare_tv,
                 self.config.target("glare_tv") if glare_tv else None,
                 inputs.activity_state.source,
@@ -336,10 +372,11 @@ class DecisionEngine:
                 if _activity(inputs, TV_ACTIVITY) and not glare_relevant
                 else "no_tv_activity",
                 inputs.activity_state.quality,
+                variant="tv",
             ),
             self._candidate(
                 "glare_pc",
-                "environment",
+                "glare",
                 glare_pc,
                 self.config.target("glare_pc") if glare_pc else None,
                 inputs.activity_state.source,
@@ -349,19 +386,21 @@ class DecisionEngine:
                 if _activity(inputs, PC_ACTIVITY) and not glare_relevant
                 else "no_pc_activity",
                 inputs.activity_state.quality,
+                variant="pc",
             ),
             self._candidate(
                 "storm_approaching",
-                "cooling_opportunity",
+                "climate",
                 storm,
                 self.config.target("storm_approaching") if storm else None,
                 _source(inputs.weather_alert, inputs.precipitation_trend, inputs.wind_trend),
                 "multiple_weather_trend_signals" if storm else "insufficient_storm_signals",
                 _quality(inputs.weather_alert, inputs.precipitation_trend, inputs.wind_trend),
+                variant="storm",
             ),
             self._candidate(
                 "cool_air_available",
-                "cooling_opportunity",
+                "climate",
                 cool_air,
                 self.config.target("cool_air_available") if cool_air else None,
                 _source(inputs.indoor_temperature, inputs.outdoor_temperature, inputs.air_movement),
@@ -369,15 +408,17 @@ class DecisionEngine:
                 _quality(
                     inputs.indoor_temperature, inputs.outdoor_temperature, inputs.air_movement
                 ),
+                variant="cool_air",
             ),
             self._candidate(
                 "cold_insulation",
-                "environment",
+                "climate",
                 cold,
                 self.config.target("cold_insulation") if cold else None,
                 _source(inputs.outdoor_temperature, solar),
                 "dark_cold_without_solar_gain" if cold else "cold_insulation_conditions_not_met",
                 _quality(inputs.outdoor_temperature, inputs.opening_state),
+                variant="cold",
             ),
         ]
 
@@ -621,6 +662,89 @@ class DecisionEngine:
             cooldown_pending_target=pending,
         )
 
+    def _failure(
+        self,
+        inputs: BlindControlInputs,
+        fachlicher_target: float | None,
+        failure_hold_target: float | None,
+    ) -> FailureDecision:
+        """Expose only a proven inability to make an automatic policy decision.
+
+        A known neutral situation remains ``normal`` even when it has no positive
+        open or protection target.  Failure is limited to the Core-State inputs
+        that prevent Blind Control from classifying its operating context at all.
+        """
+
+        if fachlicher_target is not None:
+            return FailureDecision()
+        for key in ("bio_state", "day_state", "day_context"):
+            observation = getattr(inputs, key)
+            if not observation.usable:
+                hold_target = _valid_hold_target(failure_hold_target)
+                return FailureDecision(
+                    status="holding_safe_position" if hold_target is not None else "apply_blocked",
+                    reason=f"{key}_decision_contract_{observation.quality.value}",
+                    hold_target=hold_target,
+                )
+        return FailureDecision()
+
+    def _master_mode(
+        self,
+        *,
+        override: ManualOverride,
+        waking: bool,
+        failure: FailureDecision,
+    ) -> MasterMode:
+        """Keep operating mode independent from Safety, Apply and winner category."""
+
+        if override.active and override.observed_position is not None and not waking:
+            return MasterMode.MANUAL
+        if failure.active:
+            return MasterMode.FAILURE
+        return MasterMode.NORMAL
+
+    def _winner(
+        self,
+        candidates: list[Candidate],
+        winner_keys: tuple[str, ...],
+        fachlicher_target: float | None,
+    ) -> DecisionWinner | None:
+        """Choose the first deterministic winner while retaining all tie keys."""
+
+        if fachlicher_target is None:
+            for candidate in candidates:
+                if candidate.key == "neutral_context" and candidate.active and not candidate.paused:
+                    return DecisionWinner(
+                        category=candidate.category,
+                        variant=candidate.variant,
+                        candidate_key=candidate.key,
+                        target_position=None,
+                    )
+            return None
+        winner_set = set(winner_keys)
+        for candidate in candidates:
+            if candidate.key in winner_set:
+                return DecisionWinner(
+                    category=candidate.category,
+                    variant=candidate.variant,
+                    candidate_key=candidate.key,
+                    target_position=candidate.target_position,
+                )
+        return None
+
+    def _failure_apply(
+        self, failure: FailureDecision, effective_target: float | None
+    ) -> ApplyDecision:
+        """Block automatic apply during failure even when a hold target is known."""
+
+        return ApplyDecision(
+            status="blocked",
+            reason=failure.reason or "decision_failure",
+            requested_target=effective_target,
+            approved_target=None,
+            cooldown_pending_target=None,
+        )
+
     def _active_mode(self, candidates: list[Candidate], *, waking: bool) -> str:
         if waking:
             return "waking"
@@ -643,6 +767,7 @@ class DecisionEngine:
         candidates: list[Candidate],
         paused: list[PausedRequirement],
         fachlicher_target: float | None,
+        failure: FailureDecision,
         safety: SafetyDecision,
         apply: ApplyDecision,
     ) -> tuple[str, ...]:
@@ -650,6 +775,8 @@ class DecisionEngine:
         reasons.extend(item.reason for item in paused)
         if fachlicher_target is None:
             reasons.append("no_positive_open_reason_no_100_percent_fallback")
+        if failure.reason:
+            reasons.append(failure.reason)
         reasons.append(safety.reason)
         reasons.append(apply.reason)
         return tuple(dict.fromkeys(reasons))
@@ -664,12 +791,14 @@ class DecisionEngine:
         reason: str,
         quality: InputQuality,
         *,
+        variant: str | None = None,
         paused: bool = False,
         suppressed_by: str | None = None,
     ) -> Candidate:
         return Candidate(
             key=key,
             category=category,
+            variant=variant,
             active=active,
             target_position=target,
             source=source,
@@ -707,3 +836,15 @@ def _quality(*observations: InputObservation) -> InputQuality:
 def _source(*values) -> str:
     sources = [value.source for value in values if hasattr(value, "source")]
     return "+".join(dict.fromkeys(sources)) or "derived"
+
+
+def _valid_hold_target(value: float | None) -> float | None:
+    """Keep failure-hold evidence bounded without inventing a fallback target."""
+
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        target = float(value)
+    except (TypeError, ValueError):
+        return None
+    return target if 0 <= target <= 100 else None

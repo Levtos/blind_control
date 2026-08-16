@@ -130,3 +130,59 @@ Feldern. Innerhalb desselben Keys bleibt der Override aktiv; ein Key-Wechsel
 endet ihn mit `override_context_changed`, der Eintritt in kanonisches Waking
 mit `waking_context_superseded`. Das ist ein Lifecycle-Ereignis, kein
 heuristischer Zustandsersatz.
+
+## 7. AP2 Decision- und UX-Contract v2
+
+`blind_control.decision.v2` ersetzt für neue Consumer die flache
+Entscheidungsdarstellung. `active_mode` und `winner_keys` bleiben nur
+abwärtskompatible Diagnosefelder; sie dürfen nicht als alleinige
+Entscheidungshierarchie interpretiert werden.
+
+| Feld | Semantik |
+| --- | --- |
+| `master_mode` | ausschließlich `normal`, `manual` oder `failure` |
+| `winner.category`, `winner.variant`, `winner.candidate_key`, `winner.target_position` | fachlicher Gewinner; `pc`/`tv` sind Varianten von `glare`, Climate-Varianten sind `heat`, `cold`, `storm`, `cool_air` |
+| `active_branches[]` | alle fachlich aktiven oder pausierten Anforderungen mit Kategorie, Variante, Candidate-Key, `active`, `paused`, `winner`, Ziel, Quality, redigierter Source, Reason und `suppressed_by` |
+| `failure.status`, `failure.reason`, `failure.hold_target` | konkrete Entscheidungsunfähigkeit, Position halten oder Apply blockiert; kein unsichtbarer Open-Fallback |
+| `fachlicher_target` | Ergebnis der unveränderten Minimum-Komposition kompatibler Anforderungen |
+| `effective_target` | gehaltenes, technisch zugelassenes oder durch positiv bestätigte Safety bestimmtes Ziel |
+| `safety`, `apply` | technische Entscheidungen, ausdrücklich getrennt vom fachlichen Mastermodus |
+
+`normal` projiziert `neutral`, `waking`, `sleep`, `away`, `privacy`,
+`glare -> general|tv|pc` oder `climate -> heat|cold|storm|cool_air`.
+Waking pausiert die festgelegten Umweltäste sichtbar. Ein nachgewiesener
+fremder Override liefert `manual -> override`; Safety und der festgelegte
+Lifecycle können dessen effektives Ziel technisch überstimmen, ohne daraus
+eine neue freie Automatik abzuleiten.
+
+Failure wird nur bei fehlender belastbarer Entscheidungsgrundlage gesetzt; ein
+bekannter neutraler Context bleibt `normal`. Bei Failure wird eine frische,
+nachweislich sichere aktuelle oder letzte Position gehalten, sonst Apply
+blockiert. Nur positive Opening-Safety darf das konfigurierte, achsenspezifische
+Safety-Open-Profil freigeben. Opening-Quality `unknown`, `stale`,
+`unavailable` oder `conflict` führt nie zu einer Öffnungsfahrt.
+
+`blind_control.ux.v2` enthält den v2-Entscheidungsbaum, die getrennte
+technische Ebene, die flache Diagnoseansicht, Solar-/Quality-/Alt-Neu-Evidence
+und den Settings-Status. Public Source-Werte werden zu Owner-Kategorien
+redigiert; Bindings und Entity-IDs erscheinen nicht in Snapshot-,
+WebSocket- oder Clipboard-Payloads.
+
+### 7.1 Binding- und OptionsFlow-Contract
+
+Bindings werden im nativen Home-Assistant-OptionsFlow ausschließlich über
+`selector({"entity": {}})` verarbeitet. Die Sections heißen Core State,
+Opening/Safety/Cover, Solar, Temperatur/Wetter und Legacy-Vergleich. Leere
+optionale Werte werden beim Persistieren entfernt. Der WebSocket-Optionspfad
+ist admin-geschützt, akzeptiert aber keine Binding-Mappings; dafür ist allein
+der OptionsFlow zuständig. Die Panel-Projektion enthält für jedes Feld nur
+`configured`, `owner`, `max_age_seconds` und `require_timestamp`.
+
+### 7.2 Kleine Automations-/Diagnoseprojektion
+
+`blind_control.automation_projection.v1` ist ein read-only, versioniertes
+Objekt mit `master_mode`, `winner_category`, `winner_variant`,
+`fachlicher_target`, `effective_target`, `safety_status`, `apply_status` und
+den drei Shadow-Flags. Es ist keine neue HA-Plattform und keine Entität. Eine
+spätere Entitätsprojektion braucht einen eigenen Owner-/Consumer- und
+Migration-Entscheid; AP2 erzeugt keine Entity-Flut.

@@ -12,6 +12,7 @@ from .contracts import (
     DecisionTrace,
     LegacyEvidence,
     ManualOverride,
+    OpeningState,
     OverrideContextKey,
     redact_diagnostic_value,
 )
@@ -81,6 +82,7 @@ class ShadowRuntime:
         self.override_tracker = OverrideTracker.from_config(self.config)
         self.cooldown_tracker = CooldownTracker(tolerance=self.config.position_tolerance)
         self._override_context_key: OverrideContextKey | None = None
+        self._last_safe_position: float | None = None
 
     @property
     def override(self) -> ManualOverride:
@@ -95,12 +97,19 @@ class ShadowRuntime:
         legacy_snapshot: Mapping[str, object] | LegacyEvidence | None = None,
     ) -> ShadowSnapshot:
         self._apply_override_context_lifecycle(OverrideContextKey.from_inputs(inputs))
+        current_safe_position = _safe_hold_position(inputs)
+        failure_hold_target = (
+            current_safe_position if current_safe_position is not None else self._last_safe_position
+        )
         trace = self.engine.evaluate(
             inputs,
             override=self.override,
             now=now,
             cooldown=self.cooldown_tracker,
+            failure_hold_target=failure_hold_target,
         )
+        if current_safe_position is not None:
+            self._last_safe_position = current_safe_position
         legacy_evidence = (
             legacy_snapshot
             if isinstance(legacy_snapshot, LegacyEvidence)
@@ -136,6 +145,7 @@ class ShadowRuntime:
 
     def on_restart(self, position: float | None) -> ManualOverride:
         self._override_context_key = None
+        self._last_safe_position = None
         return self.override_tracker.on_restart(position)
 
     def on_configuration_change(self, position: float | None = None) -> ManualOverride:
@@ -205,3 +215,26 @@ def _is_sensitive_key(key: str) -> bool:
         or normalized.endswith("_password")
         or normalized.endswith("_url")
     )
+
+
+def _safe_hold_position(inputs: BlindControlInputs) -> float | None:
+    """Accept only a fresh current position with positive opening-safety evidence."""
+
+    if not inputs.cover_position.usable or not inputs.opening_state.usable:
+        return None
+    try:
+        position = float(inputs.cover_position.value)
+        opening = OpeningState(str(inputs.opening_state.value).lower())
+    except (TypeError, ValueError):
+        return None
+    if not 0 <= position <= 100:
+        return None
+    if opening is OpeningState.CLOSED:
+        return position
+    if (
+        opening is OpeningState.TILTED
+        and inputs.opening_safe_for_blind.usable
+        and bool(inputs.opening_safe_for_blind.value)
+    ):
+        return position
+    return None

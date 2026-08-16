@@ -4008,91 +4008,93 @@ if (typeof window !== "undefined") {
   ((_c = window.__svelte ?? (window.__svelte = {})).v ?? (_c.v = /* @__PURE__ */ new Set())).add(PUBLIC_VERSION);
 }
 var root$1 = /* @__PURE__ */ from_html(`<button type="button" role="tab"> </button>`);
-var root_1$1 = /* @__PURE__ */ from_html(`<div><div class="candidate-top"><strong> </strong><span> </span></div> <p> </p> <small> </small></div>`);
-var root_2 = /* @__PURE__ */ from_html(`<p class="empty-state">Keine positive Anforderung liegt vor.</p>`);
-var root_3 = /* @__PURE__ */ from_html(`<section class="content-grid" aria-label="Übersicht"><article class="hero-card card"><div class="card-heading"><div><p class="eyebrow">AKTIVER MODUS</p> <h2> </h2></div> <span> </span></div> <div class="target-row"><span class="target-value"> </span> <span class="muted">technisch freigegebenes Ziel</span></div> <div class="metric-strip"><div><span>Fachliches Ziel</span><strong> </strong></div> <div><span>Gewinner</span><strong> </strong></div> <div><span>Opening</span><strong> </strong></div></div></article> <article class="card status-card"><div class="card-heading"><div><p class="eyebrow">TECHNISCHE GRENZE</p><h2>Safety & Apply</h2></div> <span> </span></div> <dl class="facts"><div><dt>Apply</dt><dd> </dd></div> <div><dt>Manual Override</dt><dd> </dd></div> <div><dt>Coverposition</dt><dd> </dd></div> <div><dt>Haushalt / Away</dt><dd> </dd></div> <div><dt>Private Zeit</dt><dd> </dd></div> <div><dt>Shadow</dt><dd> </dd></div></dl> <p class="callout">Keine Geräteaktion ist in diesem Contract erreichbar.</p></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">ENTSCHEIDUNGSBAUM</p><h2>Aktive Kandidaten</h2></div><span class="muted"> </span></div> <div class="candidate-grid"></div></article></section>`);
-var root_4 = /* @__PURE__ */ from_html(`<li><strong> </strong><span> </span></li>`);
-var root_5 = /* @__PURE__ */ from_html(`<h3>Pausiert</h3> <ul class="plain-list"></ul>`, 1);
-var root_6 = /* @__PURE__ */ from_html(`<div><span> </span><code> </code></div>`);
-var root_7 = /* @__PURE__ */ from_html(`<p class="empty-state">Noch keine owner-bound Inputs gebunden.</p>`);
-var root_8 = /* @__PURE__ */ from_html(`<section class="diagnosis-layout" aria-label="Diagnose"><article class="card"><div class="card-heading"><div><p class="eyebrow">DECISION TRACE</p><h2>Kandidaten & pausierte Äste</h2></div><span class="badge"> </span></div> <div class="trace-list"></div> <!></article> <div class="side-stack"><article class="card"><div class="card-heading"><div><p class="eyebrow">SOLAR EXPOSURE</p><h2> </h2></div><span class="badge"> </span></div> <dl class="facts"><div><dt>Einfallsfaktor</dt><dd> </dd></div> <div><dt>Außen-Lux</dt><dd> </dd></div> <div><dt>Trend</dt><dd> </dd></div> <div><dt>Grund</dt><dd> </dd></div></dl></article> <article class="card"><div class="card-heading"><div><p class="eyebrow">INPUT QUALITY</p><h2>Quellen</h2></div></div> <div class="source-list"></div></article> <article class="card debug-card"><div class="card-heading"><div><p class="eyebrow">EXPORT</p><h2>Debug-Payload</h2></div><button class="quiet-button" type="button"> </button></div> <details><summary>Kopierbare Shadow-Evidence anzeigen</summary> <pre> </pre></details></article></div></section>`);
-var root_9 = /* @__PURE__ */ from_html(`<div class="profile-row" role="row"><strong> </strong> <input type="number" min="0" max="100"/> <input type="number" min="0" max="100"/></div>`);
-var root_10 = /* @__PURE__ */ from_html(`<label> <input type="number" min="0"/></label>`);
-var root_11 = /* @__PURE__ */ from_html(`<label> <input type="text"/> <small> </small></label>`);
-var root_12 = /* @__PURE__ */ from_html(`<section class="settings-layout" aria-label="Einstellungen"><article class="card"><div class="card-heading"><div><p class="eyebrow">GEOMETRIE & STATUS</p><h2>Fensterfläche</h2></div><span> </span></div> <div class="form-grid"><label>Azimut (°)<input type="number" min="0" max="360"/></label> <label>Neigung (°)<input type="number" min="0" max="180"/></label> <label class="toggle"><input type="checkbox"/> Achse invertiert</label> <label class="toggle"><input type="checkbox"/> Automatik aktiv</label> <label class="toggle"><input type="checkbox"/> Apply-Gate aktiv</label></div> <p class="hint">Die Werte stammen aus der laufenden Shadow-Projektion. Speicherung läuft über den ConfigEntry-/OptionsFlow-Transport und erreicht keinen Cover-Service.</p></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">PROFILE</p><h2>Normal / Invertiert</h2></div><div class="button-row"><button class="quiet-button" type="button">Entwurf zurücksetzen</button><button class="primary-button" type="button"> </button></div></div> <div class="profile-table" role="table" aria-label="Positionsprofile"><div class="profile-row profile-header" role="row"><span>Profil</span><span>Normal</span><span>Invertiert</span></div> <!></div></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">KALIBRIERUNG</p><h2>Shadow-Defaults</h2></div><span class="muted">später trace-basiert kalibrieren</span></div> <div class="calibration-grid"></div></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">OWNER-BINDINGS</p><h2>Reale HA-Quellen</h2></div><span class="muted">OptionsFlow</span></div> <p class="hint">Entity IDs werden ausschließlich vom Owner konfiguriert; ohne frische Bindung bleibt die entsprechende Entscheidung blockiert.</p> <div class="binding-grid"><!> <!></div></article></section>`);
-var root_13 = /* @__PURE__ */ from_html(`<div class="panel-root"><header class="app-header"><div><p class="eyebrow">BLIND CONTROL · SHADOW</p> <h1>Wohnzimmer-Rollo</h1> <p class="subtitle">Deterministischer Entscheidungs- und Diagnosevertrag</p></div> <div class="header-status"><span></span> <span> </span></div></header> <div class="tabs" aria-label="Blind Control Bereiche" role="tablist"></div> <!></div>`);
+var root_1$1 = /* @__PURE__ */ from_html(`<p class="callout failure-callout"> </p>`);
+var root_2 = /* @__PURE__ */ from_html(`<div><dt> </dt><dd> </dd></div>`);
+var root_3 = /* @__PURE__ */ from_html(`<div class="winner-tree"><span>Gewinner</span> <strong> </strong> <span> </span></div>`);
+var root_4 = /* @__PURE__ */ from_html(`<p class="empty-state">Keine fachlich belastbare Gewinneranforderung vorhanden.</p>`);
+var root_5 = /* @__PURE__ */ from_html(`<div><div class="candidate-top"><strong> </strong><span> </span></div> <p> </p> <small> </small></div>`);
+var root_6 = /* @__PURE__ */ from_html(`<div><div class="candidate-top"><strong> </strong><span>pausiert</span></div> <p> </p> <small> </small></div>`);
+var root_7 = /* @__PURE__ */ from_html(`<section class="content-grid" aria-label="Übersicht"><article class="hero-card card"><div class="card-heading"><div><p class="eyebrow">MASTERMODUS</p> <h2> </h2></div> <span> </span></div> <div class="target-row"><span class="target-value"> </span> <span class="muted">effektives beziehungsweise gehaltenes Ziel</span></div> <div class="metric-strip"><div><span>Gewinner</span><strong> </strong></div> <div><span>Fachliches Ziel</span><strong> </strong></div> <div><span>Safety</span><strong> </strong></div></div> <!></article> <article class="card status-card"><div class="card-heading"><div><p class="eyebrow">TECHNISCHE EBENE</p><h2>Safety & Apply</h2></div> <span> </span></div> <dl class="facts"><div><dt>Opening</dt><dd> </dd></div> <div><dt>Safety</dt><dd> </dd></div> <div><dt>Apply</dt><dd> </dd></div> <div><dt>Coverposition</dt><dd> </dd></div> <div><dt>Cover bereit</dt><dd> </dd></div> <div><dt>Manual Override</dt><dd> </dd></div></dl> <p class="eyebrow">HAUSHALT & KONTEXT</p> <dl class="facts"></dl> <p class="callout">Safety und Apply sind technisch getrennt; der Mastermodus bleibt fachlich lesbar.</p></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">FACHLICHER ENTSCHEIDUNGSBAUM</p><h2>Kategorie → Variante → Nebenäste</h2></div> <span class="muted"> </span></div> <!> <div class="candidate-grid"><!> <!></div></article></section>`);
+var root_8 = /* @__PURE__ */ from_html(`<li><strong> </strong><span> </span></li>`);
+var root_9 = /* @__PURE__ */ from_html(`<h3>Pausiert / unterdrückt</h3> <ul class="plain-list"></ul>`, 1);
+var root_10 = /* @__PURE__ */ from_html(`<div><span> </span><code> </code></div>`);
+var root_11 = /* @__PURE__ */ from_html(`<p class="empty-state">Noch keine owner-bound Inputs gebunden.</p>`);
+var root_12 = /* @__PURE__ */ from_html(`<section class="diagnosis-layout" aria-label="Diagnose"><article class="card"><div class="card-heading"><div><p class="eyebrow">DECISION TRACE</p><h2>Hierarchie und flache Diagnose</h2></div><span class="badge"> </span></div> <div class="winner-tree"><span>Master</span> <strong> </strong> <span> </span></div> <h3>Flache Kandidatenliste (Diagnose)</h3> <div class="trace-list"></div> <!></article> <div class="side-stack"><article class="card"><div class="card-heading"><div><p class="eyebrow">SOLAR EXPOSURE</p><h2> </h2></div><span class="badge"> </span></div> <dl class="facts"><div><dt>Einfallsfaktor</dt><dd> </dd></div> <div><dt>Außen-Lux</dt><dd> </dd></div> <div><dt>Trend</dt><dd> </dd></div> <div><dt>Grund</dt><dd> </dd></div></dl></article> <article class="card"><div class="card-heading"><div><p class="eyebrow">INPUT QUALITY</p><h2>Owner-gebundene Inputs</h2></div></div> <div class="source-list"></div></article> <article class="card debug-card"><div class="card-heading"><div><p class="eyebrow">EXPORT</p><h2>Redigierte Debug-Evidence</h2></div><button class="quiet-button" type="button"> </button></div> <details><summary>Kopierbare Shadow-Evidence anzeigen</summary> <pre> </pre></details></article></div></section>`);
+var root_13 = /* @__PURE__ */ from_html(`<div class="profile-row" role="row"><strong> </strong> <input type="number" min="0" max="100"/> <input type="number" min="0" max="100"/></div>`);
+var root_14 = /* @__PURE__ */ from_html(`<label> <input type="number" min="0"/></label>`);
+var root_15 = /* @__PURE__ */ from_html(`<div class="binding-row"><strong> </strong> <span> </span> <small> </small></div>`);
+var root_16 = /* @__PURE__ */ from_html(`<section class="binding-group"><h3> </h3> <!></section>`);
+var root_17 = /* @__PURE__ */ from_html(`<section class="settings-layout" aria-label="Einstellungen"><article class="card"><div class="card-heading"><div><p class="eyebrow">GEOMETRIE & STATUS</p><h2>Fensterfläche</h2></div><span> </span></div> <div class="form-grid"><label>Azimut (°)<input type="number" min="0" max="360"/></label> <label>Neigung (°)<input type="number" min="0" max="180"/></label> <label class="toggle"><input type="checkbox"/> Achse invertiert</label> <label class="toggle"><input type="checkbox"/> Automatik aktiv</label> <label class="toggle"><input type="checkbox"/> Apply-Gate aktiv</label></div> <p class="hint">Die Werte stammen aus der laufenden Shadow-Projektion. Speicherung erreicht niemals einen Cover-Service.</p></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">PROFILE</p><h2>Normal / Invertiert</h2></div><div class="button-row"><button class="quiet-button" type="button">Entwurf zurücksetzen</button><button class="primary-button" type="button"> </button></div></div> <div class="profile-table" role="table" aria-label="Positionsprofile"><div class="profile-row profile-header" role="row"><span>Profil</span><span>Normal</span><span>Invertiert</span></div> <!></div></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">KALIBRIERUNG</p><h2>Shadow-Defaults</h2></div><span class="muted">später trace-basiert kalibrieren</span></div> <div class="calibration-grid"></div></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">OWNER-BINDINGS</p><h2>Native Entity-Selectoren</h2></div><span class="muted">OptionsFlow</span></div> <p class="hint">Bearbeitung erfolgt ausschließlich über Blind Control → Konfigurieren im nativen Home-Assistant-OptionsFlow. Entity-IDs werden im Panel nicht angezeigt oder entgegengenommen.</p> <div class="binding-grid"></div></article></section>`);
+var root_18 = /* @__PURE__ */ from_html(`<div class="panel-root"><header class="app-header"><div><p class="eyebrow">BLIND CONTROL · SHADOW · NOT LIVE</p> <h1>Wohnzimmer-Rollo</h1> <p class="subtitle">Versionierter Entscheidungs-, Safety- und Shadow-Vertrag</p></div> <div class="header-status"><span></span> <span> </span></div></header> <div class="tabs" aria-label="Blind Control Bereiche" role="tablist"></div> <!></div>`);
 function App($$anchor, $$props) {
   push($$props, true);
-  const inputBindingKeys = [
-    "bio_state",
-    "activity_state",
-    "day_state",
-    "day_context",
-    "away",
-    "private_time",
-    "privacy",
-    "opening_state",
-    "opening_safe_for_blind",
-    "cover_available",
-    "cover_ready",
-    "cover_position",
-    "outdoor_lux",
-    "lux_trend",
-    "sun_elevation",
-    "sun_azimuth",
-    "expected_direct_radiation",
-    "expected_diffuse_radiation",
-    "cloud_cover",
-    "indoor_temperature",
-    "outdoor_temperature",
-    "indoor_temperature_trend",
-    "outdoor_temperature_trend",
-    "weather_alert",
-    "precipitation_trend",
-    "wind_trend",
-    "pressure_trend",
-    "air_movement"
-  ];
-  const legacyBindingKeys = [
-    "active_mode",
-    "effective_target",
-    "safety_status",
-    "apply_status"
-  ];
   let saving = prop($$props, "saving", 3, false);
   let activeTab = /* @__PURE__ */ state("overview");
-  const cloneSettings = (settings) => structuredClone(settings);
   let draftSettings = /* @__PURE__ */ state(null);
-  let editableSettings = /* @__PURE__ */ user_derived(() => get(draftSettings) ?? $$props.snapshot.settings);
   let lastSnapshot = /* @__PURE__ */ state(void 0);
   let copyState = /* @__PURE__ */ state("idle");
-  let activeCandidates = /* @__PURE__ */ user_derived(() => $$props.snapshot.diagnosis.candidates.filter((candidate) => candidate.active));
+  let editableSettings = /* @__PURE__ */ user_derived(() => get(draftSettings) ?? $$props.snapshot.settings);
+  let activeBranches = /* @__PURE__ */ user_derived(() => $$props.snapshot.overview.active_branches);
+  let supportingBranches = /* @__PURE__ */ user_derived(() => get(activeBranches).filter((branch2) => !branch2.winner && !branch2.paused));
+  let pausedBranches = /* @__PURE__ */ user_derived(() => get(activeBranches).filter((branch2) => branch2.paused));
   user_effect(() => {
     if (get(lastSnapshot) !== $$props.snapshot) {
       set(draftSettings, structuredClone($$props.snapshot.settings), true);
       set(lastSnapshot, $$props.snapshot, true);
     }
   });
-  const modeLabels = {
-    daylight: "Tageslicht",
+  const labels = {
+    normal: "Regulär",
+    manual: "Manuell",
+    failure: "Fehler",
+    neutral: "Neutral",
     waking: "Waking",
     sleep: "Schlaf",
     away: "Abwesend",
     privacy: "Privacy",
     private_time: "Private Zeit",
-    none: "Kein Modus"
+    glare: "Blendung",
+    general: "Allgemein",
+    tv: "TV",
+    pc: "PC",
+    climate: "Klima",
+    heat: "Hitze",
+    cold: "Kälte",
+    storm: "Gewitter",
+    cool_air: "Kühle Luft",
+    override: "Override",
+    manual_override: "Manueller Override",
+    bio_state: "Bio",
+    activity_state: "Aktivität",
+    day_state: "Tag",
+    day_context: "Tageskontext",
+    daylight: "Tageslicht",
+    ready: "bereit",
+    blocked: "blockiert",
+    safe_position: "Safety-Position",
+    safety_ready: "Safety bereit",
+    shadow_ready: "Shadow bereit"
   };
-  const labelFor = (value) => modeLabels[value] ?? value.replaceAll("_", " ");
+  const labelFor = (value) => {
+    if (!value) return "—";
+    return labels[value] ?? value.replaceAll("_", " ");
+  };
+  const branchLabel = (branch2) => {
+    if (!branch2) return "—";
+    return branch2.variant ? `${labelFor(branch2.category)} → ${labelFor(branch2.variant)}` : labelFor(branch2.category);
+  };
   const positionLabel = (value) => value === null ? "—" : `${Math.round(value)} %`;
-  const statusLabel = (value) => value.replaceAll("_", " ");
+  const statusLabel = (value) => labelFor(value);
   const statusTone = (value) => {
-    if (value === "ready" || value === "safety_ready" || value === "shadow_ready") return "ready";
-    if (value === "blocked") return "blocked";
-    if (value === "error" || value === "unavailable") return "error";
+    if (value === "ready" || value === "safe_position" || value === "safety_ready" || value === "shadow_ready") return "ready";
+    if (value === "failure" || value === "error" || value === "unavailable") return "error";
+    if (value === "blocked" || value === "manual" || value === "holding_safe_position") return "warning";
     return "warning";
   };
   const householdLabel = (value) => value === null ? "—" : value ? "ja" : "nein";
+  const contextValue = (value) => typeof value === "boolean" ? householdLabel(value) : statusLabel(value);
   const candidateClass = (candidate) => candidate.paused ? "candidate paused" : candidate.active ? "candidate active" : "candidate";
+  const recordValue = (record, key) => statusLabel(typeof record[key] === "string" ? record[key] : null);
   function updateProfile(key, axis, value) {
     if (!get(draftSettings)) return;
     const profile = get(draftSettings).profiles[key];
@@ -4103,7 +4105,7 @@ function App($$anchor, $$props) {
     set(draftSettings, structuredClone($$props.snapshot.settings), true);
   }
   async function saveDraft() {
-    if ($$props.onSaveSettings && get(draftSettings)) await $$props.onSaveSettings(cloneSettings(get(draftSettings)));
+    if ($$props.onSaveSettings && get(draftSettings)) await $$props.onSaveSettings(structuredClone(get(draftSettings)));
   }
   async function copyDebugPayload() {
     var _a2;
@@ -4115,12 +4117,6 @@ function App($$anchor, $$props) {
     } catch {
       set(copyState, "failed");
     }
-  }
-  function updateBinding(kind, key, event) {
-    if (!get(draftSettings)) return;
-    const value = event.currentTarget.value.trim();
-    get(draftSettings)[kind][key] = value;
-    get(draftSettings).binding_status[kind][key] = value.length > 0;
   }
   function updateNumber(key, event) {
     if (!get(draftSettings)) return;
@@ -4135,7 +4131,7 @@ function App($$anchor, $$props) {
     const value = event.currentTarget.valueAsNumber;
     if (Number.isFinite(value)) get(draftSettings).calibration_defaults[key] = value;
   }
-  var div = root_13();
+  var div = root_18();
   head("1n46o8q", ($$anchor2) => {
     effect(() => {
       $document.title = "Blind Control · Shadow";
@@ -4174,8 +4170,8 @@ function App($$anchor, $$props) {
   );
   var node = sibling(div_2, 2);
   {
-    var consequent = ($$anchor2) => {
-      var section = root_3();
+    var consequent_2 = ($$anchor2) => {
+      var section = root_7();
       var article = child(section);
       var div_3 = child(article);
       var div_4 = child(div_3);
@@ -4196,74 +4192,161 @@ function App($$anchor, $$props) {
       var div_9 = sibling(div_8, 2);
       var strong_2 = sibling(child(div_9));
       var text_7 = child(strong_2);
+      var node_1 = sibling(div_6, 2);
+      {
+        var consequent = ($$anchor3) => {
+          var p = root_1$1();
+          var text_8 = child(p);
+          template_effect(
+            ($0, $1) => set_text(text_8, `Failure · ${$0 ?? ""} ·
+            ${$1 ?? ""}`),
+            [
+              () => {
+                var _a2;
+                return ((_a2 = $$props.snapshot.overview.failure.reason) == null ? void 0 : _a2.replaceAll("_", " ")) ?? "unbekannter Grund";
+              },
+              () => $$props.snapshot.overview.failure.hold_target === null ? "Apply blockiert" : `Position halten: ${positionLabel($$props.snapshot.overview.failure.hold_target)}`
+            ]
+          );
+          append($$anchor3, p);
+        };
+        if_block(node_1, ($$render) => {
+          if ($$props.snapshot.overview.failure.status !== "none") $$render(consequent);
+        });
+      }
       var article_1 = sibling(article, 2);
       var div_10 = child(article_1);
       var span_4 = sibling(child(div_10), 2);
-      var text_8 = child(span_4);
+      var text_9 = child(span_4);
       var dl = sibling(div_10, 2);
       var div_11 = child(dl);
       var dd = sibling(child(div_11));
-      var text_9 = child(dd);
+      var text_10 = child(dd);
       var div_12 = sibling(div_11, 2);
       var dd_1 = sibling(child(div_12));
-      var text_10 = child(dd_1);
+      var text_11 = child(dd_1);
       var div_13 = sibling(div_12, 2);
       var dd_2 = sibling(child(div_13));
-      var text_11 = child(dd_2);
+      var text_12 = child(dd_2);
       var div_14 = sibling(div_13, 2);
       var dd_3 = sibling(child(div_14));
-      var text_12 = child(dd_3);
+      var text_13 = child(dd_3);
       var div_15 = sibling(div_14, 2);
       var dd_4 = sibling(child(div_15));
-      var text_13 = child(dd_4);
+      var text_14 = child(dd_4);
       var div_16 = sibling(div_15, 2);
       var dd_5 = sibling(child(div_16));
-      var text_14 = child(dd_5);
+      var text_15 = child(dd_5);
+      var dl_1 = sibling(dl, 4);
+      each(dl_1, 21, () => Object.entries($$props.snapshot.overview.household), index, ($$anchor3, $$item) => {
+        var $$array_1 = /* @__PURE__ */ user_derived(() => to_array(get($$item), 2));
+        let key = () => get($$array_1)[0];
+        let value = () => get($$array_1)[1];
+        var div_17 = root_2();
+        var dt = child(div_17);
+        var text_16 = child(dt);
+        var dd_6 = sibling(dt);
+        var text_17 = child(dd_6);
+        template_effect(
+          ($0, $1) => {
+            set_text(text_16, $0);
+            set_text(text_17, $1);
+          },
+          [() => labelFor(key()), () => contextValue(value())]
+        );
+        append($$anchor3, div_17);
+      });
       var article_2 = sibling(article_1, 2);
-      var div_17 = child(article_2);
-      var span_5 = sibling(child(div_17));
-      var text_15 = child(span_5);
-      var div_18 = sibling(div_17, 2);
-      each(
-        div_18,
-        21,
-        () => get(activeCandidates),
-        index,
-        ($$anchor3, candidate) => {
-          var div_19 = root_1$1();
-          var div_20 = child(div_19);
-          var strong_3 = child(div_20);
-          var text_16 = child(strong_3);
-          var span_6 = sibling(strong_3);
-          var text_17 = child(span_6);
-          var p = sibling(div_20, 2);
-          var text_18 = child(p);
-          var small = sibling(p, 2);
-          var text_19 = child(small);
+      var div_18 = child(article_2);
+      var span_5 = sibling(child(div_18), 2);
+      var text_18 = child(span_5);
+      var node_2 = sibling(div_18, 2);
+      {
+        var consequent_1 = ($$anchor3) => {
+          var div_19 = root_3();
+          var strong_3 = sibling(child(div_19), 2);
+          var text_19 = child(strong_3);
+          var span_6 = sibling(strong_3, 2);
+          var text_20 = child(span_6);
           template_effect(
-            ($0, $1, $2, $3) => {
-              set_class(div_19, 1, $0);
-              set_text(text_16, $1);
-              set_text(text_17, $2);
-              set_text(text_18, $3);
-              set_text(text_19, `${get(candidate).quality ?? ""} · ${get(candidate).source ?? ""}`);
+            ($0, $1, $2) => {
+              set_text(text_19, `${$0 ?? ""} → ${$1 ?? ""}`);
+              set_text(text_20, $2);
             },
             [
-              () => clsx(candidateClass(get(candidate))),
-              () => labelFor(get(candidate).key),
-              () => positionLabel(get(candidate).target_position),
-              () => get(candidate).reason.replaceAll("_", " ")
+              () => labelFor($$props.snapshot.overview.master_mode),
+              () => branchLabel($$props.snapshot.overview.winner),
+              () => positionLabel($$props.snapshot.overview.winner.target_position)
             ]
           );
           append($$anchor3, div_19);
-        },
-        ($$anchor3) => {
-          var p_1 = root_2();
+        };
+        var alternate = ($$anchor3) => {
+          var p_1 = root_4();
           append($$anchor3, p_1);
-        }
-      );
+        };
+        if_block(node_2, ($$render) => {
+          if ($$props.snapshot.overview.winner) $$render(consequent_1);
+          else $$render(alternate, -1);
+        });
+      }
+      var div_20 = sibling(node_2, 2);
+      var node_3 = child(div_20);
+      each(node_3, 17, () => get(supportingBranches), index, ($$anchor3, branch2) => {
+        var div_21 = root_5();
+        var div_22 = child(div_21);
+        var strong_4 = child(div_22);
+        var text_21 = child(strong_4);
+        var span_7 = sibling(strong_4);
+        var text_22 = child(span_7);
+        var p_2 = sibling(div_22, 2);
+        var text_23 = child(p_2);
+        var small = sibling(p_2, 2);
+        var text_24 = child(small);
+        template_effect(
+          ($0, $1, $2, $3) => {
+            set_class(div_21, 1, $0);
+            set_text(text_21, $1);
+            set_text(text_22, $2);
+            set_text(text_23, `Aktiver Nebenast · ${$3 ?? ""}`);
+            set_text(text_24, `${get(branch2).quality ?? ""} · ${get(branch2).source ?? ""}`);
+          },
+          [
+            () => clsx(candidateClass(get(branch2))),
+            () => branchLabel(get(branch2)),
+            () => positionLabel(get(branch2).target_position),
+            () => get(branch2).reason.replaceAll("_", " ")
+          ]
+        );
+        append($$anchor3, div_21);
+      });
+      var node_4 = sibling(node_3, 2);
+      each(node_4, 17, () => get(pausedBranches), index, ($$anchor3, branch2) => {
+        var div_23 = root_6();
+        var div_24 = child(div_23);
+        var strong_5 = child(div_24);
+        var text_25 = child(strong_5);
+        var p_3 = sibling(div_24, 2);
+        var text_26 = child(p_3);
+        var small_1 = sibling(p_3, 2);
+        var text_27 = child(small_1);
+        template_effect(
+          ($0, $1, $2) => {
+            set_class(div_23, 1, $0);
+            set_text(text_25, $1);
+            set_text(text_26, $2);
+            set_text(text_27, `${get(branch2).quality ?? ""} · ${get(branch2).source ?? ""}`);
+          },
+          [
+            () => clsx(candidateClass(get(branch2))),
+            () => branchLabel(get(branch2)),
+            () => get(branch2).suppressed_by ? `unterdrückt durch ${labelFor(get(branch2).suppressed_by)}` : get(branch2).reason.replaceAll("_", " ")
+          ]
+        );
+        append($$anchor3, div_23);
+      });
       template_effect(
-        ($0, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) => {
+        ($0, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) => {
           set_text(text_2, $0);
           set_class(span_2, 1, $1);
           set_text(text_3, $2);
@@ -4272,85 +4355,93 @@ function App($$anchor, $$props) {
           set_text(text_6, $5);
           set_text(text_7, $6);
           set_class(span_4, 1, $7);
-          set_text(text_8, $8);
-          set_class(dd, 1, $9);
-          set_text(text_9, $10);
-          set_text(text_10, $$props.snapshot.overview.override.active ? "aktiv" : "inaktiv");
+          set_text(text_9, $8);
+          set_text(text_10, $9);
+          set_class(dd_1, 1, $10);
           set_text(text_11, $11);
-          set_text(text_12, $12);
-          set_text(text_13, $13);
-          set_text(text_14, $$props.snapshot.overview.shadow_only ? "nur Berechnung" : "unbekannt");
-          set_text(text_15, `${get(activeCandidates).length ?? ""} aktiv`);
+          set_class(dd_2, 1, $12);
+          set_text(text_12, $13);
+          set_text(text_13, $14);
+          set_text(text_14, $15);
+          set_text(text_15, $$props.snapshot.overview.override.active ? "aktiv" : "inaktiv");
+          set_text(text_18, `${get(activeBranches).length ?? ""} aktiv oder pausiert`);
         },
         [
-          () => labelFor($$props.snapshot.overview.active_mode),
-          () => `badge ${statusTone($$props.snapshot.overview.safety_status)}`,
-          () => statusLabel($$props.snapshot.overview.safety_status),
+          () => labelFor($$props.snapshot.overview.master_mode),
+          () => `badge ${statusTone($$props.snapshot.overview.master_mode)}`,
+          () => statusLabel($$props.snapshot.overview.master_mode),
           () => positionLabel($$props.snapshot.overview.effective_target),
+          () => branchLabel($$props.snapshot.overview.winner),
           () => positionLabel($$props.snapshot.overview.fachlicher_target),
-          () => $$props.snapshot.overview.winner_keys.join(", ") || "—",
-          () => statusLabel($$props.snapshot.overview.opening_state),
-          () => `badge ${statusTone($$props.snapshot.overview.safety_status)}`,
           () => statusLabel($$props.snapshot.overview.safety_status),
-          () => clsx(statusTone($$props.snapshot.overview.apply_status)),
+          () => `badge ${statusTone($$props.snapshot.overview.apply_status)}`,
           () => statusLabel($$props.snapshot.overview.apply_status),
+          () => statusLabel($$props.snapshot.overview.technical.opening_state),
+          () => clsx(statusTone(recordValue($$props.snapshot.overview.technical.safety, "status"))),
+          () => recordValue($$props.snapshot.overview.technical.safety, "status"),
+          () => clsx(statusTone(recordValue($$props.snapshot.overview.technical.apply, "status"))),
+          () => recordValue($$props.snapshot.overview.technical.apply, "status"),
           () => positionLabel($$props.snapshot.overview.cover_position),
-          () => householdLabel($$props.snapshot.overview.household.away),
-          () => householdLabel($$props.snapshot.overview.household.private_time)
+          () => householdLabel($$props.snapshot.overview.technical.cover_ready)
         ]
       );
       append($$anchor2, section);
     };
-    var consequent_2 = ($$anchor2) => {
-      var section_1 = root_8();
+    var consequent_4 = ($$anchor2) => {
+      var section_1 = root_12();
       var article_3 = child(section_1);
-      var div_21 = child(article_3);
-      var span_7 = sibling(child(div_21));
-      var text_20 = child(span_7);
-      var div_22 = sibling(div_21, 2);
-      each(div_22, 21, () => $$props.snapshot.diagnosis.candidates, index, ($$anchor3, candidate) => {
-        var div_23 = root_1$1();
-        var div_24 = child(div_23);
-        var strong_4 = child(div_24);
-        var text_21 = child(strong_4);
-        var span_8 = sibling(strong_4);
-        var text_22 = child(span_8);
-        var p_2 = sibling(div_24, 2);
-        var text_23 = child(p_2);
-        var small_1 = sibling(p_2, 2);
-        var text_24 = child(small_1);
+      var div_25 = child(article_3);
+      var span_8 = sibling(child(div_25));
+      var text_28 = child(span_8);
+      var div_26 = sibling(div_25, 2);
+      var strong_6 = sibling(child(div_26), 2);
+      var text_29 = child(strong_6);
+      var span_9 = sibling(strong_6, 2);
+      var text_30 = child(span_9);
+      var div_27 = sibling(div_26, 4);
+      each(div_27, 21, () => $$props.snapshot.diagnosis.candidates, index, ($$anchor3, candidate) => {
+        var div_28 = root_5();
+        var div_29 = child(div_28);
+        var strong_7 = child(div_29);
+        var text_31 = child(strong_7);
+        var span_10 = sibling(strong_7);
+        var text_32 = child(span_10);
+        var p_4 = sibling(div_29, 2);
+        var text_33 = child(p_4);
+        var small_2 = sibling(p_4, 2);
+        var text_34 = child(small_2);
         template_effect(
           ($0, $1, $2, $3) => {
-            set_class(div_23, 1, $0);
-            set_text(text_21, $1);
-            set_text(text_22, $2);
-            set_text(text_23, $3);
-            set_text(text_24, `${(get(candidate).paused ? `pausiert durch ${get(candidate).suppressed_by}` : get(candidate).quality) ?? ""} · ${get(candidate).source ?? ""}`);
+            set_class(div_28, 1, $0);
+            set_text(text_31, $1);
+            set_text(text_32, $2);
+            set_text(text_33, $3);
+            set_text(text_34, `${(get(candidate).paused ? `pausiert durch ${get(candidate).suppressed_by}` : get(candidate).quality) ?? ""} · ${get(candidate).source ?? ""}`);
           },
           [
             () => clsx(candidateClass(get(candidate))),
-            () => labelFor(get(candidate).key),
+            () => branchLabel(get(candidate)),
             () => get(candidate).active ? positionLabel(get(candidate).target_position) : "inaktiv",
             () => get(candidate).reason.replaceAll("_", " ")
           ]
         );
-        append($$anchor3, div_23);
+        append($$anchor3, div_28);
       });
-      var node_1 = sibling(div_22, 2);
+      var node_5 = sibling(div_27, 2);
       {
-        var consequent_1 = ($$anchor3) => {
-          var fragment = root_5();
+        var consequent_3 = ($$anchor3) => {
+          var fragment = root_9();
           var ul = sibling(first_child(fragment), 2);
           each(ul, 21, () => $$props.snapshot.diagnosis.paused_requirements, index, ($$anchor4, item) => {
-            var li = root_4();
-            var strong_5 = child(li);
-            var text_25 = child(strong_5);
-            var span_9 = sibling(strong_5);
-            var text_26 = child(span_9);
+            var li = root_8();
+            var strong_8 = child(li);
+            var text_35 = child(strong_8);
+            var span_11 = sibling(strong_8);
+            var text_36 = child(span_11);
             template_effect(
               ($0, $1) => {
-                set_text(text_25, $0);
-                set_text(text_26, $1);
+                set_text(text_35, $0);
+                set_text(text_36, $1);
               },
               [
                 () => labelFor(get(item).key),
@@ -4361,84 +4452,88 @@ function App($$anchor, $$props) {
           });
           append($$anchor3, fragment);
         };
-        if_block(node_1, ($$render) => {
-          if ($$props.snapshot.diagnosis.paused_requirements.length) $$render(consequent_1);
+        if_block(node_5, ($$render) => {
+          if ($$props.snapshot.diagnosis.paused_requirements.length) $$render(consequent_3);
         });
       }
-      var div_25 = sibling(article_3, 2);
-      var article_4 = child(div_25);
-      var div_26 = child(article_4);
-      var div_27 = child(div_26);
-      var h2_1 = sibling(child(div_27));
-      var text_27 = child(h2_1);
-      var span_10 = sibling(div_27);
-      var text_28 = child(span_10);
-      var dl_1 = sibling(div_26, 2);
-      var div_28 = child(dl_1);
-      var dd_6 = sibling(child(div_28));
-      var text_29 = child(dd_6);
-      var div_29 = sibling(div_28, 2);
-      var dd_7 = sibling(child(div_29));
-      var text_30 = child(dd_7);
-      var div_30 = sibling(div_29, 2);
-      var dd_8 = sibling(child(div_30));
-      var text_31 = child(dd_8);
-      var div_31 = sibling(div_30, 2);
-      var dd_9 = sibling(child(div_31));
-      var text_32 = child(dd_9);
+      var div_30 = sibling(article_3, 2);
+      var article_4 = child(div_30);
+      var div_31 = child(article_4);
+      var div_32 = child(div_31);
+      var h2_1 = sibling(child(div_32));
+      var text_37 = child(h2_1);
+      var span_12 = sibling(div_32);
+      var text_38 = child(span_12);
+      var dl_2 = sibling(div_31, 2);
+      var div_33 = child(dl_2);
+      var dd_7 = sibling(child(div_33));
+      var text_39 = child(dd_7);
+      var div_34 = sibling(div_33, 2);
+      var dd_8 = sibling(child(div_34));
+      var text_40 = child(dd_8);
+      var div_35 = sibling(div_34, 2);
+      var dd_9 = sibling(child(div_35));
+      var text_41 = child(dd_9);
+      var div_36 = sibling(div_35, 2);
+      var dd_10 = sibling(child(div_36));
+      var text_42 = child(dd_10);
       var article_5 = sibling(article_4, 2);
-      var div_32 = sibling(child(article_5), 2);
+      var div_37 = sibling(child(article_5), 2);
       each(
-        div_32,
+        div_37,
         21,
         () => Object.entries($$props.snapshot.diagnosis.inputs),
         index,
         ($$anchor3, $$item) => {
-          var $$array_1 = /* @__PURE__ */ user_derived(() => to_array(get($$item), 2));
-          let key = () => get($$array_1)[0];
-          let value = () => get($$array_1)[1];
-          var div_33 = root_6();
-          var span_11 = child(div_33);
-          var text_33 = child(span_11);
-          var code = sibling(span_11);
-          var text_34 = child(code);
+          var $$array_2 = /* @__PURE__ */ user_derived(() => to_array(get($$item), 2));
+          let key = () => get($$array_2)[0];
+          let value = () => get($$array_2)[1];
+          var div_38 = root_10();
+          var span_13 = child(div_38);
+          var text_43 = child(span_13);
+          var code = sibling(span_13);
+          var text_44 = child(code);
           template_effect(
             ($0, $1) => {
-              set_text(text_33, $0);
-              set_text(text_34, $1);
+              set_text(text_43, $0);
+              set_text(text_44, $1);
             },
             [
               () => labelFor(key()),
               () => typeof value() === "string" ? value() : JSON.stringify(value())
             ]
           );
-          append($$anchor3, div_33);
+          append($$anchor3, div_38);
         },
         ($$anchor3) => {
-          var p_3 = root_7();
-          append($$anchor3, p_3);
+          var p_5 = root_11();
+          append($$anchor3, p_5);
         }
       );
       var article_6 = sibling(article_5, 2);
-      var div_34 = child(article_6);
-      var button_1 = sibling(child(div_34));
-      var text_35 = child(button_1);
-      var details = sibling(div_34, 2);
+      var div_39 = child(article_6);
+      var button_1 = sibling(child(div_39));
+      var text_45 = child(button_1);
+      var details = sibling(div_39, 2);
       var pre = sibling(child(details), 2);
-      var text_36 = child(pre);
+      var text_46 = child(pre);
       template_effect(
-        ($0, $1, $2, $3, $4) => {
-          set_text(text_20, $$props.snapshot.version);
-          set_text(text_27, $0);
-          set_text(text_28, `${$1 ?? ""} %`);
-          set_text(text_29, $2);
-          set_text(text_30, $$props.snapshot.diagnosis.solar.observed_lux ?? "—");
-          set_text(text_31, $$props.snapshot.diagnosis.solar.lux_trend ?? "—");
-          set_text(text_32, $3);
-          set_text(text_35, get(copyState) === "copied" ? "Kopiert" : get(copyState) === "failed" ? "Kopieren fehlgeschlagen" : "Evidence kopieren");
-          set_text(text_36, $4);
+        ($0, $1, $2, $3, $4, $5, $6) => {
+          set_text(text_28, $$props.snapshot.version);
+          set_text(text_29, `${$0 ?? ""} → ${$1 ?? ""}`);
+          set_text(text_30, $$props.snapshot.diagnosis.hierarchy.failure.status === "none" ? "belastbar" : $$props.snapshot.diagnosis.hierarchy.failure.status);
+          set_text(text_37, $2);
+          set_text(text_38, `${$3 ?? ""} %`);
+          set_text(text_39, $4);
+          set_text(text_40, $$props.snapshot.diagnosis.solar.observed_lux ?? "—");
+          set_text(text_41, $$props.snapshot.diagnosis.solar.lux_trend ?? "—");
+          set_text(text_42, $5);
+          set_text(text_45, get(copyState) === "copied" ? "Kopiert" : get(copyState) === "failed" ? "Kopieren fehlgeschlagen" : "Evidence kopieren");
+          set_text(text_46, $6);
         },
         [
+          () => labelFor($$props.snapshot.diagnosis.hierarchy.master_mode),
+          () => branchLabel($$props.snapshot.diagnosis.hierarchy.winner),
           () => statusLabel($$props.snapshot.diagnosis.solar.state),
           () => Math.round($$props.snapshot.diagnosis.solar.confidence * 100),
           () => {
@@ -4452,14 +4547,14 @@ function App($$anchor, $$props) {
       delegated("click", button_1, copyDebugPayload);
       append($$anchor2, section_1);
     };
-    var alternate = ($$anchor2) => {
-      var section_2 = root_12();
+    var alternate_1 = ($$anchor2) => {
+      var section_2 = root_17();
       var article_7 = child(section_2);
-      var div_35 = child(article_7);
-      var span_12 = sibling(child(div_35));
-      var text_37 = child(span_12);
-      var div_36 = sibling(div_35, 2);
-      var label_1 = child(div_36);
+      var div_40 = child(article_7);
+      var span_14 = sibling(child(div_40));
+      var text_47 = child(span_14);
+      var div_41 = sibling(div_40, 2);
+      var label_1 = child(div_41);
       var input = sibling(child(label_1));
       var label_2 = sibling(label_1, 2);
       var input_1 = sibling(child(label_2));
@@ -4470,25 +4565,25 @@ function App($$anchor, $$props) {
       var label_5 = sibling(label_4, 2);
       var input_4 = child(label_5);
       var article_8 = sibling(article_7, 2);
-      var div_37 = child(article_8);
-      var div_38 = sibling(child(div_37));
-      var button_2 = child(div_38);
+      var div_42 = child(article_8);
+      var div_43 = sibling(child(div_42));
+      var button_2 = child(div_43);
       var button_3 = sibling(button_2);
-      var text_38 = child(button_3);
-      var div_39 = sibling(div_37, 2);
-      var node_2 = sibling(child(div_39), 2);
-      each(node_2, 17, () => Object.entries(get(editableSettings).profiles), index, ($$anchor3, $$item) => {
-        var $$array_2 = /* @__PURE__ */ user_derived(() => to_array(get($$item), 2));
-        let key = () => get($$array_2)[0];
-        let profile = () => get($$array_2)[1];
-        var div_40 = root_9();
-        var strong_6 = child(div_40);
-        var text_39 = child(strong_6);
-        var input_5 = sibling(strong_6, 2);
+      var text_48 = child(button_3);
+      var div_44 = sibling(div_42, 2);
+      var node_6 = sibling(child(div_44), 2);
+      each(node_6, 17, () => Object.entries(get(editableSettings).profiles), index, ($$anchor3, $$item) => {
+        var $$array_3 = /* @__PURE__ */ user_derived(() => to_array(get($$item), 2));
+        let key = () => get($$array_3)[0];
+        let profile = () => get($$array_3)[1];
+        var div_45 = root_13();
+        var strong_9 = child(div_45);
+        var text_49 = child(strong_9);
+        var input_5 = sibling(strong_9, 2);
         var input_6 = sibling(input_5, 2);
         template_effect(
           ($0) => {
-            set_text(text_39, $0);
+            set_text(text_49, $0);
             set_attribute(input_5, "aria-label", `${key()} normal`);
             set_value(input_5, profile().normal);
             set_attribute(input_6, "aria-label", `${key()} invertiert`);
@@ -4498,20 +4593,20 @@ function App($$anchor, $$props) {
         );
         delegated("change", input_5, (event) => updateProfile(key(), "normal", event.currentTarget.valueAsNumber));
         delegated("change", input_6, (event) => updateProfile(key(), "inverted", event.currentTarget.valueAsNumber));
-        append($$anchor3, div_40);
+        append($$anchor3, div_45);
       });
       var article_9 = sibling(article_8, 2);
-      var div_41 = sibling(child(article_9), 2);
-      each(div_41, 21, () => Object.entries(get(editableSettings).calibration_defaults), index, ($$anchor3, $$item) => {
-        var $$array_3 = /* @__PURE__ */ user_derived(() => to_array(get($$item), 2));
-        let key = () => get($$array_3)[0];
-        let value = () => get($$array_3)[1];
-        var label_6 = root_10();
-        var text_40 = child(label_6);
-        var input_7 = sibling(text_40);
+      var div_46 = sibling(child(article_9), 2);
+      each(div_46, 21, () => Object.entries(get(editableSettings).calibration_defaults), index, ($$anchor3, $$item) => {
+        var $$array_4 = /* @__PURE__ */ user_derived(() => to_array(get($$item), 2));
+        let key = () => get($$array_4)[0];
+        let value = () => get($$array_4)[1];
+        var label_6 = root_14();
+        var text_50 = child(label_6);
+        var input_7 = sibling(text_50);
         template_effect(
           ($0) => {
-            set_text(text_40, $0);
+            set_text(text_50, $0);
             set_value(input_7, value());
           },
           [() => labelFor(key())]
@@ -4520,56 +4615,45 @@ function App($$anchor, $$props) {
         append($$anchor3, label_6);
       });
       var article_10 = sibling(article_9, 2);
-      var div_42 = sibling(child(article_10), 4);
-      var node_3 = child(div_42);
-      each(node_3, 17, () => inputBindingKeys, index, ($$anchor3, key) => {
-        var label_7 = root_11();
-        var text_41 = child(label_7);
-        var input_8 = sibling(text_41);
-        var small_2 = sibling(input_8, 2);
-        var text_42 = child(small_2);
-        template_effect(
-          ($0) => {
-            var _a2, _b2, _c2;
-            set_text(text_41, `${$0 ?? ""} `);
-            set_value(input_8, get(editableSettings).input_bindings[get(key)] ?? "");
-            set_text(text_42, `${get(editableSettings).binding_status.input_bindings[get(key)] ? "konfiguriert" : "nicht konfiguriert"} · ${((_a2 = get(editableSettings).binding_freshness[get(key)]) == null ? void 0 : _a2.owner) ?? "unassigned" ?? ""} · ${((_b2 = get(editableSettings).binding_freshness[get(key)]) == null ? void 0 : _b2.max_age_seconds) === null ? "stateful" : `${((_c2 = get(editableSettings).binding_freshness[get(key)]) == null ? void 0 : _c2.max_age_seconds) ?? "—"} s`}`);
-          },
-          [() => labelFor(get(key))]
-        );
-        delegated("change", input_8, (event) => updateBinding("input_bindings", get(key), event));
-        append($$anchor3, label_7);
-      });
-      var node_4 = sibling(node_3, 2);
-      each(node_4, 17, () => legacyBindingKeys, index, ($$anchor3, key) => {
-        var label_8 = root_11();
-        var text_43 = child(label_8);
-        var input_9 = sibling(text_43);
-        var small_3 = sibling(input_9, 2);
-        var text_44 = child(small_3);
-        template_effect(
-          ($0) => {
-            var _a2, _b2;
-            set_text(text_43, `Legacy · ${$0 ?? ""} `);
-            set_value(input_9, get(editableSettings).legacy_bindings[get(key)] ?? "");
-            set_text(text_44, `${get(editableSettings).binding_status.legacy_bindings[get(key)] ? "konfiguriert" : "nicht konfiguriert"} · ${((_a2 = get(editableSettings).binding_freshness[get(key)]) == null ? void 0 : _a2.owner) ?? "legacy_policy" ?? ""} · ${((_b2 = get(editableSettings).binding_freshness[get(key)]) == null ? void 0 : _b2.max_age_seconds) ?? "—" ?? ""} s`);
-          },
-          [() => labelFor(get(key))]
-        );
-        delegated("change", input_9, (event) => updateBinding("legacy_bindings", get(key), event));
-        append($$anchor3, label_8);
+      var div_47 = sibling(child(article_10), 4);
+      each(div_47, 21, () => get(editableSettings).binding_groups, index, ($$anchor3, group) => {
+        var section_3 = root_16();
+        var h3 = child(section_3);
+        var text_51 = child(h3);
+        var node_7 = sibling(h3, 2);
+        each(node_7, 17, () => get(group).fields, index, ($$anchor4, field) => {
+          var div_48 = root_15();
+          var strong_10 = child(div_48);
+          var text_52 = child(strong_10);
+          var span_15 = sibling(strong_10, 2);
+          var text_53 = child(span_15);
+          var small_3 = sibling(span_15, 2);
+          var text_54 = child(small_3);
+          template_effect(
+            ($0) => {
+              set_text(text_52, $0);
+              set_class(span_15, 1, clsx(get(field).configured ? "ready" : "warning"));
+              set_text(text_53, get(field).configured ? "konfiguriert" : "nicht konfiguriert");
+              set_text(text_54, `${get(field).owner ?? ""} · ${get(field).max_age_seconds === null ? "stateful" : `${get(field).max_age_seconds} s`} · ${get(field).require_timestamp ? "Zeitbeleg erforderlich" : "kein Zeitbeleg erforderlich"}`);
+            },
+            [() => labelFor(get(field).key)]
+          );
+          append($$anchor4, div_48);
+        });
+        template_effect(() => set_text(text_51, get(group).label));
+        append($$anchor3, section_3);
       });
       template_effect(
         ($0, $1) => {
-          set_class(span_12, 1, $0);
-          set_text(text_37, $1);
+          set_class(span_14, 1, $0);
+          set_text(text_47, $1);
           set_value(input, get(editableSettings).window_azimuth);
           set_value(input_1, get(editableSettings).window_tilt);
           set_checked(input_2, get(editableSettings).axis_inverted);
           set_checked(input_3, get(editableSettings).automation_enabled);
           set_checked(input_4, get(editableSettings).apply_enabled);
           button_3.disabled = saving() || !$$props.onSaveSettings;
-          set_text(text_38, saving() ? "Speichere …" : "Über OptionsFlow speichern");
+          set_text(text_48, saving() ? "Speichere …" : "Shadow-Konfiguration speichern");
         },
         [
           () => `badge ${statusTone($$props.snapshot.overview.apply_status)}`,
@@ -4586,9 +4670,9 @@ function App($$anchor, $$props) {
       append($$anchor2, section_2);
     };
     if_block(node, ($$render) => {
-      if (get(activeTab) === "overview") $$render(consequent);
-      else if (get(activeTab) === "diagnosis") $$render(consequent_2, 1);
-      else $$render(alternate, -1);
+      if (get(activeTab) === "overview") $$render(consequent_2);
+      else if (get(activeTab) === "diagnosis") $$render(consequent_4, 1);
+      else $$render(alternate_1, -1);
     });
   }
   template_effect(
@@ -4616,14 +4700,8 @@ async function updateOptions(hass, settings) {
     ...settings.calibration_defaults
   };
   delete options.calibration_defaults;
-  delete options.binding_status;
-  for (const key of ["input_bindings", "legacy_bindings"]) {
-    const configured = Object.fromEntries(
-      Object.entries(settings[key]).filter(([, value]) => value.trim().length > 0)
-    );
-    delete options[key];
-    if (Object.keys(configured).length > 0) options[key] = configured;
-  }
+  delete options.binding_groups;
+  delete options.binding_freshness;
   await hass.connection.sendMessagePromise({
     type: "blind_control/update_options",
     options
@@ -4699,126 +4777,126 @@ function Shell($$anchor, $$props) {
   pop();
 }
 delegate(["click"]);
-const panelCss = `:host {
-  display: block;
-  min-width: 320px;
-  color-scheme: dark;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #12151b;
-  color: #edf1f7;
-  font-synthesis: none;
-}
-
-*, *::before, *::after { box-sizing: border-box; }
-
-button, input { font: inherit; }
-
-button { cursor: pointer; }
-
-.panel-root { max-width: 1180px; margin: 0 auto; padding: 32px; }
-.transport-state { margin: 14vh auto; max-width: 680px; padding: 32px; }
-.error-state { border: 1px solid #765b30; border-radius: 12px; background: #30291f; }
-.app-header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 28px; }
-.eyebrow { color: #92a0b5; font-size: 11px; font-weight: 700; letter-spacing: .14em; margin: 0 0 8px; }
-h1, h2, h3, p { margin-top: 0; }
-h1 { font-size: clamp(25px, 4vw, 38px); letter-spacing: -.03em; margin-bottom: 6px; }
-h2 { font-size: 19px; letter-spacing: -.015em; margin-bottom: 0; }
-h3 { font-size: 14px; margin: 22px 0 12px; }
-.subtitle, .muted, .hint { color: #92a0b5; }
-.subtitle { margin-bottom: 0; }
-.header-status { border: 1px solid #384356; border-radius: 999px; color: #b7c3d6; display: flex; align-items: center; gap: 9px; padding: 9px 13px; white-space: nowrap; }
-.status-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
-.status-dot.blocked { background: #e5a84b; box-shadow: 0 0 0 4px #e5a84b1c; }
-.status-dot.ready { background: #67d49a; box-shadow: 0 0 0 4px #67d49a1c; }
-.status-dot.warning { background: #e5a84b; box-shadow: 0 0 0 4px #e5a84b1c; }
-.status-dot.error { background: #ef7373; box-shadow: 0 0 0 4px #ef73731c; }
-.tabs { display: flex; gap: 4px; border-bottom: 1px solid #2c3442; margin-bottom: 24px; }
-.tab { background: transparent; border: 0; color: #92a0b5; padding: 12px 14px; border-bottom: 2px solid transparent; }
-.tab:hover, .tab.active { color: #edf1f7; border-bottom-color: #6fb3ff; }
-.content-grid, .diagnosis-layout, .settings-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.diagnosis-layout, .settings-layout { grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr); }
-.card { background: #1a1f28; border: 1px solid #2c3442; border-radius: 12px; padding: 22px; box-shadow: 0 12px 30px #080a0f30; }
-.span-2 { grid-column: span 2; }
-.hero-card { background: linear-gradient(140deg, #202a38, #1a1f28 60%); }
-.card-heading, .candidate-top, .metric-strip, .profile-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.badge { background: #273243; border: 1px solid #40516a; border-radius: 999px; color: #c9d5e7; font-size: 11px; font-weight: 700; letter-spacing: .08em; padding: 5px 9px; text-transform: uppercase; }
-.badge.blocked, .badge.warning { background: #49371f; border-color: #765b30; color: #f0c477; }
-.badge.ready { background: #1f4937; border-color: #397d5c; color: #9ce2b9; }
-.badge.error { background: #4b2529; border-color: #87444b; color: #ffaaaa; }
-.target-row { margin: 30px 0 24px; display: flex; align-items: baseline; gap: 12px; }
-.target-value { font-size: clamp(48px, 9vw, 76px); font-weight: 700; letter-spacing: -.07em; }
-.metric-strip { border-top: 1px solid #354051; padding-top: 16px; align-items: flex-start; }
-.metric-strip div { display: grid; gap: 5px; min-width: 0; }
-.metric-strip span, dt, .profile-header { color: #92a0b5; font-size: 12px; }
-.metric-strip strong { color: #edf1f7; font-size: 13px; overflow-wrap: anywhere; }
-.facts { display: grid; gap: 13px; margin: 25px 0 20px; }
-.facts div { display: flex; justify-content: space-between; gap: 18px; border-bottom: 1px solid #2c3442; padding-bottom: 10px; }
-dd { margin: 0; color: #d7e0ed; text-align: right; }
-.callout { background: #252c38; border-left: 3px solid #6fb3ff; color: #c9d5e7; font-size: 13px; margin: 0; padding: 11px 13px; }
-.candidate-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 20px; }
-.candidate { background: #202630; border: 1px solid #303b4d; border-radius: 8px; padding: 13px; min-width: 0; }
-.candidate.active { border-color: #527ca6; background: #202e3d; }
-.candidate.paused { border-color: #735b34; background: #30291f; }
-.candidate p { color: #b4c0d1; font-size: 12px; line-height: 1.45; margin: 10px 0; }
-.candidate small { color: #7f8da1; display: block; font-size: 11px; overflow-wrap: anywhere; }
-.candidate-top strong { font-size: 13px; }
-.candidate-top span { color: #edf1f7; font-size: 14px; font-weight: 700; white-space: nowrap; }
-.empty-state { color: #92a0b5; }
-.side-stack { display: grid; gap: 16px; align-content: start; }
-.trace-list { display: grid; gap: 8px; margin-top: 20px; }
-.trace-list .candidate { border-radius: 8px; }
-.plain-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
-.plain-list li { display: flex; justify-content: space-between; gap: 18px; color: #c6d0df; font-size: 13px; }
-.plain-list span { color: #92a0b5; text-align: right; }
-.source-list { display: grid; gap: 9px; margin-top: 16px; }
-.source-list div { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 12px; align-items: center; border-bottom: 1px solid #2c3442; padding-bottom: 9px; }
-.source-list span { color: #b7c3d6; font-size: 12px; }
-code { color: #91c8ff; font-size: 11px; overflow-wrap: anywhere; text-align: right; }
-details { margin-top: 16px; }
-summary { color: #b7c3d6; cursor: pointer; font-size: 13px; }
-pre { background: #12171e; border: 1px solid #2c3442; border-radius: 8px; color: #b9d8f4; font-size: 11px; line-height: 1.5; margin: 12px 0 0; max-height: 300px; overflow: auto; padding: 12px; white-space: pre-wrap; }
-.form-grid, .calibration-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }
-label { color: #b7c3d6; display: grid; gap: 7px; font-size: 12px; }
-input[type='number'] { background: #12171e; border: 1px solid #3a4657; border-radius: 8px; color: #edf1f7; min-height: 40px; padding: 8px 10px; width: 100%; }
-input:focus-visible, button:focus-visible { outline: 3px solid #6fb3ff; outline-offset: 2px; }
-.toggle { align-items: center; display: flex; gap: 8px; min-height: 40px; }
-.toggle input { accent-color: #6fb3ff; width: 18px; height: 18px; }
-.hint { font-size: 12px; line-height: 1.5; margin: 18px 0 0; }
-.quiet-button { background: transparent; border: 1px solid #3a4657; border-radius: 8px; color: #b7c3d6; padding: 8px 11px; }
-.quiet-button:hover { border-color: #6fb3ff; color: #edf1f7; }
-.primary-button { background: #6fb3ff; border: 1px solid #8bc5ff; border-radius: 8px; color: #101820; padding: 8px 11px; font-weight: 700; }
-.primary-button:disabled { cursor: not-allowed; opacity: .55; }
-.button-row { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-.binding-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 20px; }
-input[type='text'] { background: #12171e; border: 1px solid #3a4657; border-radius: 8px; color: #edf1f7; min-height: 40px; padding: 8px 10px; width: 100%; }
-.ready { color: #9ce2b9; }
-.warning { color: #f0c477; }
-.error { color: #ffaaaa; }
-.profile-table { margin-top: 20px; }
-.profile-row { border-bottom: 1px solid #2c3442; display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(90px, .6fr)); padding: 10px 0; }
-.profile-row strong { color: #d7e0ed; font-size: 13px; }
-.profile-row input { min-height: 34px; }
-.profile-header { border-bottom-color: #465469; font-weight: 700; padding-top: 0; }
-
-@media (max-width: 820px) {
-  .panel-root { padding: 22px 16px; }
-  .app-header { display: grid; }
-  .content-grid, .diagnosis-layout, .settings-layout { grid-template-columns: 1fr; }
-  .span-2 { grid-column: auto; }
-  .candidate-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-@media (max-width: 520px) {
-  .candidate-grid, .form-grid, .calibration-grid, .binding-grid { grid-template-columns: 1fr; }
-  .metric-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .metric-strip div:last-child { grid-column: span 2; }
-  .plain-list li { display: grid; gap: 4px; }
-  .plain-list span { text-align: left; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
-}
+const panelCss = `:host {\r
+  display: block;\r
+  min-width: 320px;\r
+  color-scheme: dark;\r
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;\r
+  background: #12151b;\r
+  color: #edf1f7;\r
+  font-synthesis: none;\r
+}\r
+\r
+*, *::before, *::after { box-sizing: border-box; }\r
+\r
+button, input { font: inherit; }\r
+\r
+button { cursor: pointer; }\r
+\r
+.panel-root { max-width: 1180px; margin: 0 auto; padding: 32px; }\r
+.transport-state { margin: 14vh auto; max-width: 680px; padding: 32px; }\r
+.error-state { border: 1px solid #765b30; border-radius: 12px; background: #30291f; }\r
+.app-header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 28px; }\r
+.eyebrow { color: #92a0b5; font-size: 11px; font-weight: 700; letter-spacing: .14em; margin: 0 0 8px; }\r
+h1, h2, h3, p { margin-top: 0; }\r
+h1 { font-size: clamp(25px, 4vw, 38px); letter-spacing: -.03em; margin-bottom: 6px; }\r
+h2 { font-size: 19px; letter-spacing: -.015em; margin-bottom: 0; }\r
+h3 { font-size: 14px; margin: 22px 0 12px; }\r
+.subtitle, .muted, .hint { color: #92a0b5; }\r
+.subtitle { margin-bottom: 0; }\r
+.header-status { border: 1px solid #384356; border-radius: 999px; color: #b7c3d6; display: flex; align-items: center; gap: 9px; padding: 9px 13px; white-space: nowrap; }\r
+.status-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }\r
+.status-dot.blocked { background: #e5a84b; box-shadow: 0 0 0 4px #e5a84b1c; }\r
+.status-dot.ready { background: #67d49a; box-shadow: 0 0 0 4px #67d49a1c; }\r
+.status-dot.warning { background: #e5a84b; box-shadow: 0 0 0 4px #e5a84b1c; }\r
+.status-dot.error { background: #ef7373; box-shadow: 0 0 0 4px #ef73731c; }\r
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid #2c3442; margin-bottom: 24px; }\r
+.tab { background: transparent; border: 0; color: #92a0b5; padding: 12px 14px; border-bottom: 2px solid transparent; }\r
+.tab:hover, .tab.active { color: #edf1f7; border-bottom-color: #6fb3ff; }\r
+.content-grid, .diagnosis-layout, .settings-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }\r
+.diagnosis-layout, .settings-layout { grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr); }\r
+.card { background: #1a1f28; border: 1px solid #2c3442; border-radius: 12px; padding: 22px; box-shadow: 0 12px 30px #080a0f30; }\r
+.span-2 { grid-column: span 2; }\r
+.hero-card { background: linear-gradient(140deg, #202a38, #1a1f28 60%); }\r
+.card-heading, .candidate-top, .metric-strip, .profile-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }\r
+.badge { background: #273243; border: 1px solid #40516a; border-radius: 999px; color: #c9d5e7; font-size: 11px; font-weight: 700; letter-spacing: .08em; padding: 5px 9px; text-transform: uppercase; }\r
+.badge.blocked, .badge.warning { background: #49371f; border-color: #765b30; color: #f0c477; }\r
+.badge.ready { background: #1f4937; border-color: #397d5c; color: #9ce2b9; }\r
+.badge.error { background: #4b2529; border-color: #87444b; color: #ffaaaa; }\r
+.target-row { margin: 30px 0 24px; display: flex; align-items: baseline; gap: 12px; }\r
+.target-value { font-size: clamp(48px, 9vw, 76px); font-weight: 700; letter-spacing: -.07em; }\r
+.metric-strip { border-top: 1px solid #354051; padding-top: 16px; align-items: flex-start; }\r
+.metric-strip div { display: grid; gap: 5px; min-width: 0; }\r
+.metric-strip span, dt, .profile-header { color: #92a0b5; font-size: 12px; }\r
+.metric-strip strong { color: #edf1f7; font-size: 13px; overflow-wrap: anywhere; }\r
+.facts { display: grid; gap: 13px; margin: 25px 0 20px; }\r
+.facts div { display: flex; justify-content: space-between; gap: 18px; border-bottom: 1px solid #2c3442; padding-bottom: 10px; }\r
+dd { margin: 0; color: #d7e0ed; text-align: right; }\r
+.callout { background: #252c38; border-left: 3px solid #6fb3ff; color: #c9d5e7; font-size: 13px; margin: 0; padding: 11px 13px; }\r
+.candidate-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 20px; }\r
+.candidate { background: #202630; border: 1px solid #303b4d; border-radius: 8px; padding: 13px; min-width: 0; }\r
+.candidate.active { border-color: #527ca6; background: #202e3d; }\r
+.candidate.paused { border-color: #735b34; background: #30291f; }\r
+.candidate p { color: #b4c0d1; font-size: 12px; line-height: 1.45; margin: 10px 0; }\r
+.candidate small { color: #7f8da1; display: block; font-size: 11px; overflow-wrap: anywhere; }\r
+.candidate-top strong { font-size: 13px; }\r
+.candidate-top span { color: #edf1f7; font-size: 14px; font-weight: 700; white-space: nowrap; }\r
+.empty-state { color: #92a0b5; }\r
+.side-stack { display: grid; gap: 16px; align-content: start; }\r
+.trace-list { display: grid; gap: 8px; margin-top: 20px; }\r
+.trace-list .candidate { border-radius: 8px; }\r
+.plain-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }\r
+.plain-list li { display: flex; justify-content: space-between; gap: 18px; color: #c6d0df; font-size: 13px; }\r
+.plain-list span { color: #92a0b5; text-align: right; }\r
+.source-list { display: grid; gap: 9px; margin-top: 16px; }\r
+.source-list div { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 12px; align-items: center; border-bottom: 1px solid #2c3442; padding-bottom: 9px; }\r
+.source-list span { color: #b7c3d6; font-size: 12px; }\r
+code { color: #91c8ff; font-size: 11px; overflow-wrap: anywhere; text-align: right; }\r
+details { margin-top: 16px; }\r
+summary { color: #b7c3d6; cursor: pointer; font-size: 13px; }\r
+pre { background: #12171e; border: 1px solid #2c3442; border-radius: 8px; color: #b9d8f4; font-size: 11px; line-height: 1.5; margin: 12px 0 0; max-height: 300px; overflow: auto; padding: 12px; white-space: pre-wrap; }\r
+.form-grid, .calibration-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }\r
+label { color: #b7c3d6; display: grid; gap: 7px; font-size: 12px; }\r
+input[type='number'] { background: #12171e; border: 1px solid #3a4657; border-radius: 8px; color: #edf1f7; min-height: 40px; padding: 8px 10px; width: 100%; }\r
+input:focus-visible, button:focus-visible { outline: 3px solid #6fb3ff; outline-offset: 2px; }\r
+.toggle { align-items: center; display: flex; gap: 8px; min-height: 40px; }\r
+.toggle input { accent-color: #6fb3ff; width: 18px; height: 18px; }\r
+.hint { font-size: 12px; line-height: 1.5; margin: 18px 0 0; }\r
+.quiet-button { background: transparent; border: 1px solid #3a4657; border-radius: 8px; color: #b7c3d6; padding: 8px 11px; }\r
+.quiet-button:hover { border-color: #6fb3ff; color: #edf1f7; }\r
+.primary-button { background: #6fb3ff; border: 1px solid #8bc5ff; border-radius: 8px; color: #101820; padding: 8px 11px; font-weight: 700; }\r
+.primary-button:disabled { cursor: not-allowed; opacity: .55; }\r
+.button-row { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }\r
+.binding-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 20px; }\r
+input[type='text'] { background: #12171e; border: 1px solid #3a4657; border-radius: 8px; color: #edf1f7; min-height: 40px; padding: 8px 10px; width: 100%; }\r
+.ready { color: #9ce2b9; }\r
+.warning { color: #f0c477; }\r
+.error { color: #ffaaaa; }\r
+.profile-table { margin-top: 20px; }\r
+.profile-row { border-bottom: 1px solid #2c3442; display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(90px, .6fr)); padding: 10px 0; }\r
+.profile-row strong { color: #d7e0ed; font-size: 13px; }\r
+.profile-row input { min-height: 34px; }\r
+.profile-header { border-bottom-color: #465469; font-weight: 700; padding-top: 0; }\r
+\r
+@media (max-width: 820px) {\r
+  .panel-root { padding: 22px 16px; }\r
+  .app-header { display: grid; }\r
+  .content-grid, .diagnosis-layout, .settings-layout { grid-template-columns: 1fr; }\r
+  .span-2 { grid-column: auto; }\r
+  .candidate-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }\r
+}\r
+\r
+@media (max-width: 520px) {\r
+  .candidate-grid, .form-grid, .calibration-grid, .binding-grid { grid-template-columns: 1fr; }\r
+  .metric-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }\r
+  .metric-strip div:last-child { grid-column: span 2; }\r
+  .plain-list li { display: grid; gap: 4px; }\r
+  .plain-list span { text-align: left; }\r
+}\r
+\r
+@media (prefers-reduced-motion: reduce) {\r
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }\r
+}\r
 `;
 class BlindControlPanel extends HTMLElement {
   constructor() {

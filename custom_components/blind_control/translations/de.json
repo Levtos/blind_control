@@ -3,7 +3,29 @@
     "step": {
       "user": {
         "title": "Blind Control",
-        "description": "AP2 erstellt einen konfigurierbaren, nicht-aktiven Shadow-Eintrag. Inputs, Entscheidungen, Trace und Snapshot werden ohne Geräte-Schreibpfad berechnet."
+        "description": "AP2 erstellt einen konfigurierbaren, nicht-aktiven Shadow-Eintrag. Inputs, Entscheidungen, Trace und Snapshot werden ohne Geräte-Schreibpfad berechnet.",
+        "sections": {
+          "core_state_bindings": {
+            "name": "Core State",
+            "description": "Optionale kanonische Haushalts- und Aktivitätsverträge."
+          },
+          "opening_safety_cover_bindings": {
+            "name": "Opening / Safety / Cover",
+            "description": "Optionale technische Safety- und Readiness-Evidence."
+          },
+          "solar_bindings": {
+            "name": "Solar",
+            "description": "Optionale fensterbezogene Solar-Evidence."
+          },
+          "temperature_weather_bindings": {
+            "name": "Temperatur / Wetter",
+            "description": "Optionale Klima- und Wetter-Evidence."
+          },
+          "legacy_comparison_bindings": {
+            "name": "Legacy-Vergleich",
+            "description": "Optionale alte Policy-Evidence für feldweise Shadow-Diffs."
+          }
+        }
       }
     },
     "error": {
@@ -17,7 +39,29 @@
     "step": {
       "init": {
         "title": "Blind-Control-Shadow-Einstellungen",
-        "description": "Änderungen berechnen den Shadow-Snapshot neu und erzeugen niemals einen Cover-Schreibpfad."
+        "description": "Änderungen berechnen den Shadow-Snapshot neu und erzeugen niemals einen Cover-Schreibpfad.",
+        "sections": {
+          "core_state_bindings": {
+            "name": "Core State",
+            "description": "Optionale kanonische Haushalts- und Aktivitätsverträge."
+          },
+          "opening_safety_cover_bindings": {
+            "name": "Opening / Safety / Cover",
+            "description": "Optionale technische Safety- und Readiness-Evidence."
+          },
+          "solar_bindings": {
+            "name": "Solar",
+            "description": "Optionale fensterbezogene Solar-Evidence."
+          },
+          "temperature_weather_bindings": {
+            "name": "Temperatur / Wetter",
+            "description": "Optionale Klima- und Wetter-Evidence."
+          },
+          "legacy_comparison_bindings": {
+            "name": "Legacy-Vergleich",
+            "description": "Optionale alte Policy-Evidence für feldweise Shadow-Diffs."
+          }
+        }
       }
     }
   }

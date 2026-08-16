@@ -1,7 +1,7 @@
 # AP2 Shadow-Vertical-Slice
 
 **Stand:** 15. August 2026
-**Status:** technische Umsetzung im Draft-PR, `Not Live`
+**Status:** `Installed / Shadow / Not Live`; AP2-Nachbesserung im Draft-PR
 **Scope:** `blind_control#2` / AP2, kein Cutover
 
 ## 1. Umgesetzter Pfad
@@ -21,8 +21,8 @@ ConfigEntry / OptionsFlow
 `async_setup_entry` startet eine laufende, aber strikt nicht-aktuierende
 Beobachtung. Entity IDs werden nicht im Produktcode erfunden, sondern als
 Owner-Bindings über ConfigEntry/OptionsFlow gespeichert. Bei jeder gebundenen
-State-Änderung und zusätzlich über den Freshness-Timer wird ein neuer Snapshot
-berechnet und als `blind_control.ux.v1` im Runtime-Data-Projektionsobjekt
+  State-Änderung und zusätzlich über den Freshness-Timer wird ein neuer Snapshot
+  berechnet und als `blind_control.ux.v2` im Runtime-Data-Projektionsobjekt
 gehalten. Der WebSocket-Read-Befehl liefert genau diese Projektion; der einzige
 UX-Update-Befehl validiert und speichert ausschließlich OptionsFlow-Konfiguration.
 
@@ -158,22 +158,26 @@ klassifiziert feldweise als `expected`, `improved`, `unresolved` oder `error` un
 trägt Quality/Source der Alt-Evidence mit. Fehlende Legacy-Bindings bleiben
 explizit unkonfiguriert; Werte werden nicht aus der neuen Entscheidung erfunden.
 
-`ux_contract.py` stellt `blind_control.ux.v1` für Übersicht, Diagnose und
-Einstellungen bereit. Die Projektion enthält Gewinner, effektives Ziel,
-Kandidaten, pausierte Äste, Solar-Diagnose, Quality/Reason, Alt/Neu-Diffs und
-alle editierbaren Konfigurationswerte. `frontend/` wird als
+`ux_contract.py` stellt `blind_control.ux.v2` für Übersicht, Diagnose und
+Einstellungen bereit. Die Projektion enthält Mastermodus, Gewinnerkategorie
+und -variante, effektives und fachliches Ziel, kompatible aktive oder pausierte
+Äste, Solar-Diagnose, Quality/Reason, Alt/Neu-Diffs und editierbare
+Nicht-Binding-Konfigurationswerte. `frontend/` wird als
 `blind-control-panel.js` in der Integration ausgeliefert, über
 `async_register_static_paths` erreichbar gemacht und als offizielles
 HA-Custom-Panel registriert. Das Custom Element erhält den laufenden `hass`-
 Context von HA; DOM-/Window-Probing ist kein Transportpfad. Die App lädt die
 reale Projektion über `blind_control/get_snapshot`, pollt sie für laufende
-Anzeige, speichert Änderungen über `blind_control/update_options` und enthält
-keinen `sampleSnapshot`-Produktpfad. Status-Badges stammen aus dem Snapshot,
-Coverposition und Haushalt werden in der Übersicht gezeigt, und alle Input-
-und Legacy-Bindings bleiben im OptionsFlow-Formular sichtbar, auch wenn sie
-noch leer sind; konfigurierte Binding-Werte werden in der Snapshot-Projektion
-nicht zurückgegeben, sondern nur als konfiguriert/nicht konfiguriert markiert.
-Der Snapshot-Read und Options-Update sind admin-geschützt. Source-, Legacy- und
+Anzeige, speichert Nicht-Binding-Konfiguration über
+`blind_control/update_options` und enthält keinen `sampleSnapshot`-
+Produktpfad. Status-Badges stammen aus dem Snapshot, Coverposition und
+Haushalt werden in der Übersicht gezeigt. Input- und Legacy-Bindings werden
+allein über native Entity-Selectoren im OptionsFlow gepflegt, gruppiert als
+Core State, Opening/Safety/Cover, Solar, Temperatur/Wetter und
+Legacy-Vergleich. Leere optionale Slots sind sichtbar nicht konfiguriert;
+konfigurierte Binding-Werte werden in der Snapshot-Projektion nie
+zurückgegeben. Der Snapshot-Read und Options-Update sind admin-geschützt; der
+WebSocket lehnt Binding-Mappings ausdrücklich ab. Source-, Legacy- und
 Entity-Werte werden in der öffentlichen Projektion und in der Copy-Aktion
 wertbasiert redigiert; die Copy-Aktion schreibt diese redigierte Debug-Evidence
 in die Clipboard-API.
@@ -222,3 +226,40 @@ historische Entity-IDs oder private Topologie angenommen.
 
 Technische Tests und ein Draft-PR sind keine Live-Aussage. `Not Live` gilt
 explizit bis zu Bennis getrennten Live-/Live-Verified-Gates.
+
+## 10. Nachbesserung: Hierarchie, Failure und Thread-Safety
+
+### Fachliche Darstellung
+
+Der Decision-Contract ist `blind_control.decision.v2`. Sein Mastermodus ist
+nur `normal`, `manual` oder `failure`. Er wird nicht für Safety, Apply,
+Opening, Cover-Readiness oder Shadow/Live wiederverwendet. Unter `normal`
+zeigt der Contract Kategorie und Variante (`glare -> general|tv|pc`,
+`climate -> heat|cold|storm|cool_air`) sowie den Original-Candidate-Key. Die
+Minimum-Komposition bleibt erhalten: Heat 15 % und PC-Glare 75 % werden als
+`normal -> climate -> heat` mit aktivem Nebenast `glare -> pc` dargestellt.
+Endet Heat, gewinnt PC-Glare. Waking bleibt exklusiv und hält die pausierten
+Heat-, Glare-, Privacy- und Cold-Äste sichtbar.
+
+Ein nachgewiesener Override ist `manual -> override` und hält die Automatik;
+das Apply-Gate bleibt absolut. `failure` steht ausschließlich für fehlende
+Entscheidungsqualität oder Contractfehler. Es hält eine frische nachweislich
+sichere aktuelle/letzte Position oder blockiert Apply. Es gibt dabei nie einen
+stummen 100-%-Fallback. Nur positiv bestätigte Opening-Safety darf die
+achsenspezifisch konfigurierte Safety-Open-Position freigeben. Ein bekannter
+neutraler Context ohne Spezialkandidat bleibt `normal`.
+
+### Laufzeit- und Daten-Sicherheit
+
+Der `ShadowCoordinator` markiert State-, Zeit- und Refresh-Callbacks als
+Home-Assistant-Callbacks und reicht jede Task-Erzeugung über `hass.add_job`
+beziehungsweise den Event Loop weiter. Dadurch ruft kein Callback aus einem
+Worker-Thread direkt `hass.async_create_task` auf. Der entsprechende
+Regressionstest simuliert den Worker-Callback bis zur tatsächlichen
+Task-Erzeugung im HA-Loop.
+
+Die kleine `blind_control.automation_projection.v1` veröffentlicht nur
+Mastermodus, Gewinnerkategorie/-variante, Ziele, Safety-/Apply-Status und
+Shadow-Flags. Sie ist für spätere Automations-/Diagnose-Consumer dokumentiert,
+erzeugt in AP2 aber keine neue Entität. Die öffentliche UX und die
+Clipboard-Evidence sind entity-ID-redigiert.

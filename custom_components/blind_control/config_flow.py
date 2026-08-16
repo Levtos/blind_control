@@ -7,11 +7,12 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, OptionsFlow
+from homeassistant.data_entry_flow import section
+from homeassistant.helpers.selector import selector
 
 from .config import (
+    BINDING_GROUPS,
     DEFAULT_PROFILE_NAMES,
-    INPUT_BINDING_KEYS,
-    LEGACY_BINDING_KEYS,
     BlindControlConfig,
 )
 from .const import DOMAIN
@@ -90,11 +91,19 @@ def _config_schema(config: BlindControlConfig | None = None):
             vol.All(vol.Coerce(float), vol.Range(min=0, max=100))
         )
     input_bindings = dict(config.input_bindings)
-    for key in INPUT_BINDING_KEYS:
-        fields[vol.Optional(f"input_binding_{key}", default=input_bindings.get(key, ""))] = str
     legacy_bindings = dict(config.legacy_bindings)
-    for key in LEGACY_BINDING_KEYS:
-        fields[vol.Optional(f"legacy_binding_{key}", default=legacy_bindings.get(key, ""))] = str
+    for section_key, _label, keys, legacy in BINDING_GROUPS:
+        bindings = legacy_bindings if legacy else input_bindings
+        binding_fields: dict[object, object] = {}
+        for key in keys:
+            field_kwargs: dict[str, object] = {}
+            if key in bindings:
+                field_kwargs["description"] = {"suggested_value": bindings[key]}
+            binding_fields[vol.Optional(key, **field_kwargs)] = selector({"entity": {}})
+        fields[vol.Required(section_key, default={})] = section(
+            vol.Schema(binding_fields),
+            {"collapsed": True},
+        )
     return vol.Schema(fields)
 
 
@@ -113,19 +122,22 @@ def _mapping_from_form(
             "inverted": values.pop(f"position_{profile_name}_inverted", profile.inverted),
         }
     input_bindings = dict(config.input_bindings)
-    for key in INPUT_BINDING_KEYS:
-        value = values.pop(f"input_binding_{key}", input_bindings.get(key, ""))
-        if value in (None, ""):
-            input_bindings.pop(key, None)
-        else:
-            input_bindings[key] = value
     legacy_bindings = dict(config.legacy_bindings)
-    for key in LEGACY_BINDING_KEYS:
-        value = values.pop(f"legacy_binding_{key}", legacy_bindings.get(key, ""))
-        if value in (None, ""):
-            legacy_bindings.pop(key, None)
-        else:
-            legacy_bindings[key] = value
+    for section_key, _label, keys, legacy in BINDING_GROUPS:
+        raw_section = values.pop(section_key, {})
+        if raw_section is None:
+            raw_section = {}
+        if not isinstance(raw_section, Mapping):
+            raise ValueError(f"{section_key} must be a mapping")
+        bindings = legacy_bindings if legacy else input_bindings
+        for key in keys:
+            if key not in raw_section:
+                continue
+            value = raw_section[key]
+            if value in (None, ""):
+                bindings.pop(key, None)
+            else:
+                bindings[key] = value
     values["input_bindings"] = input_bindings
     values["legacy_bindings"] = legacy_bindings
     values["profiles"] = profiles

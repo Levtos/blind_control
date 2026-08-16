@@ -33,18 +33,30 @@ command or replace the productive `benni_blind_policy` Apply owner.
 
 ## AP2 boundary
 
+**Current status:** `Installed / Shadow / Not Live`. Issue #2 remains open;
+this AP2 follow-up is a Draft PR only.
+
 - product/domain name: `Blind Control` / `blind_control`
 - configurable normal/inverted profiles, axis inversion, geometry, and
   calibration defaults
 - versioned owner-bound input, decision, diagnostic, UX, and Shadow contracts
 - deterministic Solar Exposure, compatible minimum composition, exclusive
   Waking, Opening Safety, Override tracking, and latest-target cooldown state
+- versioned hierarchy: `normal|manual|failure`, winner category/variant and
+  visible compatible active or paused branches; Safety and Apply remain a
+  separate technical layer
+- Failure holds only a current/last proven safe position or blocks Apply; it
+  never invents a 100 % open fallback
+- native OptionsFlow Entity Selectors grouped for Core State,
+  Opening/Safety/Cover, Solar, Temperature/Weather and Legacy comparison;
+  the panel shows redacted configured/not-configured status only
 - setup starts the owner-bound read-only ShadowCoordinator and publishes a
   snapshot through a read-only WebSocket projection; no actuator service or
   device command path exists
 - no entities, frontend device-command surface, Apply, cover movement,
-  productive migration, or live installation
+  productive migration, Cutover, Rename, or live activation
 - no hardcoded productive entity IDs in product Python code
 
-The work remains technical/testing until the Draft PR is reviewed and merged.
-`Live`, `Live Verified`, Cutover, Rename, Release, and Merge are separate gates.
+`Live`, `Live Verified`, Cutover, Rename, Release, and Merge are separate
+gates. The currently installed AP2 Shadow runtime does not make this Draft
+follow-up live and does not change the old productive policy.

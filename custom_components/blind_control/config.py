@@ -39,6 +39,70 @@ INPUT_BINDING_KEYS = (
     "air_movement",
 )
 LEGACY_BINDING_KEYS = ("active_mode", "effective_target", "safety_status", "apply_status")
+BINDING_GROUPS: tuple[tuple[str, str, tuple[str, ...], bool], ...] = (
+    (
+        "core_state_bindings",
+        "Core State",
+        (
+            "bio_state",
+            "activity_state",
+            "day_state",
+            "day_context",
+            "away",
+            "private_time",
+            "privacy",
+        ),
+        False,
+    ),
+    (
+        "opening_safety_cover_bindings",
+        "Opening / Safety / Cover",
+        (
+            "opening_state",
+            "opening_safe_for_blind",
+            "cover_available",
+            "cover_ready",
+            "cover_position",
+        ),
+        False,
+    ),
+    (
+        "solar_bindings",
+        "Solar",
+        (
+            "outdoor_lux",
+            "lux_trend",
+            "sun_elevation",
+            "sun_azimuth",
+            "expected_direct_radiation",
+            "expected_diffuse_radiation",
+            "cloud_cover",
+        ),
+        False,
+    ),
+    (
+        "temperature_weather_bindings",
+        "Temperatur / Wetter",
+        (
+            "indoor_temperature",
+            "outdoor_temperature",
+            "indoor_temperature_trend",
+            "outdoor_temperature_trend",
+            "weather_alert",
+            "precipitation_trend",
+            "wind_trend",
+            "pressure_trend",
+            "air_movement",
+        ),
+        False,
+    ),
+    (
+        "legacy_comparison_bindings",
+        "Legacy-Vergleich",
+        LEGACY_BINDING_KEYS,
+        True,
+    ),
+)
 STATEFUL_BINDING_KEYS = frozenset(
     {
         "bio_state",

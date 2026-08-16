@@ -689,3 +689,86 @@ Das Lastenheft v0.1 ist fachlich abnahmefähig, wenn:
 - aus den drei Arbeitspaketen klar abgegrenzte Codex-Issues mit Akzeptanzkriterien abgeleitet werden können.
 
 Die fachliche Grundstruktur wurde von Benni am 15. August 2026 grundsätzlich als ordentlich und verwendbar bestätigt. Version 0.2 ergänzt die ausdrücklich gewünschte Achsen-Invertierfunktion, den kontrollierten Cover-Entity-Rename und den beschleunigten, risikobasierten Produktstart.
+
+## 28. Verbindliche AP2-Nachbesserung: Statusmodell und Projektion
+
+Dieser Abschnitt ist für AP2 normativ und präzisiert die Darstellung des
+bereits beschlossenen Entscheidungsmodells. Er autorisiert weder Cutover noch
+eine produktive Fahrt.
+
+### 28.1 Fachlicher Mastermodus
+
+Der Mastermodus beschreibt ausschließlich den Betriebszustand und hat genau
+drei Werte:
+
+- `normal`: reguläre automatische Auswertung;
+- `manual`: ein nachgewiesener fremder manueller Override hält;
+- `failure`: fehlende Entscheidungsqualität oder ein Contractfehler verhindert
+  eine belastbare automatische Entscheidung.
+
+Safety, Apply, Opening, Cover-Readiness und Shadow/Live sind technische
+Ebenen. Sie bleiben separat sichtbar und werden nicht als fachlicher
+Mastermodus ausgegeben. Ein bekannter neutraler Zustand ohne besonderen
+Schutzkandidaten ist weiterhin `normal`, nicht `failure`.
+
+### 28.2 Hierarchische Entscheidung und kompatible Nebenäste
+
+Unter `normal` wird der Gewinner als Kategorie und gegebenenfalls Variante
+ausgegeben:
+
+- `waking`, `sleep`, `away`, `privacy` oder `neutral`;
+- `glare -> general|tv|pc`;
+- `climate -> heat|cold|storm|cool_air`.
+
+`pc` und `tv` sind damit Varianten von `glare`, nicht gleichrangige Kategorien.
+Der original Candidate-Key und die Zielposition bleiben maschinenlesbar. Die
+Minimum-Komposition kompatibler Zielpositionen bleibt unverändert: Unterlegene,
+aber aktive Anforderungen werden nicht entfernt, sondern als aktive Nebenäste
+mit Quality, Source, Reason und einer möglichen Unterdrückung ausgewiesen.
+
+Beispiel: Fordert Heat 15 % und PC-Glare 75 %, lautet die Projektion
+`normal -> climate -> heat`; `glare -> pc` bleibt als aktiver Nebenast sichtbar
+und das fachliche Ziel ist 15 %. Endet Heat, gewinnt `normal -> glare -> pc`.
+Waking bleibt exklusiv: pausierte Heat-, Glare-, Privacy- und Cold-Äste bleiben
+im Trace sichtbar, bis der kanonische Bio-State `awake` erreicht ist.
+
+Die UX muss mindestens folgende Pfade lesbar darstellen:
+
+- `Normal -> Glare -> PC`;
+- `Normal -> Glare -> TV`;
+- `Normal -> Climate -> Heat`;
+- `Normal -> Waking`;
+- `Manual -> Override`;
+- `Failure -> Input-/Contract-Grund -> Position halten oder Apply blockiert`.
+
+Die bisherige flache Darstellung `active_mode`/`winner_keys` darf als
+Kompatibilitäts- und Diagnoseansicht bestehen bleiben, aber nicht als alleiniger
+Entscheidungsbaum.
+
+### 28.3 Failure-Verhalten
+
+Bei `failure` gibt es keine neue automatische Fahrt. Die Auswertung hält die
+aktuelle oder zuletzt nachweislich sichere Position; ist dies nicht belastbar
+möglich, wird Apply blockiert. Es gibt keinen generischen Fallback auf 100 %.
+Vollständig öffnen ist während Failure nur aufgrund einer positiv belegten
+Safety-Anforderung zulässig; diese verwendet das konfigurierte
+Normal-/Invertiert-Profil der Safety-Position. `unknown`, `stale`,
+`unavailable` oder `conflict` einer Opening-Evidence erzeugen keine
+Öffnungsfahrt.
+
+### 28.4 Bindings und stabile Diagnoseprojektion
+
+Optionale Owner-Bindings werden ausschließlich in den nativen
+Home-Assistant-Entity-Selectoren des OptionsFlow bearbeitet und fachlich
+gruppiert: Core State, Opening/Safety/Cover, Solar, Temperatur/Wetter und
+Legacy-Vergleich. Leere Slots sind nicht konfiguriert und werden weder als
+Entität gespeichert noch im Panel als vorhandene Entität dargestellt. Das
+Panel zeigt nur Binding-Status und verweist für die Bearbeitung auf den
+OptionsFlow. Entity-IDs gehören weder in Debug-Payloads noch in die öffentliche
+UX-Projektion.
+
+Für Automationen und Diagnose ist eine kleine stabile
+`blind_control.automation_projection.v1` mit Mastermodus, Gewinnerkategorie,
+Gewinnervariante, fachlichem/effektivem Ziel sowie Safety-/Apply-/Shadow-Status
+vorgesehen. Sie ist eine read-only Contractprojektion und erzeugt in AP2 keine
+zusätzliche Entity-Flut.

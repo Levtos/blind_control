@@ -84,19 +84,13 @@ def register_websocket_commands(hass: object) -> None:
 
 
 def _merge_options(current: BlindControlConfig, options: Mapping[str, Any]) -> dict[str, object]:
-    """Merge partial UX binding edits without replacing unseen private bindings."""
+    """Merge non-binding UX edits; entity selection stays in native OptionsFlow."""
 
     merged = current.to_mapping()
     for key, value in options.items():
         if key in {"input_bindings", "legacy_bindings"}:
-            if not isinstance(value, Mapping):
-                raise TypeError(f"{key} must be a mapping")
-            existing = merged.get(key, {})
-            if not isinstance(existing, Mapping):
-                raise TypeError(f"{key} must be a mapping")
-            merged[key] = {**existing, **value}
-        else:
-            merged[key] = value
+            raise ValueError("entity_bindings_require_native_options_flow")
+        merged[key] = value
     return merged
 
 

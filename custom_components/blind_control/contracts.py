@@ -23,6 +23,14 @@ class InputQuality(StrEnum):
     DEGRADED = "degraded"
 
 
+class MasterMode(StrEnum):
+    """Operating state kept separate from the fachlicher decision branch."""
+
+    NORMAL = "normal"
+    MANUAL = "manual"
+    FAILURE = "failure"
+
+
 _SAFE_DIAGNOSTIC_SOURCES = frozenset({"unbound", "legacy_mapping"})
 
 
@@ -332,6 +340,7 @@ class Candidate:
 
     key: str
     category: str
+    variant: str | None
     active: bool
     target_position: float | None
     source: str
@@ -344,6 +353,7 @@ class Candidate:
         return {
             "key": self.key,
             "category": self.category,
+            "variant": self.variant,
             "active": self.active,
             "target_position": self.target_position,
             "source": self.source,
@@ -351,6 +361,96 @@ class Candidate:
             "quality": self.quality.value,
             "paused": self.paused,
             "suppressed_by": self.suppressed_by,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionWinner:
+    """The deterministic winner projected as category, variant and candidate key."""
+
+    category: str
+    variant: str | None
+    candidate_key: str
+    target_position: float | None
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "category": self.category,
+            "variant": self.variant,
+            "candidate_key": self.candidate_key,
+            "target_position": self.target_position,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionBranch:
+    """One active or paused fachlicher branch in the hierarchical v2 contract."""
+
+    category: str
+    variant: str | None
+    candidate_key: str
+    active: bool
+    paused: bool
+    winner: bool
+    target_position: float | None
+    quality: InputQuality
+    source: str
+    reason: str
+    suppressed_by: str | None
+
+    @classmethod
+    def from_candidate(cls, candidate: Candidate, *, winner: bool) -> DecisionBranch:
+        """Project one existing candidate without dropping its trace evidence."""
+
+        return cls(
+            category=candidate.category,
+            variant=candidate.variant,
+            candidate_key=candidate.key,
+            active=candidate.active,
+            paused=candidate.paused,
+            winner=winner,
+            target_position=candidate.target_position,
+            quality=candidate.quality,
+            source=candidate.source,
+            reason=candidate.reason,
+            suppressed_by=candidate.suppressed_by,
+        )
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "category": self.category,
+            "variant": self.variant,
+            "candidate_key": self.candidate_key,
+            "active": self.active,
+            "paused": self.paused,
+            "winner": self.winner,
+            "target_position": self.target_position,
+            "quality": self.quality.value,
+            "source": self.source,
+            "reason": self.reason,
+            "suppressed_by": self.suppressed_by,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class FailureDecision:
+    """Explicit failure evidence; it never manufactures an open target."""
+
+    status: str = "none"
+    reason: str | None = None
+    hold_target: float | None = None
+
+    @property
+    def active(self) -> bool:
+        """Return whether the decision contract is currently unable to automate."""
+
+        return self.status != "none"
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "status": self.status,
+            "reason": self.reason,
+            "hold_target": self.hold_target,
         }
 
 
@@ -449,6 +549,10 @@ class DecisionTrace:
     fachlicher_target: float | None
     effective_target: float | None
     active_mode: str
+    master_mode: MasterMode
+    winner: DecisionWinner | None
+    active_branches: tuple[DecisionBranch, ...]
+    failure: FailureDecision
     solar: SolarExposure
     safety: SafetyDecision
     apply: ApplyDecision
@@ -464,6 +568,10 @@ class DecisionTrace:
             "fachlicher_target": self.fachlicher_target,
             "effective_target": self.effective_target,
             "active_mode": self.active_mode,
+            "master_mode": self.master_mode.value,
+            "winner": self.winner.as_dict() if self.winner else None,
+            "active_branches": [branch.as_dict() for branch in self.active_branches],
+            "failure": self.failure.as_dict(),
             "solar": self.solar.as_dict(),
             "safety": self.safety.as_dict(),
             "apply": self.apply.as_dict(),
