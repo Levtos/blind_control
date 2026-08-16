@@ -433,12 +433,29 @@ class DecisionBranch:
 
 
 @dataclass(frozen=True, slots=True)
+class QualityBlocker:
+    """One required automatic-decision input without positive quality evidence."""
+
+    key: str
+    quality: InputQuality
+    reason: str
+
+    def as_dict(self) -> dict[str, str]:
+        return {
+            "key": self.key,
+            "quality": self.quality.value,
+            "reason": self.reason,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class FailureDecision:
     """Explicit failure evidence; it never manufactures an open target."""
 
     status: str = "none"
     reason: str | None = None
     hold_target: float | None = None
+    quality_blockers: tuple[QualityBlocker, ...] = ()
 
     @property
     def active(self) -> bool:
@@ -451,6 +468,7 @@ class FailureDecision:
             "status": self.status,
             "reason": self.reason,
             "hold_target": self.hold_target,
+            "quality_blockers": [blocker.as_dict() for blocker in self.quality_blockers],
         }
 
 

@@ -8,6 +8,7 @@ import sys
 import types
 import unittest
 from contextlib import contextmanager
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -101,15 +102,52 @@ class _FakeConfigEntry:
         return cls
 
 
+class _FakeSensorEntity:
+    async def async_added_to_hass(self):
+        return None
+
+    def async_on_remove(self, callback):
+        self._remove_callbacks = [*getattr(self, "_remove_callbacks", []), callback]
+
+    def async_write_ha_state(self):
+        self._state_write_count = getattr(self, "_state_write_count", 0) + 1
+
+    async def async_will_remove_from_hass(self):
+        for callback in getattr(self, "_remove_callbacks", []):
+            callback()
+        self._remove_callbacks = []
+
+
+class _FakeEntityRegistry:
+    def __init__(self):
+        self.entries = {}
+
+    def register(self, entity):
+        unique_id = getattr(entity, "_attr_unique_id", None)
+        self.entries[unique_id] = {
+            "unique_id": unique_id,
+            "translation_key": getattr(entity, "_attr_translation_key", None),
+        }
+
+    def remove(self, entity):
+        self.entries.pop(getattr(entity, "_attr_unique_id", None), None)
+
+
 class _FakeHomeAssistant:
     def __init__(self):
         self.data = {}
         self.http = _FakeHttp()
+        self.entity_registry = _FakeEntityRegistry()
+        self._entities_by_entry = {}
         self.config_entries = types.SimpleNamespace(
             reloads=[],
             updates=[],
+            forwards=[],
+            unloads=[],
             async_reload=self._async_reload,
             async_update_entry=self._async_update_entry,
+            async_forward_entry_setups=self._async_forward_entry_setups,
+            async_unload_platforms=self._async_unload_platforms,
         )
 
     async def _async_reload(self, domain, entry_id):
@@ -117,6 +155,31 @@ class _FakeHomeAssistant:
 
     def _async_update_entry(self, entry, *, options):
         self.config_entries.updates.append((entry, options))
+
+    async def _async_forward_entry_setups(self, entry, platforms):
+        names = tuple(getattr(platform, "value", platform) for platform in platforms)
+        self.config_entries.forwards.append((entry.entry_id, names))
+        added = []
+
+        def async_add_entities(entities):
+            added.extend(entities)
+
+        for name in names:
+            module = importlib.import_module(f"custom_components.blind_control.{name}")
+            await module.async_setup_entry(self, entry, async_add_entities)
+        for entity in added:
+            entity.hass = self
+            self.entity_registry.register(entity)
+            await entity.async_added_to_hass()
+        self._entities_by_entry[entry.entry_id] = added
+
+    async def _async_unload_platforms(self, entry, platforms):
+        names = tuple(getattr(platform, "value", platform) for platform in platforms)
+        self.config_entries.unloads.append((entry.entry_id, names))
+        for entity in self._entities_by_entry.pop(entry.entry_id, []):
+            await entity.async_will_remove_from_hass()
+            self.entity_registry.remove(entity)
+        return True
 
 
 class _FakeStaticPathConfig:
@@ -249,9 +312,17 @@ def _home_assistant_imports():
     frontend = _FakeFrontend("homeassistant.components.frontend")
     http = types.ModuleType("homeassistant.components.http")
     http.StaticPathConfig = _FakeStaticPathConfig
+    sensor = types.ModuleType("homeassistant.components.sensor")
+    sensor.SensorEntity = _FakeSensorEntity
+    const = types.ModuleType("homeassistant.const")
+    const.Platform = types.SimpleNamespace(SENSOR="sensor")
+    const.EntityCategory = types.SimpleNamespace(DIAGNOSTIC="diagnostic")
+    entity_platform = types.ModuleType("homeassistant.helpers.entity_platform")
+    entity_platform.AddConfigEntryEntitiesCallback = object
     components.websocket_api = websocket_api
     components.frontend = frontend
     components.http = http
+    components.sensor = sensor
     homeassistant.config_entries = config_entries
     homeassistant.core = core
     homeassistant.data_entry_flow = data_entry_flow
@@ -272,13 +343,16 @@ def _home_assistant_imports():
             "homeassistant": homeassistant,
             "homeassistant.config_entries": config_entries,
             "homeassistant.core": core,
+            "homeassistant.const": const,
             "homeassistant.data_entry_flow": data_entry_flow,
             "homeassistant.helpers": helpers,
             "homeassistant.helpers.selector": selector_module,
+            "homeassistant.helpers.entity_platform": entity_platform,
             "homeassistant.components": components,
             "homeassistant.components.websocket_api": websocket_api,
             "homeassistant.components.frontend": frontend,
             "homeassistant.components.http": http,
+            "homeassistant.components.sensor": sensor,
         },
     ):
         try:
@@ -313,7 +387,103 @@ class BootstrapTests(unittest.TestCase):
             self.assertIsInstance(entry.runtime_data, module.BlindControlRuntimeData)
             self.assertEqual(entry.runtime_data.phase, "shadow")
             self.assertIsNotNone(entry.runtime_data.snapshot)
+            self.assertEqual(hass.config_entries.forwards, [("entry-1", ("sensor",))])
             self.assertTrue(asyncio.run(module.async_unload_entry(hass, entry)))
+            self.assertEqual(hass.config_entries.unloads, [("entry-1", ("sensor",))])
+
+    def test_native_status_projection_is_registry_backed_redacted_and_unloads(self) -> None:
+        with _home_assistant_imports():
+            module = importlib.import_module("custom_components.blind_control")
+            contracts = importlib.import_module("custom_components.blind_control.contracts")
+            hass = _FakeHomeAssistant()
+            entry = _FakeConfigEntry("entry-1")
+
+            asyncio.run(module.async_setup_entry(hass, entry))
+            sensor = hass._entities_by_entry[entry.entry_id][0]
+            registry_entry = hass.entity_registry.entries[sensor._attr_unique_id]
+            self.assertEqual(registry_entry["unique_id"], "entry-1_shadow_status")
+            self.assertEqual(registry_entry["translation_key"], "status")
+            self.assertEqual(sensor.native_value, "failure")
+            initial_attributes = sensor.extra_state_attributes
+            self.assertEqual(initial_attributes["failure_status"], "apply_blocked")
+            self.assertTrue(initial_attributes["failure_quality_blockers"])
+            self.assertIn(
+                "bio_state",
+                {blocker["key"] for blocker in initial_attributes["failure_quality_blockers"]},
+            )
+
+            def fresh(value, source):
+                return contracts.InputObservation(
+                    value=value,
+                    source=source,
+                    quality=contracts.InputQuality.FRESH,
+                )
+
+            inputs = contracts.BlindControlInputs(
+                bio_state=fresh("awake", "sensor.private_bio"),
+                activity_state=fresh("none", "sensor.private_activity"),
+                day_state=fresh("morning", "sensor.private_day"),
+                day_context=fresh("weekday", "sensor.private_context"),
+                away=fresh(False, "sensor.private_away"),
+                private_time=fresh(False, "sensor.private_private"),
+                privacy=fresh(False, "sensor.private_privacy"),
+                opening_state=fresh("closed", "sensor.private_opening"),
+                opening_safe_for_blind=fresh(True, "sensor.private_opening"),
+                cover_available=fresh(True, "sensor.private_cover"),
+                cover_ready=fresh(True, "sensor.private_cover"),
+                cover_position=fresh(42.0, "sensor.private_cover"),
+                outdoor_lux=fresh(14_000.0, "sensor.private_lux"),
+                lux_trend=fresh(0.0, "sensor.private_lux"),
+                sun_elevation=fresh(30.0, "sensor.private_sun"),
+                sun_azimuth=fresh(304.0, "sensor.private_sun"),
+                expected_direct_radiation=fresh(400.0, "sensor.private_weather"),
+                expected_diffuse_radiation=fresh(50.0, "sensor.private_weather"),
+                cloud_cover=fresh(0.1, "sensor.private_weather"),
+                indoor_temperature=fresh(22.0, "sensor.private_indoor"),
+                outdoor_temperature=fresh(20.0, "sensor.private_outdoor"),
+            )
+            entry.runtime_data.snapshot = entry.runtime_data.shadow.evaluate(inputs)
+            entry.runtime_data.coordinator._notify_snapshot_listeners()
+
+            self.assertEqual(sensor.native_value, "normal")
+            self.assertGreater(sensor._state_write_count, 0)
+            attributes = sensor.extra_state_attributes
+            self.assertEqual(attributes["active_category"], "neutral")
+            self.assertEqual(attributes["failure_status"], "none")
+            self.assertEqual(attributes["failure_quality_blockers"], [])
+            self.assertFalse(attributes["safety_blocked"])
+            self.assertFalse(attributes["apply_blocked"])
+            serialized = json.dumps(attributes)
+            self.assertNotIn("sensor.private", serialized)
+
+            unresolved_inputs = replace(
+                inputs,
+                indoor_temperature=contracts.InputObservation(
+                    value=22.0,
+                    source="sensor.private_indoor",
+                    quality=contracts.InputQuality.STALE,
+                    reason="matrix_stale",
+                ),
+            )
+            entry.runtime_data.snapshot = entry.runtime_data.shadow.evaluate(unresolved_inputs)
+            entry.runtime_data.coordinator._notify_snapshot_listeners()
+            self.assertEqual(sensor.native_value, "failure")
+            failure_attributes = sensor.extra_state_attributes
+            self.assertEqual(
+                failure_attributes["failure_reason"],
+                "automatic_decision_quality_gate_blocked",
+            )
+            self.assertIn(
+                "indoor_temperature",
+                {blocker["key"] for blocker in failure_attributes["failure_quality_blockers"]},
+            )
+            self.assertNotIn("sensor.private", json.dumps(failure_attributes))
+
+            writes_before_unload = sensor._state_write_count
+            self.assertTrue(asyncio.run(module.async_unload_entry(hass, entry)))
+            entry.runtime_data.coordinator._notify_snapshot_listeners()
+            self.assertEqual(sensor._state_write_count, writes_before_unload)
+            self.assertEqual(hass.entity_registry.entries, {})
 
     def test_reload_re_registers_panel_and_options_listener_reloads_entry(self) -> None:
         with _home_assistant_imports():

@@ -729,8 +729,10 @@ mit Quality, Source, Reason und einer möglichen Unterdrückung ausgewiesen.
 Beispiel: Fordert Heat 15 % und PC-Glare 75 %, lautet die Projektion
 `normal -> climate -> heat`; `glare -> pc` bleibt als aktiver Nebenast sichtbar
 und das fachliche Ziel ist 15 %. Endet Heat, gewinnt `normal -> glare -> pc`.
-Waking bleibt exklusiv: pausierte Heat-, Glare-, Privacy- und Cold-Äste bleiben
-im Trace sichtbar, bis der kanonische Bio-State `awake` erreicht ist.
+Waking bleibt exklusiv: nur bereits tatsächlich aktive Heat-, Glare-, Privacy-
+und Cold-Äste werden pausiert und bleiben im Trace sichtbar, bis der
+kanonische Bio-State `awake` erreicht ist. Fachlich inaktive Kandidaten bleiben
+in der flachen Diagnose, gehören aber nicht zu `active_branches`.
 
 Die UX muss mindestens folgende Pfade lesbar darstellen:
 
@@ -754,7 +756,13 @@ Vollständig öffnen ist während Failure nur aufgrund einer positiv belegten
 Safety-Anforderung zulässig; diese verwendet das konfigurierte
 Normal-/Invertiert-Profil der Safety-Position. `unknown`, `stale`,
 `unavailable` oder `conflict` einer Opening-Evidence erzeugen keine
-Öffnungsfahrt.
+Öffnungsfahrt. Ein automatischer Öffnungskandidat darf die Quality-Prüfung
+nicht überspringen: Für Innen-/Außentemperatur, Activity/Belegung sowie Lux,
+Lux-Trend und relevante Solarwerte muss die mögliche schließende
+Schutzanforderung positiv ausgeschlossen sein. `missing` gehört dabei ebenso
+zur Failure-Evidence wie `unknown`, `unavailable`, `stale` und `conflict`.
+`failure.quality_blockers` nennt die konkreten nicht belastbaren Felder, ohne
+Bindings oder Rohwerte offenzulegen.
 
 ### 28.4 Bindings und stabile Diagnoseprojektion
 
@@ -767,8 +775,12 @@ Panel zeigt nur Binding-Status und verweist für die Bearbeitung auf den
 OptionsFlow. Entity-IDs gehören weder in Debug-Payloads noch in die öffentliche
 UX-Projektion.
 
-Für Automationen und Diagnose ist eine kleine stabile
-`blind_control.automation_projection.v1` mit Mastermodus, Gewinnerkategorie,
-Gewinnervariante, fachlichem/effektivem Ziel sowie Safety-/Apply-/Shadow-Status
-vorgesehen. Sie ist eine read-only Contractprojektion und erzeugt in AP2 keine
-zusätzliche Entity-Flut.
+Für Automationen und Diagnose ist `blind_control.automation_projection.v1`
+eine kleine stabile, redigierte read-only Contractprojektion mit Mastermodus,
+aktiver Kategorie/Variante, Failure-Status/-Grund/-Blockern, fachlichem und
+effektivem Ziel sowie Safety-/Apply-/Shadow-Status. AP2 veröffentlicht sie über
+genau eine diagnostische Statusentität aus der Entity Registry: ihr Zustand ist
+der Mastermodus, die genannten Werte sind stabile Attribute. Die
+Integrationsinstanz bestimmt die Entity-ID selbst; weder Produktcode noch
+Dokumentation tragen eine installationsspezifische ID vor. Es gibt keine
+Services, keine Steuerung und keine Entity-Flut.

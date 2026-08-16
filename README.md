@@ -46,14 +46,17 @@ this AP2 follow-up is a Draft PR only.
   visible compatible active or paused branches; Safety and Apply remain a
   separate technical layer
 - Failure holds only a current/last proven safe position or blocks Apply; it
-  never invents a 100 % open fallback
+  never invents a 100 % open fallback; a quality gate also blocks an already
+  composed daylight target when Temperature, Activity or Lux/Solar evidence is
+  missing, unknown, unavailable, stale or conflicting
 - native OptionsFlow Entity Selectors grouped for Core State,
   Opening/Safety/Cover, Solar, Temperature/Weather and Legacy comparison;
   the panel shows redacted configured/not-configured status only
 - setup starts the owner-bound read-only ShadowCoordinator and publishes a
-  snapshot through a read-only WebSocket projection; no actuator service or
-  device command path exists
-- no entities, frontend device-command surface, Apply, cover movement,
+  snapshot through a read-only WebSocket projection and exactly one native
+  diagnostic status sensor using the same redacted contract; no actuator
+  service or device command path exists
+- no entity flood, frontend device-command surface, Apply, cover movement,
   productive migration, Cutover, Rename, or live activation
 - no hardcoded productive entity IDs in product Python code
 

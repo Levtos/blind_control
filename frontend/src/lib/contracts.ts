@@ -50,6 +50,7 @@ export type FailureDecision = {
   status: string;
   reason: string | null;
   hold_target: number | null;
+  quality_blockers: { key: string; quality: string; reason: string }[];
 };
 
 export type PositionProfile = { normal: number; inverted: number };
@@ -172,10 +173,17 @@ export type UxSnapshot = {
     master_mode: MasterMode;
     winner_category: string | null;
     winner_variant: string | null;
+    active_category: string | null;
+    active_variant: string | null;
     fachlicher_target: number | null;
     effective_target: number | null;
+    failure_status: string;
+    failure_reason: string | null;
+    failure_quality_blockers: { key: string; quality: string; reason: string }[];
     safety_status: string;
     apply_status: string;
+    safety_blocked: boolean;
+    apply_blocked: boolean;
     shadow_only: boolean;
     actuation_executed: boolean;
     write_path_reachable: boolean;

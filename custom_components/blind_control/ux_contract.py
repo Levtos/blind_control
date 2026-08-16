@@ -7,6 +7,7 @@ from .contracts import redact_diagnostic_value
 from .shadow import ShadowSnapshot
 
 UX_CONTRACT_VERSION = "blind_control.ux.v2"
+AUTOMATION_PROJECTION_VERSION = "blind_control.automation_projection.v1"
 
 
 def build_ux_snapshot(snapshot: ShadowSnapshot, config: BlindControlConfig) -> dict[str, object]:
@@ -44,6 +45,7 @@ def build_ux_snapshot(snapshot: ShadowSnapshot, config: BlindControlConfig) -> d
         "actuation_executed": snapshot.actuation_executed,
         "write_path_reachable": snapshot.write_path_reachable,
     }
+    automation_projection = build_automation_projection(snapshot)
     return {
         "version": UX_CONTRACT_VERSION,
         "evaluated_at": snapshot.evaluated_at.isoformat(),
@@ -127,21 +129,46 @@ def build_ux_snapshot(snapshot: ShadowSnapshot, config: BlindControlConfig) -> d
                 "position_tolerance": config.position_tolerance,
             },
         },
-        "automation_projection": {
-            "version": "blind_control.automation_projection.v1",
-            "master_mode": trace.master_mode.value,
-            "winner_category": winner.get("category") if isinstance(winner, dict) else None,
-            "winner_variant": winner.get("variant") if isinstance(winner, dict) else None,
-            "fachlicher_target": trace.fachlicher_target,
-            "effective_target": trace.effective_target,
-            "safety_status": trace.safety.status,
-            "apply_status": trace.apply.status,
-            "shadow_only": snapshot.shadow_only,
-            "actuation_executed": snapshot.actuation_executed,
-            "write_path_reachable": snapshot.write_path_reachable,
-        },
+        "automation_projection": automation_projection,
         "debug_payload": debug_payload,
     }
+
+
+def build_automation_projection(snapshot: ShadowSnapshot) -> dict[str, object]:
+    """Return the single, redacted read-only contract shared by HA and UX.
+
+    The fields are deliberately small enough for an entity state projection and
+    expose no bindings, raw source values, services, or actuator controls.
+    ``winner_*`` remains as a compatible name while ``active_*`` is the native
+    automation-facing vocabulary.
+    """
+
+    trace = snapshot.trace
+    winner = trace.winner
+    projection = {
+        "version": AUTOMATION_PROJECTION_VERSION,
+        "master_mode": trace.master_mode.value,
+        "active_category": winner.category if winner else None,
+        "active_variant": winner.variant if winner else None,
+        "winner_category": winner.category if winner else None,
+        "winner_variant": winner.variant if winner else None,
+        "fachlicher_target": trace.fachlicher_target,
+        "effective_target": trace.effective_target,
+        "failure_status": trace.failure.status,
+        "failure_reason": trace.failure.reason,
+        "failure_quality_blockers": [
+            blocker.as_dict() for blocker in trace.failure.quality_blockers
+        ],
+        "safety_status": trace.safety.status,
+        "apply_status": trace.apply.status,
+        "safety_blocked": trace.safety.status == "blocked",
+        "apply_blocked": trace.apply.status == "blocked",
+        "shadow_only": snapshot.shadow_only,
+        "actuation_executed": snapshot.actuation_executed,
+        "write_path_reachable": snapshot.write_path_reachable,
+    }
+    redacted = redact_diagnostic_value(projection)
+    return redacted if isinstance(redacted, dict) else {}
 
 
 def _binding_groups(config: BlindControlConfig) -> list[dict[str, object]]:

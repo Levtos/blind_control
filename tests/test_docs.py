@@ -71,6 +71,9 @@ class DocumentationTests(unittest.TestCase):
             "Not Live",
             "hass.add_job",
             "native Entity-Selectoren",
+            "quality_blockers[]",
+            "Status-Sensorentität",
+            "inhaltsbasierte Revision",
         ):
             self.assertIn(term, ap2)
 
@@ -94,6 +97,8 @@ class DocumentationTests(unittest.TestCase):
             "active_branches[]",
             "automation_projection.v1",
             'selector({"entity": {}})',
+            "failure.quality_blockers[]",
+            "Status-Sensorentität",
         ):
             self.assertIn(term, source)
 
@@ -145,6 +150,67 @@ class DocumentationTests(unittest.TestCase):
             )
             self.assertEqual(source_keys, key_paths(translated), locale)
 
+    def test_native_entity_selector_labels_are_complete_and_human_readable(self) -> None:
+        binding_groups = {
+            "core_state_bindings": (
+                "bio_state",
+                "activity_state",
+                "day_state",
+                "day_context",
+                "away",
+                "private_time",
+                "privacy",
+            ),
+            "opening_safety_cover_bindings": (
+                "opening_state",
+                "opening_safe_for_blind",
+                "cover_available",
+                "cover_ready",
+                "cover_position",
+            ),
+            "solar_bindings": (
+                "outdoor_lux",
+                "lux_trend",
+                "sun_elevation",
+                "sun_azimuth",
+                "expected_direct_radiation",
+                "expected_diffuse_radiation",
+                "cloud_cover",
+            ),
+            "temperature_weather_bindings": (
+                "indoor_temperature",
+                "outdoor_temperature",
+                "indoor_temperature_trend",
+                "outdoor_temperature_trend",
+                "weather_alert",
+                "precipitation_trend",
+                "wind_trend",
+                "pressure_trend",
+                "air_movement",
+            ),
+            "legacy_comparison_bindings": (
+                "active_mode",
+                "effective_target",
+                "safety_status",
+                "apply_status",
+            ),
+        }
+
+        for filename in ("strings.json", "translations/de.json", "translations/en.json"):
+            document = json.loads((PACKAGE / filename).read_text(encoding="utf-8"))
+            for flow, step in (("config", "user"), ("options", "init")):
+                form = document[flow]["step"][step]
+                for section, fields in binding_groups.items():
+                    labels = form["sections"][section]["data"]
+                    descriptions = form["sections"][section]["data_description"]
+                    for field in fields:
+                        with self.subTest(file=filename, flow=flow, field=field):
+                            self.assertIn(field, labels)
+                            self.assertNotEqual(labels[field], field)
+                            self.assertTrue(labels[field].strip())
+                            self.assertIn(field, descriptions)
+                            self.assertTrue(descriptions[field].strip())
+
     def test_relative_document_links_resolve(self) -> None:
         link_pattern = re.compile(r"\]\((?!https?://|#)([^)]+)\)")
         for path in (
@@ -167,7 +233,7 @@ class DocumentationTests(unittest.TestCase):
         source = "\n".join(
             path.read_text(encoding="utf-8")
             for path in (FRONTEND / "src").rglob("*")
-            if path.is_file() and path.suffix in {".ts", ".svelte", ".css"}
+            if path.is_file() and path.suffix in {".ts", ".js", ".svelte", ".css"}
         )
         self.assertNotIn("SUPERVISOR_TOKEN", source)
         self.assertNotIn("localStorage", source)
@@ -178,6 +244,9 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("statusTone", source)
         self.assertIn("master_mode", source)
         self.assertIn("active_branches", source)
+        self.assertIn("rebaseDraft", source)
+        self.assertIn("settingsRevision", source)
+        self.assertNotIn("lastSnapshot", source)
         self.assertNotIn("editableSettings.input_bindings", source)
         self.assertNotIn("editableSettings.legacy_bindings", source)
 

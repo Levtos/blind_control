@@ -19,6 +19,7 @@ from .contracts import (
     MasterMode,
     OpeningState,
     PausedRequirement,
+    QualityBlocker,
     SafetyDecision,
     SolarExposure,
     SolarExposureState,
@@ -34,6 +35,24 @@ SCREEN_ACTIVITY = frozenset({"screen", "glare", "general_glare"})
 TV_ACTIVITY = frozenset({"tv", "console", "streaming", "playstation", "xbox", "switch"})
 PC_ACTIVITY = frozenset({"pc", "computer", "workstation"})
 OPENING_CANDIDATES = frozenset({"base_daylight", "storm_approaching", "cool_air_available"})
+AUTOMATIC_DECISION_QUALITY_INPUTS = (
+    "bio_state",
+    "activity_state",
+    "day_state",
+    "day_context",
+    "away",
+    "private_time",
+    "privacy",
+    "indoor_temperature",
+    "outdoor_temperature",
+    "outdoor_lux",
+    "lux_trend",
+    "sun_elevation",
+    "sun_azimuth",
+    "expected_direct_radiation",
+    "expected_diffuse_radiation",
+    "cloud_cover",
+)
 
 
 class DecisionEngine:
@@ -78,7 +97,9 @@ class DecisionEngine:
                                 source=inputs.bio_state.source,
                             )
                         )
-                    candidates.append(replace(candidate, paused=True, suppressed_by="waking"))
+                        candidates.append(replace(candidate, paused=True, suppressed_by="waking"))
+                    else:
+                        candidates.append(candidate)
                 else:
                     candidates.append(candidate)
         else:
@@ -145,9 +166,9 @@ class DecisionEngine:
                 winner=winner is not None and candidate.key == winner.candidate_key,
             )
             for candidate in candidates
-            if candidate.active or candidate.paused
+            if candidate.active
         )
-        failure = self._failure(inputs, fachlicher_target, failure_hold_target)
+        failure = self._failure(inputs, failure_hold_target)
         master_mode = self._master_mode(override=override, waking=waking, failure=failure)
         safety = self._safety(inputs, fachlicher_target)
         effective_target = safety.approved_target
@@ -665,27 +686,26 @@ class DecisionEngine:
     def _failure(
         self,
         inputs: BlindControlInputs,
-        fachlicher_target: float | None,
         failure_hold_target: float | None,
     ) -> FailureDecision:
-        """Expose only a proven inability to make an automatic policy decision.
+        """Block automatic decisions until all closing-demand inputs are proven.
 
-        A known neutral situation remains ``normal`` even when it has no positive
-        open or protection target.  Failure is limited to the Core-State inputs
-        that prevent Blind Control from classifying its operating context at all.
+        The gate deliberately runs even when the candidate composition already
+        yielded a target.  Otherwise a default daytime target could turn missing
+        temperature, activity, or solar evidence into a new opening movement.
+        A fully known neutral situation reaches this method with no blockers and
+        therefore remains ``normal``.
         """
 
-        if fachlicher_target is not None:
-            return FailureDecision()
-        for key in ("bio_state", "day_state", "day_context"):
-            observation = getattr(inputs, key)
-            if not observation.usable:
-                hold_target = _valid_hold_target(failure_hold_target)
-                return FailureDecision(
-                    status="holding_safe_position" if hold_target is not None else "apply_blocked",
-                    reason=f"{key}_decision_contract_{observation.quality.value}",
-                    hold_target=hold_target,
-                )
+        quality_blockers = _automatic_decision_quality_blockers(inputs)
+        if quality_blockers:
+            hold_target = _valid_hold_target(failure_hold_target)
+            return FailureDecision(
+                status="holding_safe_position" if hold_target is not None else "apply_blocked",
+                reason="automatic_decision_quality_gate_blocked",
+                hold_target=hold_target,
+                quality_blockers=quality_blockers,
+            )
         return FailureDecision()
 
     def _master_mode(
@@ -848,3 +868,25 @@ def _valid_hold_target(value: float | None) -> float | None:
     except (TypeError, ValueError):
         return None
     return target if 0 <= target <= 100 else None
+
+
+def _automatic_decision_quality_blockers(
+    inputs: BlindControlInputs,
+) -> tuple[QualityBlocker, ...]:
+    """Return every unresolved input needed to rule out closing demands.
+
+    Core-state mode, thermal load and the complete solar/lux packet jointly
+    determine whether Heat, Glare, Cold, Privacy or the daylight opening branch
+    may be active.  Any non-fresh observation keeps the result conservative;
+    this is intentionally not a target-specific test patch.
+    """
+
+    return tuple(
+        QualityBlocker(
+            key=key,
+            quality=observation.quality,
+            reason=observation.reason,
+        )
+        for key in AUTOMATIC_DECISION_QUALITY_INPUTS
+        if not (observation := getattr(inputs, key)).usable
+    )

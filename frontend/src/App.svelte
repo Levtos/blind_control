@@ -5,6 +5,12 @@
     UxSettings,
     UxSnapshot,
   } from './lib/contracts';
+  import {
+    cloneSettings,
+    rebaseDraft,
+    settingsRevision,
+    settleSave,
+  } from './lib/draft-settings.js';
 
   type Tab = 'overview' | 'diagnosis' | 'settings';
   type ProfileAxis = 'normal' | 'inverted';
@@ -15,23 +21,37 @@
     saving = false,
   }: {
     snapshot: UxSnapshot;
-    onSaveSettings?: (settings: UxSettings) => Promise<void>;
+    onSaveSettings?: (settings: UxSettings) => Promise<UxSettings>;
     saving?: boolean;
   } = $props();
 
   let activeTab = $state<Tab>('overview');
   let draftSettings = $state<UxSettings | null>(null);
-  let lastSnapshot = $state<UxSnapshot | undefined>();
+  let confirmedSettingsRevision = $state<string | null>(null);
+  let saveError = $state<string | null>(null);
   let copyState = $state<'idle' | 'copied' | 'failed'>('idle');
   let editableSettings = $derived(draftSettings ?? snapshot.settings);
+  let draftDirty = $derived(
+    draftSettings !== null
+      && confirmedSettingsRevision !== null
+      && settingsRevision(draftSettings) !== confirmedSettingsRevision,
+  );
   let activeBranches = $derived(snapshot.overview.active_branches);
   let supportingBranches = $derived(activeBranches.filter((branch) => !branch.winner && !branch.paused));
   let pausedBranches = $derived(activeBranches.filter((branch) => branch.paused));
 
   $effect(() => {
-    if (lastSnapshot !== snapshot) {
-      draftSettings = structuredClone(snapshot.settings);
-      lastSnapshot = snapshot;
+    const next = rebaseDraft(
+      draftSettings,
+      confirmedSettingsRevision,
+      snapshot.settings,
+    );
+    if (
+      next.draftSettings !== draftSettings
+      || next.confirmedRevision !== confirmedSettingsRevision
+    ) {
+      draftSettings = next.draftSettings;
+      confirmedSettingsRevision = next.confirmedRevision;
     }
   });
 
@@ -87,6 +107,12 @@
 
   const statusLabel = (value: string | null | undefined): string => labelFor(value);
 
+  const failureBlockersLabel = (
+    blockers: { key: string; quality: string; reason: string }[],
+  ): string => blockers
+    .map((blocker) => `${labelFor(blocker.key)} (${labelFor(blocker.quality)})`)
+    .join(', ');
+
   const statusTone = (value: string | null | undefined): string => {
     if (value === 'ready' || value === 'safe_position' || value === 'safety_ready' || value === 'shadow_ready') return 'ready';
     if (value === 'failure' || value === 'error' || value === 'unavailable') return 'error';
@@ -114,11 +140,35 @@
   }
 
   function resetDraft(): void {
-    draftSettings = structuredClone(snapshot.settings);
+    draftSettings = cloneSettings(snapshot.settings);
+    confirmedSettingsRevision = settingsRevision(snapshot.settings);
+    saveError = null;
   }
 
   async function saveDraft(): Promise<void> {
-    if (onSaveSettings && draftSettings) await onSaveSettings(structuredClone(draftSettings));
+    if (!onSaveSettings || !draftSettings) return;
+    const submittedDraft = cloneSettings(draftSettings);
+    const submittedRevision = settingsRevision(submittedDraft);
+    saveError = null;
+    try {
+      const confirmedSettings = await onSaveSettings(submittedDraft);
+      if (draftSettings && settingsRevision(draftSettings) === submittedRevision) {
+        const settled = settleSave(
+          draftSettings,
+          confirmedSettingsRevision,
+          confirmedSettings,
+        );
+        draftSettings = settled.draftSettings;
+        confirmedSettingsRevision = settled.confirmedRevision;
+      } else {
+        confirmedSettingsRevision = settingsRevision(confirmedSettings);
+      }
+    } catch {
+      const preserved = settleSave(draftSettings, confirmedSettingsRevision, null);
+      draftSettings = preserved.draftSettings;
+      confirmedSettingsRevision = preserved.confirmedRevision;
+      saveError = 'Speichern fehlgeschlagen. Der lokale Entwurf bleibt erhalten.';
+    }
   }
 
   async function copyDebugPayload(): Promise<void> {
@@ -213,6 +263,9 @@
             {snapshot.overview.failure.hold_target === null
               ? 'Apply blockiert'
               : `Position halten: ${positionLabel(snapshot.overview.failure.hold_target)}`}
+            {#if snapshot.overview.failure.quality_blockers.length}
+              · Fehlende belastbare Evidence: {failureBlockersLabel(snapshot.overview.failure.quality_blockers)}
+            {/if}
           </p>
         {/if}
       </article>
@@ -344,7 +397,10 @@
       </article>
 
       <article class="card span-2">
-        <div class="card-heading"><div><p class="eyebrow">PROFILE</p><h2>Normal / Invertiert</h2></div><div class="button-row"><button class="quiet-button" type="button" onclick={resetDraft}>Entwurf zurücksetzen</button><button class="primary-button" type="button" disabled={saving || !onSaveSettings} onclick={() => void saveDraft()}>{saving ? 'Speichere …' : 'Shadow-Konfiguration speichern'}</button></div></div>
+        <div class="card-heading"><div><p class="eyebrow">PROFILE</p><h2>Normal / Invertiert</h2></div><div class="button-row"><span class="muted">{draftDirty ? 'Ungespeicherter Entwurf' : 'Serverstand bestätigt'}</span><button class="quiet-button" type="button" onclick={resetDraft}>Entwurf zurücksetzen</button><button class="primary-button" type="button" disabled={saving || !onSaveSettings} onclick={() => void saveDraft()}>{saving ? 'Speichere …' : 'Shadow-Konfiguration speichern'}</button></div></div>
+        {#if saveError}
+          <p class="callout failure-callout">{saveError}</p>
+        {/if}
         <div class="profile-table" role="table" aria-label="Positionsprofile">
           <div class="profile-row profile-header" role="row"><span>Profil</span><span>Normal</span><span>Invertiert</span></div>
           {#each Object.entries(editableSettings.profiles) as [key, profile]}

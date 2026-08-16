@@ -6,12 +6,15 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
 from .config import BlindControlConfig
 from .coordinator import ShadowCoordinator
 from .shadow import ShadowRuntime, ShadowSnapshot
 from .websocket_api import register_websocket_commands
+
+PLATFORMS: tuple[Platform, ...] = (Platform.SENSOR,)
 
 
 @dataclass(slots=True)
@@ -57,12 +60,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: BlindControlConfigEntry)
         entry.async_on_unload(coordinator.stop)
     if hasattr(entry, "add_update_listener") and hasattr(entry, "async_on_unload"):
         entry.async_on_unload(entry.add_update_listener(_async_options_updated))
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: BlindControlConfigEntry) -> bool:
     """Unload one entry and remove only observation listeners."""
 
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if not unloaded:
+        return False
     runtime_data = getattr(entry, "runtime_data", None)
     coordinator = getattr(runtime_data, "coordinator", None)
     if coordinator is not None:

@@ -293,6 +293,10 @@ class CoordinatorTests(unittest.TestCase):
             entry.runtime_data = types.SimpleNamespace(snapshot=None, ux_snapshot=None)
 
             snapshot = await coordinator.async_start()
+            published: list[object] = []
+            remove_listener = coordinator.async_add_snapshot_listener(
+                lambda: published.append(coordinator.snapshot)
+            )
             self.assertEqual(len(registry.state_callbacks), 1)
             self.assertEqual(len(registry.time_callbacks), 1)
             self.assertEqual(registry.intervals[0], timedelta(seconds=60))
@@ -301,13 +305,16 @@ class CoordinatorTests(unittest.TestCase):
             await hass.tasks[-1]
             self.assertEqual(snapshot.inputs["bio_state"]["value"], "awake")
             self.assertEqual(entry.runtime_data.snapshot.inputs["bio_state"]["value"], "sleeping")
+            self.assertEqual(len(published), 1)
 
             registry.time_callbacks[0](None)
             await hass.tasks[-1]
             self.assertIs(entry.runtime_data.snapshot, coordinator.snapshot)
             self.assertEqual(entry.runtime_data.ux_snapshot["version"], "blind_control.ux.v2")
+            self.assertEqual(len(published), 2)
             self.assertFalse(coordinator.snapshot.actuation_executed)
             self.assertFalse(coordinator.snapshot.write_path_reachable)
+            remove_listener()
             coordinator.stop()
             self.assertEqual(registry.unsubscribed, 2)
 

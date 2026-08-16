@@ -144,6 +144,7 @@ class ShadowCoordinator:
         self.snapshot: ShadowSnapshot | None = None
         self.ux_snapshot: dict[str, object] | None = None
         self._unsubscribers: list[object] = []
+        self._snapshot_listeners: list[Callable[[], None]] = []
         self._refresh_task: asyncio.Task[object] | None = None
         self._restart_baseline_established = False
 
@@ -188,6 +189,7 @@ class ShadowCoordinator:
             if callable(unsubscribe):
                 unsubscribe()
         self._unsubscribers.clear()
+        self._snapshot_listeners.clear()
         if self._refresh_task is not None and not self._refresh_task.done():
             self._refresh_task.cancel()
         self._refresh_task = None
@@ -224,7 +226,28 @@ class ShadowCoordinator:
         if runtime_data is not None:
             runtime_data.snapshot = snapshot
             runtime_data.ux_snapshot = self.ux_snapshot
+        self._notify_snapshot_listeners()
         return snapshot
+
+    @callback
+    def async_add_snapshot_listener(self, listener: Callable[[], None]) -> Callable[[], None]:
+        """Subscribe a read-only platform projection to future Shadow snapshots."""
+
+        self._snapshot_listeners.append(listener)
+
+        @callback
+        def _remove_listener() -> None:
+            if listener in self._snapshot_listeners:
+                self._snapshot_listeners.remove(listener)
+
+        return _remove_listener
+
+    @callback
+    def _notify_snapshot_listeners(self) -> None:
+        """Notify only in-memory read-only consumers after an evaluated snapshot."""
+
+        for listener in tuple(self._snapshot_listeners):
+            listener()
 
     @callback
     def _state_changed(self, *_args: object) -> None:

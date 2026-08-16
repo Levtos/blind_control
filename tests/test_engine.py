@@ -54,6 +54,15 @@ def ready_inputs() -> BlindControlInputs:
         cover_available=fresh(True, "technical_cover"),
         cover_ready=fresh(True, "technical_readiness"),
         cover_position=fresh(50.0, "technical_cover"),
+        outdoor_lux=fresh(14_000.0, "lux_sensor"),
+        lux_trend=fresh(0.0, "lux_sensor"),
+        sun_elevation=fresh(30.0, "sun_contract"),
+        sun_azimuth=fresh(304.0, "sun_contract"),
+        expected_direct_radiation=fresh(400.0, "weather_model"),
+        expected_diffuse_radiation=fresh(50.0, "weather_model"),
+        cloud_cover=fresh(0.1, "weather_model"),
+        indoor_temperature=fresh(22.0, "room_temperature"),
+        outdoor_temperature=fresh(20.0, "weather_temperature"),
     )
 
 
@@ -104,6 +113,71 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertEqual(trace.safety.status, "blocked")
         self.assertIn("no_positive_open_reason_no_100_percent_fallback", trace.reasons)
         self.assertFalse(trace.apply.write_path_reachable)
+
+    def test_automatic_quality_gate_matrix_blocks_uncertain_daylight_opening(self) -> None:
+        """A target may exist, but unresolved protection evidence must still hold."""
+
+        complete = replace(ready_inputs(), cover_position=fresh(42.0, "technical_cover"))
+        fields = {
+            "indoor_temperature": 22.0,
+            "outdoor_temperature": 20.0,
+            "activity_state": "none",
+            "outdoor_lux": 14_000.0,
+            "lux_trend": 0.0,
+            "sun_elevation": 30.0,
+            "sun_azimuth": 304.0,
+            "expected_direct_radiation": 400.0,
+            "expected_diffuse_radiation": 50.0,
+            "cloud_cover": 0.1,
+        }
+        quality_cases = {
+            "valid": InputQuality.FRESH,
+            "missing": None,
+            "unknown": InputQuality.UNKNOWN,
+            "unavailable": InputQuality.UNAVAILABLE,
+            "stale": InputQuality.STALE,
+            "conflict": InputQuality.CONFLICT,
+        }
+
+        for key, value in fields.items():
+            for case, quality in quality_cases.items():
+                with self.subTest(field=key, quality=case):
+                    observation = (
+                        fresh(value, f"owner.{key}")
+                        if quality is InputQuality.FRESH
+                        else InputObservation.missing(f"owner.{key}", reason="matrix_missing")
+                        if quality is None
+                        else InputObservation(
+                            value=value,
+                            source=f"owner.{key}",
+                            quality=quality,
+                            reason=f"matrix_{case}",
+                        )
+                    )
+                    runtime = ShadowRuntime()
+                    runtime.evaluate(complete, now=0)
+                    trace = runtime.evaluate(replace(complete, **{key: observation}), now=1).trace
+
+                    if case == "valid":
+                        self.assertEqual(trace.master_mode.value, "normal")
+                        self.assertEqual(trace.failure.status, "none")
+                        self.assertEqual(trace.effective_target, 100)
+                        continue
+
+                    self.assertEqual(trace.fachlicher_target, 100)
+                    self.assertEqual(trace.master_mode.value, "failure")
+                    self.assertEqual(
+                        trace.failure.reason, "automatic_decision_quality_gate_blocked"
+                    )
+                    self.assertEqual(trace.effective_target, 42)
+                    self.assertEqual(trace.apply.status, "blocked")
+                    self.assertNotEqual(trace.effective_target, 100)
+                    blocker = next(
+                        item for item in trace.failure.quality_blockers if item.key == key
+                    )
+                    self.assertEqual(
+                        blocker.reason, "matrix_missing" if case == "missing" else f"matrix_{case}"
+                    )
 
     def test_cloud_shadow_keeps_heat_active_without_open_fallback(self) -> None:
         inputs = sunny_inputs(
@@ -247,8 +321,27 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertIn("heat_protection", paused_branches)
         self.assertIn("glare_pc", paused_branches)
         self.assertIn("privacy", paused_branches)
-        self.assertIn("cold_insulation", paused_branches)
+        self.assertNotIn("cold_insulation", paused_branches)
         self.assertEqual(awake_trace.fachlicher_target, 15)
+
+    def test_waking_does_not_project_inactive_environment_branches_as_paused(self) -> None:
+        trace = DecisionEngine().evaluate(
+            replace(ready_inputs(), bio_state=fresh("waking", "core_state.bio"))
+        )
+
+        paused = {branch.candidate_key for branch in trace.active_branches if branch.paused}
+        self.assertEqual(trace.master_mode.value, "normal")
+        self.assertEqual(trace.winner.category, "waking")
+        self.assertFalse(
+            paused
+            & {
+                "heat_protection",
+                "cold_insulation",
+                "glare_general",
+                "glare_tv",
+                "glare_pc",
+            }
+        )
 
     def test_sleep_and_away_are_normal_hierarchy_categories(self) -> None:
         sleeping = DecisionEngine().evaluate(
@@ -286,6 +379,12 @@ class DecisionEngineTests(unittest.TestCase):
         cold = next(item for item in snapshot.trace.candidates if item.key == "cold_insulation")
         self.assertTrue(cold.active)
         self.assertTrue(cold.paused)
+        cold_branch = next(
+            branch
+            for branch in snapshot.trace.active_branches
+            if branch.candidate_key == "cold_insulation"
+        )
+        self.assertTrue(cold_branch.paused)
 
     def test_waking_uses_only_canonical_bio_state(self) -> None:
         inputs = replace(
