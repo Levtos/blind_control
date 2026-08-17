@@ -11,7 +11,7 @@
  * @returns {T}
  */
 export function cloneSettings(value) {
-  return structuredClone(value);
+  return /** @type {T} */ (detachJsonValue(value));
 }
 
 /**
@@ -105,6 +105,27 @@ function canonicalize(value) {
       Object.keys(record)
         .sort()
         .map((key) => [key, canonicalize(record[key])]),
+    );
+  }
+  return value;
+}
+
+/**
+ * Recursively read JSON-shaped settings into plain arrays and objects. Svelte
+ * state proxies can be traversed but cannot be passed directly to
+ * `structuredClone`, which raises DataCloneError in the HA product panel.
+ *
+ * @param {unknown} value
+ * @returns {unknown}
+ */
+function detachJsonValue(value) {
+  if (Array.isArray(value)) {
+    return value.map(detachJsonValue);
+  }
+  if (value && typeof value === 'object') {
+    const record = /** @type {Record<string, unknown>} */ (value);
+    return Object.fromEntries(
+      Object.entries(record).map(([key, item]) => [key, detachJsonValue(item)]),
     );
   }
   return value;

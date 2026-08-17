@@ -80,4 +80,4 @@ async def async_unload_entry(hass: HomeAssistant, entry: BlindControlConfigEntry
 async def _async_options_updated(hass: HomeAssistant, entry: BlindControlConfigEntry) -> None:
     """Recreate the read-only snapshot after an OptionsFlow change."""
 
-    await hass.config_entries.async_reload(entry.domain, entry.entry_id)
+    await hass.config_entries.async_reload(entry.entry_id)

@@ -757,14 +757,43 @@ Safety-Anforderung zulässig; diese verwendet das konfigurierte
 Normal-/Invertiert-Profil der Safety-Position. `unknown`, `stale`,
 `unavailable` oder `conflict` einer Opening-Evidence erzeugen keine
 Öffnungsfahrt. Ein automatischer Öffnungskandidat darf die Quality-Prüfung
-nicht überspringen: Für Innen-/Außentemperatur, Activity/Belegung sowie Lux,
-Lux-Trend und relevante Solarwerte muss die mögliche schließende
-Schutzanforderung positiv ausgeschlossen sein. `missing` gehört dabei ebenso
+nicht überspringen: Innen-/Außentemperatur, Activity/Belegung sowie die
+zwingende Solar-Evidence aus Sonnengeometrie und Außenlux müssen die mögliche
+schließende Schutzanforderung positiv ausschließen. Lux-Trend, direkte/diffuse
+Modellstrahlung und Bewölkung sind ersetzbare Zusatz-Evidence: Sie erhöhen
+Confidence, sind aber nicht einzeln verpflichtend. Fehlt die Kombination
+insgesamt oder widersprechen sich Day State und Sonnenstand, bleibt die
+Entscheidung `failure`. `missing` gehört dabei ebenso
 zur Failure-Evidence wie `unknown`, `unavailable`, `stale` und `conflict`.
 `failure.quality_blockers` nennt die konkreten nicht belastbaren Felder, ohne
 Bindings oder Rohwerte offenzulegen.
 
-### 28.4 Bindings und stabile Diagnoseprojektion
+### 28.4 Live-Owner-Adapter und Capability-Modell
+
+Blind Control adaptiert Owner-Contracts feldspezifisch und erfindet keine
+zweite Fachwahrheit. Presence wird auf `away=true` für `away`, `not_home` und
+`abwesend` sowie `away=false` für `home` und `zuhause` normalisiert; ein
+gültiges `away_gate`-Attribut hat Vorrang. Activity wird aus dem kanonischen
+Core-State-Gewinner plus dokumentierten Attributen in die Glare-Kontexte
+`tv`, `pc`, `screen` oder `none` projiziert. Gleichzeitige positive Signale
+verwenden deterministisch `tv > pc > screen`; `music` löscht positive PC- oder
+Entertainment-Evidence nicht.
+
+Der kanonische Day-State-Vertrag besteht exakt aus `early_night`,
+`late_night`, `early_morning`, `forenoon`, `midday`, `afternoon`,
+`late_afternoon`, `evening` und `late_evening`. Tageslichtphasen sind
+`early_morning` bis `late_afternoon`; `evening` und `late_evening` sind
+Übergang, `early_night` und `late_night` Nacht.
+
+Opening-Safety-Signale benötigen eine explizit konfigurierte positive oder
+negative Polarität. Aus Entity-Namen wird keine Invertierung abgeleitet.
+Standard-Cover-Zustände wie `open` oder `closed` bedeuten verfügbar, sofern HA
+den Zustand nicht als `unavailable` markiert. Die Position kommt ausschließlich
+aus `current_position`; ein Source-Timestamp hat Vorrang, der normale
+HA-Zeitstempel eines Standard-Covers ist als Freshness-Evidence zulässig.
+Restore-Evidence bleibt degradiert und kann keinen Override begründen.
+
+### 28.5 Bindings und stabile Diagnoseprojektion
 
 Optionale Owner-Bindings werden ausschließlich in den nativen
 Home-Assistant-Entity-Selectoren des OptionsFlow bearbeitet und fachlich

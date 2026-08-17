@@ -155,7 +155,7 @@ class CoordinatorTests(unittest.TestCase):
         self.states = {
             "sensor.bio_state": FakeState("awake", updated_at=self.now),
             "sensor.activity_state": FakeState("none", updated_at=self.now),
-            "sensor.day_state": FakeState("morning", updated_at=self.now),
+            "sensor.day_state": FakeState("forenoon", updated_at=self.now),
             "sensor.day_context": FakeState("weekday", updated_at=self.now),
             "sensor.opening_state": FakeState("closed", updated_at=self.now),
             "binary_sensor.opening_safe": FakeState("on", updated_at=self.now),
@@ -199,6 +199,157 @@ class CoordinatorTests(unittest.TestCase):
             },
         )
 
+    def test_presence_adapter_prefers_away_gate_and_preserves_polarity(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {"input_bindings": {"away": "sensor.owner_presence"}}
+        )
+        cases = (
+            (FakeState("zuhause", attributes={"away_gate": False}), False),
+            (FakeState("zuhause"), False),
+            (FakeState("home"), False),
+            (FakeState("abwesend"), True),
+            (FakeState("not_home"), True),
+            (FakeState("on"), True),
+            (FakeState("off"), False),
+        )
+
+        for state, expected in cases:
+            with self.subTest(state=state.state, expected=expected):
+                observation = build_inputs_from_states(
+                    {"sensor.owner_presence": state}, config, now=self.now
+                ).away
+                self.assertTrue(observation.usable)
+                self.assertIs(observation.value, expected)
+
+        degraded = build_inputs_from_states(
+            {"sensor.owner_presence": FakeState("maybe")}, config, now=self.now
+        ).away
+        self.assertEqual(degraded.quality.value, "degraded")
+        self.assertIsNone(degraded.value)
+
+    def test_activity_adapter_uses_documented_state_and_attribute_evidence(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {"input_bindings": {"activity_state": "sensor.owner_activity"}}
+        )
+        cases = (
+            (FakeState("music", attributes={"pc_active": True}), "pc"),
+            (FakeState("gaming", attributes={"gaming_platform": "ps5"}), "tv"),
+            (FakeState("entertainment"), "tv"),
+            (FakeState("music"), "none"),
+            (
+                FakeState(
+                    "music",
+                    attributes={"pc_active": True, "entertainment_active": True},
+                ),
+                "tv",
+            ),
+        )
+
+        for state, expected in cases:
+            with self.subTest(state=state.state, expected=expected):
+                observation = build_inputs_from_states(
+                    {"sensor.owner_activity": state}, config, now=self.now
+                ).activity_state
+                self.assertTrue(observation.usable)
+                self.assertEqual(observation.value, expected)
+                self.assertIn("core_state_glare_adapter", observation.reason)
+
+        conflict = build_inputs_from_states(
+            {
+                "sensor.owner_activity": FakeState(
+                    "music",
+                    attributes={"pc_active": True, "quality_status": "conflict"},
+                )
+            },
+            config,
+            now=self.now,
+        ).activity_state
+        self.assertEqual(conflict.quality.value, "conflict")
+        self.assertIsNone(conflict.value)
+
+    def test_every_canonical_day_phase_is_preserved(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {"input_bindings": {"day_state": "sensor.owner_day"}}
+        )
+        phases = (
+            "early_night",
+            "late_night",
+            "early_morning",
+            "forenoon",
+            "midday",
+            "afternoon",
+            "late_afternoon",
+            "evening",
+            "late_evening",
+        )
+
+        for phase in phases:
+            with self.subTest(phase=phase):
+                observation = build_inputs_from_states(
+                    {"sensor.owner_day": FakeState(phase)}, config, now=self.now
+                ).day_state
+                self.assertTrue(observation.usable)
+                self.assertEqual(observation.value, phase)
+
+    def test_opening_polarity_cover_availability_and_standard_position_contracts(self) -> None:
+        bindings = {
+            "opening_safe_for_blind": "binary_sensor.owner_opening_safety",
+            "cover_available": "cover.owner_cover",
+            "cover_position": "cover.owner_cover",
+        }
+        state = FakeState(
+            "closed",
+            attributes={"current_position": 42},
+            updated_at=self.now,
+        )
+        positive = BlindControlConfig.from_mapping(
+            {
+                "input_bindings": bindings,
+                "opening_safety_polarity": "positive_safe",
+            }
+        )
+        negative = BlindControlConfig.from_mapping(
+            {
+                "input_bindings": bindings,
+                "opening_safety_polarity": "negative_unsafe",
+            }
+        )
+        states = {
+            "binary_sensor.owner_opening_safety": FakeState("on", updated_at=self.now),
+            "cover.owner_cover": state,
+        }
+
+        positive_inputs = build_inputs_from_states(states, positive, now=self.now)
+        negative_inputs = build_inputs_from_states(states, negative, now=self.now)
+        unspecified_inputs = build_inputs_from_states(
+            states,
+            BlindControlConfig.from_mapping({"input_bindings": bindings}),
+            now=self.now,
+        )
+
+        self.assertTrue(positive_inputs.opening_safe_for_blind.value)
+        self.assertFalse(negative_inputs.opening_safe_for_blind.value)
+        self.assertEqual(unspecified_inputs.opening_safe_for_blind.quality.value, "degraded")
+        self.assertTrue(positive_inputs.cover_available.value)
+        self.assertEqual(positive_inputs.cover_position.value, 42.0)
+        self.assertTrue(positive_inputs.cover_position.usable)
+        self.assertIn("standard_cover_ha_timestamp_contract", positive_inputs.cover_position.reason)
+
+        restored = build_inputs_from_states(
+            {
+                **states,
+                "cover.owner_cover": FakeState(
+                    "closed",
+                    attributes={"current_position": 42, "restored": True},
+                    updated_at=self.now,
+                ),
+            },
+            positive,
+            now=self.now,
+        ).cover_position
+        self.assertEqual(restored.quality.value, "degraded")
+        self.assertIsNone(restored.value)
+
     def test_stateful_owner_observation_is_not_staled_by_age_alone(self) -> None:
         old = self.now - timedelta(
             seconds=BlindControlConfig.defaults().observation_freshness_seconds + 1
@@ -207,7 +358,7 @@ class CoordinatorTests(unittest.TestCase):
         inputs = build_inputs_from_states(states, self.config, now=self.now)
 
         self.assertTrue(inputs.opening_state.usable)
-        self.assertEqual(inputs.opening_state.reason, "stateful_contract_not_age_limited")
+        self.assertTrue(inputs.opening_state.reason.endswith("stateful_contract_not_age_limited"))
 
     def test_time_critical_cover_observation_requires_timestamp_and_freshness(self) -> None:
         old = self.now - timedelta(
@@ -229,11 +380,13 @@ class CoordinatorTests(unittest.TestCase):
         missing_inputs = build_inputs_from_states(missing_timestamp, self.config, now=self.now)
 
         self.assertFalse(stale_inputs.cover_position.usable)
-        self.assertEqual(
-            stale_inputs.cover_position.reason, "bound_entity_state_exceeded_freshness_window"
+        self.assertTrue(
+            stale_inputs.cover_position.reason.endswith(
+                "bound_entity_state_exceeded_freshness_window"
+            )
         )
         self.assertFalse(missing_inputs.cover_position.usable)
-        self.assertEqual(missing_inputs.cover_position.reason, "required_timestamp_missing")
+        self.assertTrue(missing_inputs.cover_position.reason.endswith("required_timestamp_missing"))
 
     def test_cover_freshness_uses_device_timestamp_not_ha_state_time(self) -> None:
         old_device_timestamp = self.now - timedelta(
@@ -249,8 +402,8 @@ class CoordinatorTests(unittest.TestCase):
         )
 
         self.assertFalse(inputs.cover_position.usable)
-        self.assertEqual(
-            inputs.cover_position.reason, "bound_entity_state_exceeded_freshness_window"
+        self.assertTrue(
+            inputs.cover_position.reason.endswith("bound_entity_state_exceeded_freshness_window")
         )
         self.assertEqual(inputs.cover_position.updated_at, old_device_timestamp)
 
@@ -365,6 +518,37 @@ class CoordinatorTests(unittest.TestCase):
 
         with fake_home_assistant_event_modules() as registry:
             asyncio.run(exercise())
+
+    def test_coordinator_derives_lux_trend_from_distinct_fresh_observations(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {"input_bindings": {"outdoor_lux": "sensor.owner_lux"}}
+        )
+        first_time = self.now - timedelta(seconds=10)
+        states = {"sensor.owner_lux": FakeState("12000", updated_at=first_time)}
+
+        async def exercise() -> None:
+            hass = FakeHass(states)
+            entry = FakeEntry()
+            coordinator = ShadowCoordinator(hass, entry, config, ShadowRuntime(config))
+            entry.runtime_data = types.SimpleNamespace(snapshot=None, ux_snapshot=None)
+
+            first = await coordinator.async_refresh()
+            self.assertEqual(
+                first.inputs["lux_trend"]["reason"],
+                "derived_lux_trend_waiting_for_previous_sample",
+            )
+
+            states["sensor.owner_lux"] = FakeState("9000", updated_at=self.now)
+            second = await coordinator.async_refresh()
+            self.assertEqual(second.inputs["lux_trend"]["value"], -3000.0)
+            self.assertEqual(second.inputs["lux_trend"]["quality"], "fresh")
+            self.assertEqual(
+                second.inputs["lux_trend"]["reason"],
+                "derived_from_consecutive_fresh_lux_observations",
+            )
+            self.assertIn("lux_trend", second.trace.solar.derived_evidence)
+
+        asyncio.run(exercise())
 
     def test_legacy_field_with_stale_evidence_is_error_not_silent_parity(self) -> None:
         old = self.now - timedelta(seconds=1000)

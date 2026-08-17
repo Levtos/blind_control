@@ -13,6 +13,7 @@ from homeassistant.helpers.selector import selector
 from .config import (
     BINDING_GROUPS,
     DEFAULT_PROFILE_NAMES,
+    OPENING_SAFETY_POLARITIES,
     BlindControlConfig,
 )
 from .const import DOMAIN
@@ -100,6 +101,21 @@ def _config_schema(config: BlindControlConfig | None = None):
             if key in bindings:
                 field_kwargs["description"] = {"suggested_value": bindings[key]}
             binding_fields[vol.Optional(key, **field_kwargs)] = selector({"entity": {}})
+        if section_key == "opening_safety_cover_bindings":
+            binding_fields[
+                vol.Required(
+                    "opening_safety_polarity",
+                    default=config.opening_safety_polarity,
+                )
+            ] = selector(
+                {
+                    "select": {
+                        "options": list(OPENING_SAFETY_POLARITIES),
+                        "mode": "dropdown",
+                        "translation_key": "opening_safety_polarity",
+                    }
+                }
+            )
         fields[vol.Required(section_key, default={})] = section(
             vol.Schema(binding_fields),
             {"collapsed": True},
@@ -130,6 +146,11 @@ def _mapping_from_form(
         if not isinstance(raw_section, Mapping):
             raise ValueError(f"{section_key} must be a mapping")
         bindings = legacy_bindings if legacy else input_bindings
+        if section_key == "opening_safety_cover_bindings":
+            values["opening_safety_polarity"] = raw_section.get(
+                "opening_safety_polarity",
+                config.opening_safety_polarity,
+            )
         for key in keys:
             if key not in raw_section:
                 continue
