@@ -9,7 +9,7 @@ import types
 import unittest
 from contextlib import contextmanager
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -120,6 +120,107 @@ class _FakeSensorEntity:
         self._remove_callbacks = []
 
 
+class _FakeDataUpdateCoordinator:
+    def __init__(
+        self,
+        hass,
+        _logger,
+        *,
+        config_entry=None,
+        name,
+        update_interval=None,
+        always_update=True,
+        **_kwargs,
+    ):
+        self.hass = hass
+        self.config_entry = config_entry
+        self.name = name
+        self.update_interval = update_interval
+        self.always_update = always_update
+        self.data = None
+        self.last_update_success = True
+        self.last_exception = None
+        self.listeners = []
+        self.shutdown = False
+        if config_entry is not None:
+            config_entry.async_on_unload(self.async_shutdown)
+
+    @classmethod
+    def __class_getitem__(cls, _item):
+        return cls
+
+    async def async_refresh(self):
+        try:
+            self.data = await self._async_update_data()
+        except Exception as error:
+            self.last_update_success = False
+            self.last_exception = error
+        else:
+            self.last_update_success = True
+        for listener in tuple(self.listeners):
+            listener()
+
+    def async_add_listener(self, listener, _context=None):
+        self.listeners.append(listener)
+        return lambda: self.listeners.remove(listener) if listener in self.listeners else None
+
+    async def async_request_refresh(self):
+        await self.async_refresh()
+
+    async def async_shutdown(self):
+        self.shutdown = True
+        self.listeners.clear()
+
+
+class _FakeCoordinatorEntity:
+    def __init__(self, coordinator, _context=None):
+        self.coordinator = coordinator
+
+    @classmethod
+    def __class_getitem__(cls, _item):
+        return cls
+
+    async def async_added_to_hass(self):
+        await super().async_added_to_hass()
+        self.async_on_remove(self.coordinator.async_add_listener(self.async_write_ha_state))
+
+
+class _FakeUpdateFailed(Exception):
+    pass
+
+
+class _FakeResponse:
+    def __init__(self, payload, *, error=None):
+        self.payload = payload
+        self.error = error
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return False
+
+    def raise_for_status(self):
+        if self.error is not None:
+            raise self.error
+
+    async def json(self):
+        return self.payload
+
+
+class _FakeClientSession:
+    def __init__(self, payload=None, *, request_error=None):
+        self.payload = payload or {}
+        self.request_error = request_error
+        self.requests = []
+
+    def get(self, url, **kwargs):
+        self.requests.append((url, kwargs))
+        if self.request_error is not None:
+            raise self.request_error
+        return _FakeResponse(self.payload)
+
+
 class _FakeEntityRegistry:
     def __init__(self):
         self.entries = {}
@@ -144,6 +245,8 @@ class _FakeHomeAssistant:
         self._entries = {}
         self._state_values = {}
         self.states = types.SimpleNamespace(get=lambda entity_id: self._state_values.get(entity_id))
+        self.config = types.SimpleNamespace(latitude=50.0, longitude=8.0, time_zone="Europe/Berlin")
+        self.client_session = _FakeClientSession()
         self.config_entries = types.SimpleNamespace(
             reloads=[],
             updates=[],
@@ -165,7 +268,9 @@ class _FakeHomeAssistant:
         callbacks = list(entry.unload_callbacks)
         entry.unload_callbacks.clear()
         for callback in callbacks:
-            callback()
+            result = callback()
+            if asyncio.iscoroutine(result):
+                await result
         await module.async_setup_entry(self, entry)
 
     def _async_update_entry(self, entry, *, options):
@@ -354,11 +459,22 @@ def _home_assistant_imports():
     http.StaticPathConfig = _FakeStaticPathConfig
     sensor = types.ModuleType("homeassistant.components.sensor")
     sensor.SensorEntity = _FakeSensorEntity
+    sensor.SensorDeviceClass = types.SimpleNamespace(IRRADIANCE="irradiance")
+    sensor.SensorStateClass = types.SimpleNamespace(MEASUREMENT="measurement")
     const = types.ModuleType("homeassistant.const")
     const.Platform = types.SimpleNamespace(SENSOR="sensor")
     const.EntityCategory = types.SimpleNamespace(DIAGNOSTIC="diagnostic")
+    const.UnitOfIrradiance = types.SimpleNamespace(WATTS_PER_SQUARE_METER="W/m²")
     entity_platform = types.ModuleType("homeassistant.helpers.entity_platform")
     entity_platform.AddConfigEntryEntitiesCallback = object
+    device_registry = types.ModuleType("homeassistant.helpers.device_registry")
+    device_registry.DeviceInfo = dict
+    update_coordinator = types.ModuleType("homeassistant.helpers.update_coordinator")
+    update_coordinator.DataUpdateCoordinator = _FakeDataUpdateCoordinator
+    update_coordinator.CoordinatorEntity = _FakeCoordinatorEntity
+    update_coordinator.UpdateFailed = _FakeUpdateFailed
+    aiohttp_client = types.ModuleType("homeassistant.helpers.aiohttp_client")
+    aiohttp_client.async_get_clientsession = lambda hass: hass.client_session
     components.websocket_api = websocket_api
     components.frontend = frontend
     components.http = http
@@ -389,6 +505,9 @@ def _home_assistant_imports():
             "homeassistant.helpers.selector": selector_module,
             "homeassistant.helpers.event": event,
             "homeassistant.helpers.entity_platform": entity_platform,
+            "homeassistant.helpers.device_registry": device_registry,
+            "homeassistant.helpers.update_coordinator": update_coordinator,
+            "homeassistant.helpers.aiohttp_client": aiohttp_client,
             "homeassistant.components": components,
             "homeassistant.components.websocket_api": websocket_api,
             "homeassistant.components.frontend": frontend,
@@ -413,6 +532,7 @@ class BootstrapTests(unittest.TestCase):
         self.assertEqual(manifest["domain"], "blind_control")
         self.assertEqual(manifest["name"], "Blind Control")
         self.assertTrue(manifest["config_flow"])
+        self.assertEqual(manifest["iot_class"], "cloud_polling")
         self.assertNotIn("platforms", manifest)
 
     def test_setup_and_unload_use_entry_runtime_data(self) -> None:
@@ -431,6 +551,164 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(hass.config_entries.forwards, [("entry-1", ("sensor",))])
             self.assertTrue(asyncio.run(module.async_unload_entry(hass, entry)))
             self.assertEqual(hass.config_entries.unloads, [("entry-1", ("sensor",))])
+
+    def test_internal_provider_one_request_two_registry_sensors_and_clean_unload(self) -> None:
+        with _home_assistant_imports():
+            module = importlib.import_module("custom_components.blind_control")
+            open_meteo = importlib.import_module("custom_components.blind_control.open_meteo")
+            hass = _FakeHomeAssistant()
+            hass.client_session = _FakeClientSession(
+                {
+                    "current": {
+                        "time": "2026-08-21T12:00",
+                        "direct_normal_irradiance_instant": 320,
+                        "diffuse_radiation_instant": 75,
+                    }
+                }
+            )
+            url = open_meteo.suggested_open_meteo_url(50, 8, "Europe/Berlin")
+            entry = _FakeConfigEntry("entry-1", data={"open_meteo_api_url": url})
+
+            asyncio.run(module.async_setup_entry(hass, entry))
+
+            provider = entry.runtime_data.radiation_provider
+            self.assertEqual(len(hass.client_session.requests), 1)
+            self.assertEqual(provider.data.direct_normal_irradiance, 320)
+            self.assertEqual(provider.data.diffuse_radiation, 75)
+            self.assertEqual(
+                entry.runtime_data.snapshot.inputs["expected_direct_radiation"]["value"],
+                320,
+            )
+            self.assertEqual(
+                entry.runtime_data.snapshot.inputs["expected_diffuse_radiation"]["value"],
+                75,
+            )
+            entities = hass._entities_by_entry[entry.entry_id]
+            self.assertEqual(
+                {entity._attr_unique_id for entity in entities},
+                {
+                    "entry-1_shadow_status",
+                    "blind_control_dni_instant",
+                    "blind_control_diffuse_radiation_instant",
+                },
+            )
+            values = {entity._attr_unique_id: entity.native_value for entity in entities}
+            self.assertEqual(values["blind_control_dni_instant"], 320)
+            self.assertEqual(values["blind_control_diffuse_radiation_instant"], 75)
+            radiation = next(
+                entity
+                for entity in entities
+                if entity._attr_unique_id == "blind_control_dni_instant"
+            )
+            attributes = json.dumps(radiation.extra_state_attributes)
+            self.assertEqual(radiation._attr_device_class, "irradiance")
+            self.assertEqual(radiation._attr_state_class, "measurement")
+            self.assertEqual(radiation._attr_native_unit_of_measurement, "W/m²")
+            self.assertNotIn(url, attributes)
+            self.assertNotIn("latitude", attributes)
+            self.assertNotIn("longitude", attributes)
+            projection = json.dumps(entry.runtime_data.ux_snapshot)
+            self.assertNotIn(url, projection)
+            self.assertNotIn("latitude", projection)
+            self.assertNotIn("longitude", projection)
+            self.assertEqual(provider.update_interval.total_seconds(), 900)
+            self.assertEqual(len(provider.listeners), 3)
+
+            self.assertTrue(asyncio.run(module.async_unload_entry(hass, entry)))
+            self.assertTrue(provider.shutdown)
+            self.assertEqual(provider.listeners, [])
+
+    def test_provider_failure_retains_only_fresh_last_success_and_zero_is_valid(self) -> None:
+        with _home_assistant_imports():
+            provider_module = importlib.import_module(
+                "custom_components.blind_control.radiation_provider"
+            )
+            open_meteo = importlib.import_module("custom_components.blind_control.open_meteo")
+            hass = _FakeHomeAssistant()
+            entry = _FakeConfigEntry("entry-1")
+            url = open_meteo.suggested_open_meteo_url(50, 8)
+            provider = provider_module.OpenMeteoRadiationCoordinator(hass, entry, url)
+            hass.client_session = _FakeClientSession(request_error=TimeoutError())
+
+            asyncio.run(provider.async_refresh())
+            self.assertIsNone(provider.data)
+            self.assertEqual(provider.provider_status(), "unavailable")
+
+            hass.client_session = _FakeClientSession(
+                {"current": {"direct_normal_irradiance_instant": "bad"}}
+            )
+            asyncio.run(provider.async_refresh())
+            self.assertIsNone(provider.data)
+            self.assertEqual(provider.provider_status(), "unavailable")
+
+            hass.client_session = _FakeClientSession(
+                {
+                    "current": {
+                        "direct_normal_irradiance_instant": 0,
+                        "diffuse_radiation_instant": 0,
+                    }
+                }
+            )
+            asyncio.run(provider.async_refresh())
+            self.assertEqual(provider.data.direct_normal_irradiance, 0)
+            self.assertEqual(provider.provider_status(), "ready")
+
+            hass.client_session = _FakeClientSession(request_error=TimeoutError())
+            asyncio.run(provider.async_refresh())
+            self.assertEqual(provider.data.direct_normal_irradiance, 0)
+            self.assertEqual(provider.provider_status(), "degraded")
+            provider.data = replace(
+                provider.data,
+                fetched_at=datetime.now(UTC) - timedelta(seconds=1300),
+            )
+            self.assertEqual(provider.provider_status(), "stale")
+
+    def test_config_and_options_flow_validate_store_and_preserve_provider_url(self) -> None:
+        with _home_assistant_imports():
+            loaded = importlib.import_module("custom_components.blind_control.config_flow")
+            open_meteo = importlib.import_module("custom_components.blind_control.open_meteo")
+            hass = _FakeHomeAssistant()
+            flow = loaded.BlindControlConfigFlow()
+            flow.hass = hass
+            form = asyncio.run(flow.async_step_user())
+            suggested = _schema_key(form["data_schema"], "open_meteo_api_url").options["default"]
+            self.assertEqual(
+                suggested,
+                open_meteo.suggested_open_meteo_url(50, 8, "Europe/Berlin"),
+            )
+
+            invalid = asyncio.run(
+                flow.async_step_user({"open_meteo_api_url": "http://example.invalid"})
+            )
+            self.assertEqual(
+                invalid["errors"],
+                {"open_meteo_api_url": "invalid_open_meteo_url"},
+            )
+
+            custom = open_meteo.suggested_open_meteo_url(49, 9, "UTC")
+            created = asyncio.run(flow.async_step_user({"open_meteo_api_url": custom}))
+            self.assertEqual(created["data"]["open_meteo_api_url"], custom)
+
+        with _home_assistant_imports():
+            loaded = importlib.import_module("custom_components.blind_control.config_flow")
+            open_meteo = importlib.import_module("custom_components.blind_control.open_meteo")
+            old_url = open_meteo.suggested_open_meteo_url(50, 8)
+            entry = _FakeConfigEntry("entry-1", data={"open_meteo_api_url": old_url})
+            options_flow = loaded.BlindControlOptionsFlow(entry)
+            options_flow.hass = _FakeHomeAssistant()
+            invalid = asyncio.run(
+                options_flow.async_step_init({"open_meteo_api_url": old_url + "&api_key=forbidden"})
+            )
+            self.assertEqual(
+                invalid["errors"],
+                {"open_meteo_api_url": "invalid_open_meteo_url"},
+            )
+            self.assertEqual(entry.data["open_meteo_api_url"], old_url)
+            self.assertEqual(entry.options, {})
+            new_url = open_meteo.suggested_open_meteo_url(49, 9, "UTC")
+            saved = asyncio.run(options_flow.async_step_init({"open_meteo_api_url": new_url}))
+            self.assertEqual(saved["type"], "create_entry")
+            self.assertEqual(saved["data"]["open_meteo_api_url"], new_url)
 
     def test_native_status_projection_is_registry_backed_redacted_and_unloads(self) -> None:
         with _home_assistant_imports():
@@ -529,13 +807,27 @@ class BootstrapTests(unittest.TestCase):
     def test_reload_re_registers_panel_and_options_listener_reloads_entry(self) -> None:
         with _home_assistant_imports():
             module = importlib.import_module("custom_components.blind_control")
+            open_meteo = importlib.import_module("custom_components.blind_control.open_meteo")
             hass = _FakeHomeAssistant()
+            hass.client_session = _FakeClientSession(
+                {
+                    "current": {
+                        "direct_normal_irradiance_instant": 100,
+                        "diffuse_radiation_instant": 25,
+                    }
+                }
+            )
             now = datetime.now(UTC)
             old_binding = "sensor.owner_old"
             new_binding = "sensor.owner_new"
+            old_url = open_meteo.suggested_open_meteo_url(50, 8)
+            new_url = open_meteo.suggested_open_meteo_url(49, 9)
             entry = _FakeConfigEntry(
                 "entry-1",
-                data={"input_bindings": {"bio_state": old_binding}},
+                data={
+                    "input_bindings": {"bio_state": old_binding},
+                    "open_meteo_api_url": old_url,
+                },
             )
             hass._state_values = {
                 old_binding: types.SimpleNamespace(
@@ -561,10 +853,14 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(len(entry.update_listeners), 1)
             old_runtime = entry.runtime_data
             old_coordinator = old_runtime.coordinator
+            old_provider = old_runtime.radiation_provider
             update_listener = entry.update_listeners[0]
             config_flow = importlib.import_module("custom_components.blind_control.config_flow")
             entry.options = config_flow._mapping_from_form(
-                {"core_state_bindings": {"bio_state": new_binding}},
+                {
+                    "open_meteo_api_url": new_url,
+                    "core_state_bindings": {"bio_state": new_binding},
+                },
                 old_runtime.config,
             )
 
@@ -574,17 +870,31 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(hass.config_entries.reloads, ["entry-1"])
             self.assertIsNot(entry.runtime_data, old_runtime)
             self.assertIsNot(entry.runtime_data.coordinator, old_coordinator)
+            self.assertIsNot(entry.runtime_data.radiation_provider, old_provider)
+            self.assertTrue(old_provider.shutdown)
             self.assertEqual(old_coordinator._unsubscribers, [])
             self.assertEqual(old_coordinator._snapshot_listeners, [])
             self.assertEqual(len(entry.update_listeners), 1)
             self.assertEqual(len(event.state_callbacks), 1)
             self.assertEqual(len(event.time_callbacks), 1)
+            self.assertEqual(len(hass.client_session.requests), 2)
+            self.assertEqual(hass.client_session.requests[-1][0], new_url)
+            self.assertEqual(len(entry.runtime_data.radiation_provider.listeners), 3)
+            self.assertEqual(
+                set(hass.entity_registry.entries),
+                {
+                    "entry-1_shadow_status",
+                    "blind_control_dni_instant",
+                    "blind_control_diffuse_radiation_instant",
+                },
+            )
             self.assertEqual(
                 entry.runtime_data.config.input_bindings, (("bio_state", new_binding),)
             )
             self.assertEqual(entry.runtime_data.snapshot.inputs["bio_state"]["value"], "awake")
             sensor = hass._entities_by_entry[entry.entry_id][0]
             self.assertEqual(sensor._snapshot.inputs["bio_state"]["value"], "awake")
+            self.assertNotEqual(entry.runtime_data.snapshot.trace.master_mode.value, "manual")
 
     def test_websocket_contracts_read_and_admin_protect_options_write(self) -> None:
         with _home_assistant_imports():
@@ -712,11 +1022,14 @@ class BootstrapTests(unittest.TestCase):
         with _home_assistant_imports():
             loaded = importlib.import_module("custom_components.blind_control.config_flow")
             flow = loaded.BlindControlConfigFlow()
+            flow.hass = _FakeHomeAssistant()
 
             form = asyncio.run(flow.async_step_user())
             self.assertEqual(form["type"], "form")
             self.assertEqual(form["step_id"], "user")
             self.assertIn("window_azimuth", form["data_schema"].schema)
+            provider_url = _schema_key(form["data_schema"], "open_meteo_api_url")
+            self.assertIn("api.open-meteo.com", provider_url.options["default"])
             self.assertIn("position_waking_normal", form["data_schema"].schema)
             core_state_section = _schema_value(form["data_schema"], "core_state_bindings")
             self.assertIsInstance(core_state_section, _FakeSection)
@@ -734,7 +1047,7 @@ class BootstrapTests(unittest.TestCase):
                 len(value.schema.schema) if isinstance(value, _FakeSection) else 1
                 for value in form["data_schema"].schema.values()
             )
-            self.assertEqual(visible_fields, 88)
+            self.assertEqual(visible_fields, 89)
 
             suggested_schema = loaded._config_schema(
                 suggestions=loaded.BindingSuggestions(
@@ -765,6 +1078,7 @@ class BootstrapTests(unittest.TestCase):
                 "axis_inverted": config.axis_inverted,
                 "automation_enabled": config.automation_enabled,
                 "apply_enabled": config.apply_enabled,
+                "open_meteo_api_url": provider_url.options["default"],
                 "heat_outdoor_threshold": config.heat_outdoor_threshold,
                 "heat_indoor_threshold": config.heat_indoor_threshold,
                 "heat_radiation_threshold": config.heat_radiation_threshold,
@@ -796,7 +1110,11 @@ class BootstrapTests(unittest.TestCase):
             result = asyncio.run(flow.async_step_user(user_input))
             self.assertEqual(result["type"], "create_entry")
             self.assertEqual(result["title"], "Blind Control")
-            self.assertEqual(result["data"]["config_version"], 2)
+            self.assertEqual(result["data"]["config_version"], 3)
+            self.assertEqual(
+                result["data"]["open_meteo_api_url"],
+                provider_url.options["default"],
+            )
             self.assertEqual(result["data"]["input_bindings"], {"bio_state": "sensor.bound_bio"})
             self.assertEqual(result["data"]["opening_safety_polarity"], "positive_safe")
             existing = BlindControlConfig.from_mapping(result["data"])

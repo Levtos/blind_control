@@ -4,13 +4,23 @@ from __future__ import annotations
 
 from .config import BINDING_GROUPS, BlindControlConfig, binding_requirement, binding_status
 from .contracts import redact_diagnostic_value
+from .open_meteo import (
+    OPEN_METEO_MODEL,
+    OPEN_METEO_PROVIDER,
+    OPEN_METEO_UPDATE_INTERVAL_SECONDS,
+)
 from .shadow import ShadowSnapshot
 
 UX_CONTRACT_VERSION = "blind_control.ux.v2"
 AUTOMATION_PROJECTION_VERSION = "blind_control.automation_projection.v1"
 
 
-def build_ux_snapshot(snapshot: ShadowSnapshot, config: BlindControlConfig) -> dict[str, object]:
+def build_ux_snapshot(
+    snapshot: ShadowSnapshot,
+    config: BlindControlConfig,
+    *,
+    provider_status: str = "unconfigured",
+) -> dict[str, object]:
     """Build a typed-equivalent snapshot for a later Svelte 5 gateway.
 
     This projection has no command surface.  Settings are represented as data
@@ -98,6 +108,12 @@ def build_ux_snapshot(snapshot: ShadowSnapshot, config: BlindControlConfig) -> d
             "inputs": input_values,
             "diffs": debug_payload.get("diffs", []),
             "legacy_evidence": debug_payload.get("legacy_evidence", {}),
+            "radiation_provider": {
+                "provider": OPEN_METEO_PROVIDER,
+                "model": OPEN_METEO_MODEL,
+                "status": provider_status,
+                "update_interval": OPEN_METEO_UPDATE_INTERVAL_SECONDS,
+            },
         },
         "settings": {
             "axis_inverted": config.axis_inverted,
@@ -106,7 +122,7 @@ def build_ux_snapshot(snapshot: ShadowSnapshot, config: BlindControlConfig) -> d
             "automation_enabled": config.automation_enabled,
             "apply_enabled": config.apply_enabled,
             "opening_safety_polarity": config.opening_safety_polarity,
-            "binding_groups": _binding_groups(config),
+            "binding_groups": _binding_groups(config, provider_status=provider_status),
             "observation_freshness_seconds": config.observation_freshness_seconds,
             "binding_freshness": config.binding_freshness_mapping(),
             "profiles": {name: profile.as_dict() for name, profile in config.profiles},
@@ -172,7 +188,11 @@ def build_automation_projection(snapshot: ShadowSnapshot) -> dict[str, object]:
     return redacted if isinstance(redacted, dict) else {}
 
 
-def _binding_groups(config: BlindControlConfig) -> list[dict[str, object]]:
+def _binding_groups(
+    config: BlindControlConfig,
+    *,
+    provider_status: str = "unconfigured",
+) -> list[dict[str, object]]:
     """Project optional binding slots without returning their private entity IDs."""
 
     input_bindings = dict(config.input_bindings)
@@ -180,16 +200,28 @@ def _binding_groups(config: BlindControlConfig) -> list[dict[str, object]]:
     groups: list[dict[str, object]] = []
     for key, label, fields, legacy in BINDING_GROUPS:
         bindings = legacy_bindings if legacy else input_bindings
-        projected_fields = [
-            {
-                "key": field,
-                "configured": field in bindings,
-                "requirement": binding_requirement(field, legacy=legacy),
-                "status": binding_status(config, field, legacy=legacy),
-                **config.binding_policy(field, legacy=legacy).as_dict(),
-            }
-            for field in fields
-        ]
+        projected_fields = []
+        for field in fields:
+            status = binding_status(config, field, legacy=legacy)
+            if (
+                not legacy
+                and field in {"expected_direct_radiation", "expected_diffuse_radiation"}
+                and field not in bindings
+            ):
+                status = {
+                    "ready": "internal_provider_active",
+                    "degraded": "internal_provider_degraded",
+                    "stale": "provider_stale",
+                }.get(provider_status, "provider_unavailable")
+            projected_fields.append(
+                {
+                    "key": field,
+                    "configured": field in bindings,
+                    "requirement": binding_requirement(field, legacy=legacy),
+                    "status": status,
+                    **config.binding_policy(field, legacy=legacy).as_dict(),
+                }
+            )
         missing_required = [
             field["key"]
             for field in projected_fields

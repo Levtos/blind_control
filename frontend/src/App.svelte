@@ -94,6 +94,11 @@
     conditional_not_applicable: 'Nicht erforderlich',
     optional_bound: 'Optional gebunden',
     optional_intentionally_empty: 'Bewusst leer',
+    internal_provider_active: 'Interner Provider aktiv',
+    internal_provider_degraded: 'Interner Provider mit letztem frischen Wert',
+    external_override_active: 'Externes Override aktiv',
+    provider_unavailable: 'Provider nicht verfügbar',
+    provider_stale: 'Providerwert veraltet',
     legacy_bound: 'Legacy gebunden',
     legacy_not_available: 'Legacy nicht verfügbar',
   };
@@ -132,7 +137,8 @@
 
   const bindingStatusTone = (value: string): string => {
     if (value === 'required_unresolved' || value === 'conditional_unresolved') return 'warning';
-    if (value === 'required_resolved' || value === 'conditional_resolved' || value === 'optional_bound' || value === 'legacy_bound') return 'ready';
+    if (value === 'required_resolved' || value === 'conditional_resolved' || value === 'optional_bound' || value === 'legacy_bound' || value === 'internal_provider_active' || value === 'external_override_active') return 'ready';
+    if (value === 'provider_unavailable' || value === 'provider_stale') return 'warning';
     return 'muted';
   };
 

@@ -68,6 +68,13 @@ frischen Luxbeobachtungen abgeleitet. Optionale Evidence erhöht Confidence und
 erweitert Diagnose; ihr einzelnes Fehlen blockiert nicht, solange die gesamte
 Kombination belastbar bleibt.
 
+Direkte und diffuse Modellstrahlung folgen je Feld der Precedence `externes
+Binding > interner Open-Meteo-Provider > missing/unavailable`. Ein gemeinsamer
+Providerabruf speist beide Werte atomar; ein echter Nachtwert 0 ist fresh, ein
+fehlgeschlagener Erstabruf unavailable, ein letzter Erfolg innerhalb der
+Freshness-Grenze degraded/fresh und danach stale. Der Providerstatus ändert den
+fachlichen Mastermodus nicht selbst, bleibt aber als Evidence-Quality sichtbar.
+
 `SolarExposure` veröffentlicht redigiert:
 
 - `capabilities` und `missing_optional_capabilities`;
@@ -102,6 +109,10 @@ bestätigten Serverstand.
 
 Die OptionsFlow-Suggestion ist installationslokal und contract-basiert. Sie
 ändert keine Runtime-Bindings, bevor Benni den Flow speichert, überschreibt
-keine Nutzerwahl und respektiert bewusst leere optionale Slots. Modell-DNI und
-diffuse Strahlung kommen optional aus zwei HA-Sensoren eines gemeinsamen
-HA-Core-REST-Abrufs; Blind Control besitzt keinen Wetter-HTTP-Client.
+keine Nutzerwahl und respektiert bewusst leere optionale Slots. Die private
+Open-Meteo-URL wird ausschließlich im nativen Flow gespeichert und nie in UX,
+WebSocket, Sensorattribute oder Debug kopiert. Speichern lädt nur die
+Blind-Control-ConfigEntry neu. Der alte Provider wird beendet; genau ein neuer
+Coordinator-, Listener- und Timer-Satz übernimmt die URL. Zwei read-only
+Irradiance-Sensoren und die bestehende Statusentität teilen sich das
+Blind-Control-Gerät. Es gibt keinen Cover-, Apply-, Service- oder Command-Pfad.

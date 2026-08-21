@@ -1,56 +1,70 @@
-# Open-Meteo-REST-Zwischenvertrag für AP2
+# Interner Open-Meteo-Strahlungsprovider für AP2
 
-Blind Control enthält keinen Wetter-API-Client. Die installationsseitige
-Home-Assistant-Core-REST-Integration führt einen gemeinsamen Abruf aus und
-projiziert daraus zwei normale, read-only Sensoren. Die konkrete URL mit
-Standortkoordinaten liegt ausschließlich als lokales Home-Assistant-Secret vor.
+Blind Control enthält einen kleinen, isolierten und vollständig read-only
+Open-Meteo-Provider. Er wird ausschließlich über ConfigFlow/OptionsFlow
+konfiguriert. Es gibt weder YAML noch Package-, `secrets.yaml`-, API-Key-,
+Koordinatenformular-, PV- oder Weather-State-Konfiguration. Core State bleibt
+unverändert.
 
-Normativer Abrufvertrag:
+## Abrufvertrag
 
-- kostenlose nichtkommerzielle Standard-API ohne API-Key;
+- HTTPS-Host `api.open-meteo.com`, Endpunkt `/v1/forecast`;
 - Modell `dwd_icon_seamless`;
 - `current`, keine fest eingebaute Prognose und keine rückwärts gemittelten
   `hourly`-Werte;
-- `expected_direct_radiation` liest
-  `current.direct_normal_irradiance_instant` in `W/m²`;
-- `expected_diffuse_radiation` liest
-  `current.diffuse_radiation_instant` in `W/m²`;
-- ein REST-Abruf mit `scan_interval: 900` erzeugt beide Sensorwerte;
-- lokaler Außenlux bleibt Pflicht-Evidence, beide Modellwerte bleiben optional.
+- `current.direct_normal_irradiance_instant` wird zu
+  `expected_direct_radiation` in `W/m²`;
+- `current.diffuse_radiation_instant` wird zu
+  `expected_diffuse_radiation` in `W/m²`;
+- genau ein gemeinsamer HTTP-Abruf liefert beide Werte;
+- Standardintervall 900 Sekunden, Freshness-Grenze 1200 Sekunden;
+- kein API-Key, keine PV-Anlage, keine PV-Leistung und keine Ertragsprognose.
 
-Repository-geführte Installationen verwenden eine Package-Konfiguration dieses
-Aufbaus; Namen und Entity-IDs sind installationslokal und kein Teil des
-öffentlichen Blind-Control-Contracts:
+Beim ersten ConfigFlow erzeugt Blind Control aus den Home-Assistant-
+Standortdaten ausschließlich im privaten Formular eine URL-Suggestion. Benni
+kann im Freitextfeld **Open-Meteo API-URL** eine vollständige URL einsetzen.
+Gespeichert wird sie in der Blind-Control-ConfigEntry. OptionsFlow validiert
+Schema, Host, Endpunkt, Modell und beide Current-Felder, entfernt
+Tracking-Parameter und lehnt Benutzerinformationen, API-Key-/PV-Parameter und
+fremde Hosts ab. Eine ungültige Änderung ersetzt die letzte gültige Option
+nicht. Erfolgreiches Speichern lädt nur diese ConfigEntry neu; ein vollständiger
+Home-Assistant-Neustart ist nicht erforderlich.
 
-```yaml
-blind_control_weather:
-  rest:
-    - resource: !secret blind_control_open_meteo_url
-      method: GET
-      scan_interval: 900
-      sensor:
-        - name: <lokaler DNI-Sensorname>
-          value_template: >-
-            {{ value_json.current.direct_normal_irradiance_instant | float(none) }}
-          json_attributes_path: "$.current"
-          json_attributes:
-            - direct_normal_irradiance_instant
-          unit_of_measurement: "W/m²"
-          device_class: irradiance
-          state_class: measurement
-        - name: <lokaler Diffus-Sensorname>
-          value_template: >-
-            {{ value_json.current.diffuse_radiation_instant | float(none) }}
-          json_attributes_path: "$.current"
-          json_attributes:
-            - diffuse_radiation_instant
-          unit_of_measurement: "W/m²"
-          device_class: irradiance
-          state_class: measurement
-```
+## Native Sensoren
 
-Die OptionsFlow-Suggestion erkennt die Sensoren an den publizierten
-JSON-Attributen, nicht an einer fest codierten Entity-ID. Ein fehlender Sensor
-bleibt als optionale Capability bewusst leer und blockiert den Normalbetrieb
-nicht allein. Eine insgesamt unzureichende oder widersprüchliche Solar-Evidence
-bleibt weiterhin ein sichtbarer Quality-Blocker und kann keine Öffnung auslösen.
+Ein Request speist zwei normale read-only Sensoren am Blind-Control-Gerät:
+
+| Name | stabile `unique_id` | Wert | HA-Metadaten |
+| --- | --- | --- | --- |
+| Blind Control DNI Instant | `blind_control_dni_instant` | DNI Instant | `irradiance`, `measurement`, `W/m²` |
+| Blind Control Diffuse Radiation Instant | `blind_control_diffuse_radiation_instant` | Diffusstrahlung Instant | `irradiance`, `measurement`, `W/m²` |
+
+Die erwarteten Entity-IDs sind `sensor.blind_control_dni_instant` und
+`sensor.blind_control_diffuse_radiation_instant`; bei Kollisionen darf Home
+Assistant die Entity-ID anpassen. Die `unique_id` bleibt maßgeblich. Attribute
+enthalten nur Provider, Modell, letzten erfolgreichen Abruf, Datenzeitstempel,
+Intervall und Providerstatus. URL und Koordinaten werden niemals projiziert.
+
+## Evidence, Freshness und Fehler
+
+Die Precedence lautet:
+
+1. ausdrücklich gespeichertes externes Entity-Binding;
+2. interner Open-Meteo-Provider;
+3. `missing` beziehungsweise `unavailable`.
+
+Ein erfolgreicher Wert ist `fresh`. Nach einem späteren Abruffehler bleibt der
+letzte Erfolg nur innerhalb der Freshness-Grenze nutzbar und der Providerstatus
+wird `degraded`; danach ist die Evidence `stale`. Ein fehlgeschlagener
+Erstabruf ist `unavailable`, unvollständige oder nicht numerische Antworten
+werden nicht geraten. Ein tatsächlich gelieferter Nachtwert `0 W/m²` bleibt
+ein gültiger Wert und unterscheidet sich von fehlender Evidence.
+
+Lokaler Außenlux und Sonnengeometrie bleiben die tragende Solar-Evidence.
+Modellstrahlung ist zusätzliche, ersetzbare Confidence-Evidence. Providerfehler
+erzeugen weder Default-Open noch Cover-, Service-, Apply- oder Command-Pfade.
+Der Provider ist hinter dem internen Evidence-Adapter austauschbar, sodass eine
+spätere Übernahme durch Core Contracts die Solar-Engine nicht neu entwerfen
+muss.
+
+**Status:** `Installed / Shadow / Not Live`.

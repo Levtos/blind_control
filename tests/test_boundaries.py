@@ -30,19 +30,21 @@ class BoundaryTests(unittest.TestCase):
             for token in forbidden:
                 self.assertNotIn(token, source, f"{token} in {path}")
 
-    def test_blind_control_has_no_weather_api_or_pv_client_contract(self) -> None:
+    def test_internal_provider_has_no_api_key_pv_or_actuation_contract(self) -> None:
         product_source = "\n".join(
             path.read_text(encoding="utf-8") for path in PACKAGE.rglob("*.py")
         ).lower()
-        for forbidden in (
-            "api.open-meteo.com",
-            "dwd_icon_seamless",
-            "aiohttp",
-            "api_key",
-            "photovoltaic",
-            "pv_array",
-        ):
+        for forbidden in ("photovoltaic", "pv_array", "pv_power", "yield_forecast"):
             self.assertNotIn(forbidden, product_source)
+        provider = (PACKAGE / "radiation_provider.py").read_text(encoding="utf-8")
+        contract = (PACKAGE / "open_meteo.py").read_text(encoding="utf-8")
+        config_flow = (PACKAGE / "config_flow.py").read_text(encoding="utf-8")
+        self.assertEqual(provider.count("session.get("), 1)
+        self.assertIn('OPEN_METEO_HOST = "api.open-meteo.com"', contract)
+        self.assertIn('OPEN_METEO_MODEL = "dwd_icon_seamless"', contract)
+        self.assertNotIn('"api_key"', config_flow)
+        self.assertNotIn('"api_key"', contract)
+        self.assertNotIn("str(self._api_url)", provider)
 
     def test_only_read_only_sensor_platform_is_forwarded(self) -> None:
         source = (PACKAGE / "__init__.py").read_text(encoding="utf-8")

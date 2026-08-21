@@ -37,6 +37,7 @@ from .contracts import (
     InputQuality,
     LegacyEvidence,
 )
+from .open_meteo import OPEN_METEO_PROVIDER
 from .shadow import ShadowRuntime, ShadowSnapshot
 from .ux_contract import build_ux_snapshot
 
@@ -90,13 +91,19 @@ def build_inputs_from_states(
     config: BlindControlConfig,
     *,
     now: datetime | None = None,
+    provider_observations: Mapping[str, InputObservation[float]] | None = None,
 ) -> BlindControlInputs:
     """Build the complete input contract from configured HA state objects."""
 
     now = now or datetime.now(UTC)
     configured = dict(config.input_bindings)
-    values = {
-        key: _observation_for_entity(
+    provider_observations = provider_observations or {}
+    values = {}
+    for key in INPUT_BINDING_KEYS:
+        if key not in configured and key in provider_observations:
+            values[key] = provider_observations[key]
+            continue
+        values[key] = _observation_for_entity(
             key,
             configured.get(key),
             states.get(configured[key]) if key in configured else None,
@@ -104,8 +111,6 @@ def build_inputs_from_states(
             now,
             opening_safety_polarity=config.opening_safety_polarity,
         )
-        for key in INPUT_BINDING_KEYS
-    }
     return BlindControlInputs(**values)
 
 
@@ -148,11 +153,13 @@ class ShadowCoordinator:
         entry: object,
         config: BlindControlConfig,
         shadow: ShadowRuntime,
+        radiation_provider: object | None = None,
     ) -> None:
         self.hass = hass
         self.entry = entry
         self.config = config
         self.shadow = shadow
+        self.radiation_provider = radiation_provider
         self.snapshot: ShadowSnapshot | None = None
         self.ux_snapshot: dict[str, object] | None = None
         self._unsubscribers: list[object] = []
@@ -187,6 +194,10 @@ class ShadowCoordinator:
             self._unsubscribers.append(
                 async_track_state_change_event(self.hass, self.entity_ids, self._state_changed)
             )
+        if self.radiation_provider is not None:
+            add_listener = getattr(self.radiation_provider, "async_add_listener", None)
+            if callable(add_listener):
+                self._unsubscribers.append(add_listener(self._provider_updated))
         self._unsubscribers.append(
             async_track_time_interval(
                 self.hass,
@@ -216,7 +227,15 @@ class ShadowCoordinator:
             if getattr(self.hass, "states", None) is not None
         }
         inputs = self._with_derived_lux_trend(
-            build_inputs_from_states(states, self.config, now=now)
+            build_inputs_from_states(
+                states,
+                self.config,
+                now=now,
+                provider_observations=_radiation_provider_observations(
+                    self.radiation_provider,
+                    now=now,
+                ),
+            )
         )
         legacy = build_legacy_evidence_from_states(states, self.config, now=now)
         position = _number_value(inputs.cover_position)
@@ -237,7 +256,11 @@ class ShadowCoordinator:
             legacy_snapshot=legacy,
         )
         self.snapshot = snapshot
-        self.ux_snapshot = build_ux_snapshot(snapshot, self.config)
+        self.ux_snapshot = build_ux_snapshot(
+            snapshot,
+            self.config,
+            provider_status=_radiation_provider_status(self.radiation_provider, now=now),
+        )
         runtime_data = getattr(self.entry, "runtime_data", None)
         if runtime_data is not None:
             runtime_data.snapshot = snapshot
@@ -315,6 +338,12 @@ class ShadowCoordinator:
         self._schedule_refresh()
 
     @callback
+    def _provider_updated(self) -> None:
+        """Re-evaluate Shadow after one read-only provider refresh."""
+
+        self._schedule_refresh()
+
+    @callback
     def _schedule_refresh(self) -> None:
         """Hop through Home Assistant's thread-safe scheduler before task creation."""
 
@@ -342,6 +371,61 @@ class ShadowCoordinator:
             self._refresh_task = create_task(self.async_refresh())
         else:
             self._refresh_task = asyncio.create_task(self.async_refresh())
+
+
+def _radiation_provider_status(provider: object | None, *, now: datetime) -> str:
+    if provider is None:
+        return "unconfigured"
+    status = getattr(provider, "provider_status", None)
+    return status(now=now) if callable(status) else "unavailable"
+
+
+def _radiation_provider_observations(
+    provider: object | None,
+    *,
+    now: datetime,
+) -> dict[str, InputObservation[float]]:
+    """Project provider data without exposing its private request URL."""
+
+    status = _radiation_provider_status(provider, now=now)
+    data = getattr(provider, "data", None) if provider is not None else None
+    keys = {
+        "expected_direct_radiation": "direct_normal_irradiance",
+        "expected_diffuse_radiation": "diffuse_radiation",
+    }
+    if status == "unconfigured":
+        return {
+            key: InputObservation.missing(
+                source=OPEN_METEO_PROVIDER,
+                reason="internal_provider_not_configured",
+            )
+            for key in keys
+        }
+    if data is None:
+        return {
+            key: InputObservation(
+                source=OPEN_METEO_PROVIDER,
+                quality=InputQuality.UNAVAILABLE,
+                reason="internal_provider_first_update_unavailable",
+            )
+            for key in keys
+        }
+    quality = InputQuality.STALE if status == "stale" else InputQuality.FRESH
+    reason = {
+        "ready": "internal_provider_fresh",
+        "degraded": "internal_provider_last_success_within_freshness",
+        "stale": "internal_provider_last_success_stale",
+    }.get(status, "internal_provider_unavailable")
+    return {
+        key: InputObservation(
+            value=float(getattr(data, attribute)),
+            source=OPEN_METEO_PROVIDER,
+            quality=quality,
+            reason=reason,
+            updated_at=getattr(data, "fetched_at", None),
+        )
+        for key, attribute in keys.items()
+    }
 
 
 def _observation_for_entity(

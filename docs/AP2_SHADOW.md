@@ -191,15 +191,19 @@ Produktpfad. Status-Badges stammen aus dem Snapshot, Coverposition und
 Haushalt werden in der Übersicht gezeigt. Input- und Legacy-Bindings werden
 allein über native Entity-Selectoren im OptionsFlow gepflegt, gruppiert als
 Core State, Opening/Safety/Cover, Solar, Temperatur/Wetter und
-Legacy-Vergleich. Die exakt 88 sichtbaren Felder bestehen aus 55 Defaults,
-28 aktuellen Bindings, vier Legacy-Bindings und einer Safety-Polarität. Der
+Legacy-Vergleich. Die exakt 89 sichtbaren Felder bestehen aus 55 Defaults,
+einer internen Open-Meteo-URL, 28 aktuellen Bindings, vier Legacy-Bindings und
+einer Safety-Polarität. Der
 Status unterscheidet `required_resolved|required_unresolved`,
 `conditional_resolved|conditional_unresolved|conditional_not_applicable`,
-`optional_bound|optional_intentionally_empty` und
+`optional_bound|optional_intentionally_empty`,
+`internal_provider_active|internal_provider_degraded|external_override_active`,
+`provider_unavailable|provider_stale` und
 `legacy_bound|legacy_not_available`. Leere optionale Slots sind bewusst leer;
 konfigurierte Binding-Werte werden in der Snapshot-Projektion nie
 zurückgegeben. Der Snapshot-Read und Options-Update sind admin-geschützt; der
-WebSocket lehnt Binding-Mappings ausdrücklich ab. Source-, Legacy- und
+WebSocket lehnt Binding-Mappings und die private Provider-URL ausdrücklich ab.
+Source-, Legacy- und
 Entity-Werte werden in der öffentlichen Projektion und in der Copy-Aktion
 wertbasiert redigiert; die Copy-Aktion schreibt diese redigierte Debug-Evidence
 in die Clipboard-API.
@@ -245,17 +249,18 @@ Projektion. Die Sensorplattform besitzt weder Service noch Schreibpfad.
 - contract-basierte, installationslokale OptionsFlow-Suggestions ohne feste
   Entity-IDs oder zweite Registry; gespeicherte/geleerte Nutzerentscheidungen
   haben Vorrang;
-- vorbereiteter HA-Core-REST-Zwischenvertrag für einen Abruf und zwei optionale
-  aktuelle Modellstrahlungswerte; Blind Control enthält keinen HTTP-Client;
+- isolierter interner Open-Meteo-`DataUpdateCoordinator`: ein read-only Abruf
+  liefert beide aktuellen Modellstrahlungswerte und speist zwei native
+  Irradiance-Sensoren sowie die interne Evidence-Projektion;
 - keine produktive Coverfahrt und keine alte Policy-Änderung.
 
 ### Für spätere AP2-Batches beziehungsweise vor Cutover offen
 
 - die contract-basiert vorgeschlagenen produktiven Input-/Legacy-Bindings
   müssen von Benni im nativen OptionsFlow geprüft und gespeichert werden;
-- die vorbereitete installationsseitige REST-Package-Konfiguration muss mit
-  lokalem Standort-Secret übernommen und erst in einem separaten Live-Gate
-  durch Home Assistant geladen werden;
+- Benni muss im nativen Blind-Control-OptionsFlow die ausschließlich dort
+  gespeicherte Open-Meteo-URL prüfen oder einsetzen; YAML, Package und
+  `secrets.yaml` sind ausdrücklich kein Installationsschritt;
 - die installierbare laufende Shadow-Auswertung und nutzbare Projektion sind
   technisch contract-getestet; reale HA-Live-Traces und feldweise
   Alt/Neu-Paritätsklassifikation müssen weiterhin als getrennte
@@ -355,9 +360,22 @@ bedingte Kipp-Signal wird nur zusammen mit expliziter Polarität verwendet.
 Fehlende optionale Trends bleiben bewusst leer. Lux-Trend kann weiterhin aus
 zwei verschiedenen frischen Außenluxbeobachtungen entstehen.
 
-Für aktuelle direkte und diffuse Modellstrahlung ist der koordinatenfreie
-Vertrag in `docs/OPEN_METEO_REST.md` festgelegt. Ein installationsseitiger
-HA-Core-REST-Abruf liefert beide Sensoren im 15-Minuten-Rhythmus aus
-`current.direct_normal_irradiance_instant` und
-`current.diffuse_radiation_instant`. Blind Control führt keinen HTTP-Abruf aus
-und behandelt beide Felder weiterhin als optionale Confidence-Evidence.
+Für aktuelle direkte und diffuse Modellstrahlung ist der öffentliche,
+koordinatenfreie Vertrag in `docs/OPEN_METEO_REST.md` festgelegt. Blind Control
+führt intern genau einen gemeinsamen Abruf im 15-Minuten-Rhythmus aus und liest
+`current.direct_normal_irradiance_instant` sowie
+`current.diffuse_radiation_instant`. Die private URL wird ausschließlich in der
+ConfigEntry gespeichert und niemals in UX, Diagnose oder Logs projiziert. Die
+beiden read-only Sensoren besitzen die stabilen `unique_id`-Werte
+`blind_control_dni_instant` und `blind_control_diffuse_radiation_instant`.
+Explizite externe Bindings haben Vorrang; ohne sie speist der interne Provider
+beide weiterhin optionalen Confidence-Evidence-Felder. Ein Erstfehler ist
+`unavailable`, ein letzter Erfolg wird nur innerhalb 1200 Sekunden genutzt und
+danach `stale`; ein real gelieferter Nachtwert 0 bleibt gültig.
+
+Der OptionsFlow umfasst damit 89 Felder: 24 allgemeine Konfigurations-/
+Providerfelder, 32 Positionswerte, 28 Input-Bindings, vier Legacy-Bindings und
+eine Opening-Safety-Polarität. 55 bestehende Defaultfelder plus das neue
+Providerfeld sind keine Entity-Zuordnungsaufgaben. Die zwei Strahlungsbindings
+sind bei gesundem internen Provider `internal_provider_active`; ein explizites
+Entity-Binding wird `external_override_active`.

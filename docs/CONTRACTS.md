@@ -245,9 +245,10 @@ verwenden dieselbe redigierte Projektion.
 
 ### 7.3 AP2-Installations- und Suggestion-Contract
 
-Der OptionsFlow hat exakt 88 sichtbare Felder: 23 allgemeine Defaults, 32
+Der OptionsFlow hat exakt 89 sichtbare Felder: 24 allgemeine Konfigurations-
+und Providerfelder, 32
 Positionsdefaults, 28 aktuelle Input-Bindings, vier optionale Legacy-Bindings
-und eine Opening-Safety-Polarität. Die 55 Defaultfelder sind keine
+und eine Opening-Safety-Polarität. Die 55 bisherigen Defaultfelder sind keine
 Entity-Zuordnungen. Eine kleine installationslokale Discovery darf vorhandene
 HA-States anhand publizierter Attribute und Source-Referenzen als
 `suggested_value` anbieten. Sie ist keine Registry und persistiert keine zweite
@@ -257,8 +258,11 @@ vor neuem Contract-Vorschlag. Entity-IDs verlassen Config-/OptionsFlow nicht.
 Statuswerte sind `required_resolved`, `required_unresolved`,
 `conditional_resolved`, `conditional_unresolved`,
 `conditional_not_applicable`, `optional_bound`,
-`optional_intentionally_empty`, `legacy_bound` und
-`legacy_not_available`.
+`optional_intentionally_empty`, `internal_provider_active`,
+`internal_provider_degraded`, `external_override_active`,
+`provider_unavailable`, `provider_stale`, `legacy_bound` und
+`legacy_not_available`. Die Providerstatuswerte gelten nur für die beiden
+Modellstrahlungsfelder und enthalten keine URL oder Koordinaten.
 
 | Feld | Klasse | Owner-/Wertvertrag | Einheit | Default-Freshness |
 | --- | --- | --- | --- | --- |
@@ -280,8 +284,8 @@ Statuswerte sind `required_resolved`, `required_unresolved`,
 | `cover_position` | required technical | Standard-Cover `current_position` | % | 120 s, Source- oder HA-Timestamp |
 | `opening_safe_for_blind` | conditional | Opening-Safety-Owner; nur mit expliziter positiver oder negativer Polarität | boolean safe | Timestamp erforderlich, nicht altersbegrenzt |
 | `lux_trend` | optional | eigener Owner oder intern aus zwei frischen Luxpunkten abgeleitet | lx/Beobachtung | 900 s bei Binding |
-| `expected_direct_radiation` | optional | HA-Core-REST-Projektion von `current.direct_normal_irradiance_instant` | W/m² | 1200 s bei Binding |
-| `expected_diffuse_radiation` | optional | HA-Core-REST-Projektion von `current.diffuse_radiation_instant` | W/m² | 1200 s bei Binding |
+| `expected_direct_radiation` | optional | externes Binding vor internem Providerfeld `current.direct_normal_irradiance_instant` | W/m² | 1200 s |
+| `expected_diffuse_radiation` | optional | externes Binding vor internem Providerfeld `current.diffuse_radiation_instant` | W/m² | 1200 s |
 | `cloud_cover` | optional | bestehender Weather-/Umwelt-Owner | % | 1800 s bei Binding |
 | `indoor_temperature_trend` | optional | vorhandener Owner, sonst leer | °C/Trend | 1800 s bei Binding |
 | `outdoor_temperature_trend` | optional | vorhandener Owner, sonst leer | °C/Trend | 1800 s bei Binding |
@@ -295,8 +299,12 @@ Statuswerte sind `required_resolved`, `required_unresolved`,
 | `safety_status` | legacy optional | alte Policy-Diagnose/Blockerprojektion | Zustand | 120 s, Timestamp erforderlich |
 | `apply_status` | legacy optional | alte Policy-Diagnose/Applyprojektion | Zustand | 120 s, Timestamp erforderlich |
 
-Die beiden Modellstrahlungswerte entstehen installationsseitig durch einen
-gemeinsamen Home-Assistant-Core-REST-Abruf. Blind Control enthält weder
-Open-Meteo-Client noch API-Key-, Forecast-, PV- oder Standortlogik. Der
-vollständige koordinatenfreie Vertrag steht in
-[OPEN_METEO_REST.md](OPEN_METEO_REST.md).
+Die beiden Modellstrahlungswerte entstehen durch genau einen gemeinsamen,
+internen und read-only Open-Meteo-Abruf. Die Provider-URL lebt ausschließlich
+in ConfigEntry/OptionsFlow; es gibt keine YAML-, Package-, Secret-, API-Key-,
+PV- oder Weather-State-Konfiguration. Der Provider veröffentlicht zwei native
+Irradiance-Sensoren und speist automatisch denselben Datenstand in die Inputs.
+Pro Feld gilt `externes Binding > interner Provider > missing/unavailable`.
+Ein echter Wert 0 bleibt fresh; ein fehlgeschlagener Erstabruf ist unavailable,
+ein letzter Erfolg wird nach 1200 Sekunden stale. Der vollständige öffentliche,
+koordinatenfreie Vertrag steht in [OPEN_METEO_REST.md](OPEN_METEO_REST.md).

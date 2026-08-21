@@ -24,6 +24,7 @@ from custom_components.blind_control.config import (  # noqa: E402
     BlindControlConfig,
     binding_status,
 )
+from custom_components.blind_control.open_meteo import suggested_open_meteo_url  # noqa: E402
 
 
 class FakeState:
@@ -175,8 +176,28 @@ class BindingSuggestionTests(unittest.TestCase):
         empty = BlindControlConfig.defaults()
         for key in MANDATORY_AUTOMATIC_BINDING_KEYS | MANDATORY_TECHNICAL_BINDING_KEYS:
             self.assertEqual(binding_status(empty, key), "required_unresolved")
-        for key in OPTIONAL_EVIDENCE_BINDING_KEYS:
+        radiation_fields = {"expected_direct_radiation", "expected_diffuse_radiation"}
+        for key in OPTIONAL_EVIDENCE_BINDING_KEYS - radiation_fields:
             self.assertEqual(binding_status(empty, key), "optional_intentionally_empty")
+        for key in radiation_fields:
+            self.assertEqual(binding_status(empty, key), "provider_unavailable")
+
+        internal = BlindControlConfig.from_mapping(
+            {"open_meteo_api_url": suggested_open_meteo_url(50, 8, "Europe/Berlin")}
+        )
+        for key in radiation_fields:
+            self.assertEqual(binding_status(internal, key), "internal_provider_active")
+
+        external = BlindControlConfig.from_mapping(
+            {
+                **internal.to_mapping(),
+                "input_bindings": {"expected_direct_radiation": "sensor.external_contract"},
+            }
+        )
+        self.assertEqual(
+            binding_status(external, "expected_direct_radiation"),
+            "external_override_active",
+        )
         self.assertEqual(
             binding_status(empty, next(iter(CONDITIONAL_BINDING_KEYS))),
             "conditional_not_applicable",

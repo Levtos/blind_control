@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant
 
 from .config import BlindControlConfig
 from .coordinator import ShadowCoordinator
+from .radiation_provider import OpenMeteoRadiationCoordinator
 from .shadow import ShadowRuntime, ShadowSnapshot
 from .websocket_api import register_websocket_commands
 
@@ -27,6 +28,7 @@ class BlindControlRuntimeData:
     snapshot: ShadowSnapshot | None = None
     ux_snapshot: dict[str, object] | None = None
     coordinator: ShadowCoordinator | None = None
+    radiation_provider: OpenMeteoRadiationCoordinator | None = None
 
 
 type BlindControlConfigEntry = ConfigEntry[BlindControlRuntimeData]
@@ -48,12 +50,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: BlindControlConfigEntry)
     config = BlindControlConfig.from_mapping(
         {**getattr(entry, "data", {}), **getattr(entry, "options", {})}
     )
+    radiation_provider = OpenMeteoRadiationCoordinator(
+        hass,
+        entry,
+        config.open_meteo_api_url or None,
+    )
+    if radiation_provider.configured:
+        await radiation_provider.async_refresh()
     shadow = ShadowRuntime(config)
-    coordinator = ShadowCoordinator(hass, entry, config, shadow)
+    coordinator = ShadowCoordinator(
+        hass,
+        entry,
+        config,
+        shadow,
+        radiation_provider=radiation_provider,
+    )
     entry.runtime_data = BlindControlRuntimeData(
         config=config,
         shadow=shadow,
         coordinator=coordinator,
+        radiation_provider=radiation_provider,
     )
     await coordinator.async_start()
     if hasattr(entry, "async_on_unload"):
@@ -74,6 +90,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: BlindControlConfigEntry
     coordinator = getattr(runtime_data, "coordinator", None)
     if coordinator is not None:
         coordinator.stop()
+    radiation_provider = getattr(runtime_data, "radiation_provider", None)
+    if radiation_provider is not None:
+        await radiation_provider.async_shutdown()
     return True
 
 

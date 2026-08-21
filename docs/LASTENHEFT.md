@@ -176,6 +176,20 @@ Solar Exposure berücksichtigt mindestens:
 - Luxverlauf und Verhältnis zwischen erwarteter und beobachteter Helligkeit,
 - Freshness, Quality und Source Conflict.
 
+#### 8.2.1 AP2-Modellstrahlungsquelle
+
+Für AP2 darf Blind Control aktuelle direkte und diffuse Modellstrahlung über
+einen isolierten internen Open-Meteo-Provider beziehen. Der Provider ist
+vollständig über ConfigFlow/OptionsFlow konfigurierbar und benötigt weder YAML,
+Package, `secrets.yaml`, API-Key, PV-Anlage noch eine Änderung an Core State oder
+eine neue Weather-State-Integration. Ein gemeinsamer read-only Abruf des Modells
+`dwd_icon_seamless` liefert ausschließlich
+`current.direct_normal_irradiance_instant` und
+`current.diffuse_radiation_instant`. Beide Werte bleiben optionale,
+ersetzbare Evidence; Außenlux und Sonnengeometrie bleiben tragend. Ein externes
+Binding hat je Feld Vorrang. Fehlende, fehlerhafte oder stale Providerdaten
+dürfen niemals einen Default-Open- oder Aktuatorpfad erzeugen.
+
 ### 8.3 Zustände
 
 Mindestens folgende Zustände werden ausgegeben:
@@ -814,9 +828,10 @@ Integrationsinstanz bestimmt die Entity-ID selbst; weder Produktcode noch
 Dokumentation tragen eine installationsspezifische ID vor. Es gibt keine
 Services, keine Steuerung und keine Entity-Flut.
 
-Der AP2-OptionsFlow umfasst exakt 88 sichtbare Felder: 55 bereits mit Defaults
-versehene allgemeine/Positionswerte, 28 aktuelle Input-Bindings, vier optionale
-Legacy-Vergleichsbindings und eine explizite Opening-Safety-Polarität. Von den
+Der AP2-OptionsFlow umfasst exakt 89 sichtbare Felder: 55 bereits mit Defaults
+versehene allgemeine/Positionswerte, eine private interne Open-Meteo-URL, 28
+aktuelle Input-Bindings, vier optionale Legacy-Vergleichsbindings und eine
+explizite Opening-Safety-Polarität. Von den
 28 Inputs sind zwölf fachlich und vier technisch zwingend, ein Safety-Signal
 ist bedingt und elf Evidence-Signale sind optional. Fehlende optionale Trends
 oder Modellstrahlung sind bewusst leer und allein kein Failure-Grund.
@@ -829,10 +844,15 @@ aufgelöste/nicht aufgelöste Pflichtfelder, aufgelöste/nicht anwendbare
 Conditional-Felder, gebundene/bewusst leere Optionals und
 gebundene/nicht verfügbare Legacy-Vergleiche.
 
-Optionale Modellstrahlung wird außerhalb von Blind Control durch einen
-gemeinsamen Home-Assistant-Core-REST-Abruf bereitgestellt: aktuelles
+Optionale Modellstrahlung wird durch einen isolierten internen Blind-Control-
+Provider mit genau einem gemeinsamen read-only Abruf bereitgestellt: aktuelles
 `direct_normal_irradiance_instant` als direkte und aktuelles
 `diffuse_radiation_instant` als diffuse Strahlung, Modell
-`dwd_icon_seamless`, 15-Minuten-Rhythmus, ohne API-Key. Blind Control bleibt
-reiner Consumer; lokaler Außenlux bleibt zwingende Echtzeitbeobachtung und ein
-fehlender Lux-Trend wird weiterhin intern aus frischen Beobachtungen abgeleitet.
+`dwd_icon_seamless`, 15-Minuten-Rhythmus, ohne API-Key. Konfiguration erfolgt
+vollständig über ConfigFlow/OptionsFlow; YAML, Package, `secrets.yaml`, PV-
+Felder und separate Koordinatenformulare sind ausgeschlossen. Blind Control
+stellt beide Werte zusätzlich als normale read-only Sensorentitäten bereit.
+Explizite externe Bindings haben Vorrang. Lokaler Außenlux bleibt zwingende
+Echtzeitbeobachtung und ein fehlender Lux-Trend wird weiterhin intern aus
+frischen Beobachtungen abgeleitet. Core State und Weather State bleiben
+unverändert; der Provider ist hinter dem Evidence-Adapter austauschbar.

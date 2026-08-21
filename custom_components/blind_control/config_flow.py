@@ -20,11 +20,13 @@ from .config import (
     BlindControlConfig,
 )
 from .const import DOMAIN
+from .open_meteo import OpenMeteoUrlError, suggested_open_meteo_url
 
 
 def _config_schema(
     config: BlindControlConfig | None = None,
     suggestions: BindingSuggestions | None = None,
+    open_meteo_suggestion: str = "",
 ):
     config = config or BlindControlConfig.defaults()
     fields: dict[object, object] = {
@@ -39,6 +41,10 @@ def _config_schema(
             [True, False]
         ),
         vol.Required("apply_enabled", default=config.apply_enabled): vol.In([True, False]),
+        vol.Required(
+            "open_meteo_api_url",
+            default=config.open_meteo_api_url or open_meteo_suggestion,
+        ): selector({"text": {"type": "url"}}),
         vol.Required(
             "observation_freshness_seconds", default=config.observation_freshness_seconds
         ): vol.All(vol.Coerce(float), vol.Range(min=1, max=86400)),
@@ -190,16 +196,31 @@ class BlindControlConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
+        open_meteo_suggestion = _suggested_provider_url(getattr(self, "hass", None))
         suggestions = discover_binding_suggestions(
             getattr(self, "hass", None), BlindControlConfig.defaults()
         )
         if user_input is not None:
             try:
                 config = BlindControlConfig.from_mapping(_mapping_from_form(user_input))
+            except OpenMeteoUrlError:
+                return self.async_show_form(
+                    step_id="user",
+                    data_schema=_config_schema(
+                        suggestions=suggestions,
+                        open_meteo_suggestion=str(
+                            user_input.get("open_meteo_api_url", open_meteo_suggestion)
+                        ),
+                    ),
+                    errors={"open_meteo_api_url": "invalid_open_meteo_url"},
+                )
             except (TypeError, ValueError, KeyError):
                 return self.async_show_form(
                     step_id="user",
-                    data_schema=_config_schema(suggestions=suggestions),
+                    data_schema=_config_schema(
+                        suggestions=suggestions,
+                        open_meteo_suggestion=open_meteo_suggestion,
+                    ),
                     errors={"base": "invalid_configuration"},
                 )
             await self.async_set_unique_id(DOMAIN)
@@ -207,7 +228,11 @@ class BlindControlConfigFlow(ConfigFlow, domain=DOMAIN):
             return self.async_create_entry(title="Blind Control", data=config.to_mapping())
 
         return self.async_show_form(
-            step_id="user", data_schema=_config_schema(suggestions=suggestions)
+            step_id="user",
+            data_schema=_config_schema(
+                suggestions=suggestions,
+                open_meteo_suggestion=open_meteo_suggestion,
+            ),
         )
 
     @staticmethod
@@ -226,16 +251,45 @@ class BlindControlOptionsFlow(OptionsFlow):
             {**getattr(self._entry, "data", {}), **getattr(self._entry, "options", {})}
         )
         suggestions = discover_binding_suggestions(getattr(self, "hass", None), current)
+        open_meteo_suggestion = current.open_meteo_api_url or _suggested_provider_url(
+            getattr(self, "hass", None)
+        )
         if user_input is not None:
             try:
                 config = BlindControlConfig.from_mapping(_mapping_from_form(user_input, current))
+            except OpenMeteoUrlError:
+                return self.async_show_form(
+                    step_id="init",
+                    data_schema=_config_schema(
+                        current,
+                        suggestions,
+                        str(user_input.get("open_meteo_api_url", open_meteo_suggestion)),
+                    ),
+                    errors={"open_meteo_api_url": "invalid_open_meteo_url"},
+                )
             except (TypeError, ValueError, KeyError):
                 return self.async_show_form(
                     step_id="init",
-                    data_schema=_config_schema(current, suggestions),
+                    data_schema=_config_schema(current, suggestions, open_meteo_suggestion),
                     errors={"base": "invalid_configuration"},
                 )
             return self.async_create_entry(title="", data=config.to_mapping())
         return self.async_show_form(
-            step_id="init", data_schema=_config_schema(current, suggestions)
+            step_id="init",
+            data_schema=_config_schema(current, suggestions, open_meteo_suggestion),
         )
+
+
+def _suggested_provider_url(hass: object | None) -> str:
+    """Suggest a private URL only inside the native form, never diagnostics."""
+
+    config = getattr(hass, "config", None)
+    latitude = getattr(config, "latitude", None)
+    longitude = getattr(config, "longitude", None)
+    if latitude is None or longitude is None:
+        return ""
+    return suggested_open_meteo_url(
+        latitude,
+        longitude,
+        getattr(config, "time_zone", "UTC"),
+    )

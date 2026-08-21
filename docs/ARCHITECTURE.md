@@ -207,12 +207,23 @@ Capabilities, verwendete und abgeleitete Evidence, Confidence und tatsächliche
 Quality-Blocker. Nicht frische optionale Evidence blockiert nur dann, wenn die
 verbleibende Kombination insgesamt nicht belastbar ist.
 
-Optionale aktuelle DNI-/Diffus-Evidence folgt dem Zwischenweg
-`Open-Meteo -> Home-Assistant-Core-REST -> zwei Sensoren -> Blind Control`.
-Ein gemeinsamer installationsseitiger Abruf im 15-Minuten-Rhythmus liest die
-beiden `current.*_instant`-Felder des Modells `dwd_icon_seamless`. Standort,
-HTTP und Secret bleiben vollständig beim HA-Installationsrepo. Blind Control
-besitzt keinen Netzwerk-, API-Key-, Forecast-, PV- oder Weather-State-Pfad.
+Optionale aktuelle DNI-/Diffus-Evidence folgt dem gekapselten Pfad
+`Open-Meteo -> interner Blind-Control-Provider -> Evidence-Adapter -> Solar
+Exposure`. Der Provider verwendet die offizielle HA-HTTP-Client-Infrastruktur
+und einen `DataUpdateCoordinator`. Ein gemeinsamer read-only Abruf im
+15-Minuten-Rhythmus liest die beiden `current.*_instant`-Felder des Modells
+`dwd_icon_seamless`; die letzte erfolgreiche Evidence ist höchstens 1200
+Sekunden nutzbar. Derselbe Datensatz speist zwei native Sensorentitäten am
+Blind-Control-Gerät.
+
+Die URL ist private ConfigEntry-/OptionsFlow-Konfiguration und wird nicht in
+Snapshot, WebSocket, Sensorattributen oder Logs veröffentlicht. Externe
+Bindings überschreiben je Feld den internen Provider. Hinter dieser Precedence
+bleibt die Solar-Engine providerneutral, sodass Core Contracts den Provider
+später übernehmen kann. Es gibt keine YAML-/Package-/Secret-Konfiguration,
+keinen API-Key-, PV-, Forecast- oder Weather-State-Pfad und keine Änderung an
+Core State. Unload und Options-Reload beenden Coordinator, Listener und Timer,
+bevor genau eine neue Runtime aufgebaut wird.
 
 Die Panel-Draft-Grenze verwendet `$state.snapshot` und eine rekursive
 JSON-Entkopplung. Dadurch erreicht kein Svelte-5-Proxy `structuredClone`; Dirty

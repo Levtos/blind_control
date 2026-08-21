@@ -6,7 +6,9 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-CONFIG_VERSION = 2
+from .open_meteo import normalize_open_meteo_url
+
+CONFIG_VERSION = 3
 
 BINDING_INTENT_BOUND = "bound"
 BINDING_INTENT_EMPTY = "intentionally_empty"
@@ -430,6 +432,7 @@ class BlindControlConfig:
     axis_inverted: bool = False
     automation_enabled: bool = True
     apply_enabled: bool = True
+    open_meteo_api_url: str = ""
     opening_safety_polarity: str = "unspecified"
     input_bindings: tuple[tuple[str, str], ...] = ()
     legacy_bindings: tuple[tuple[str, str], ...] = ()
@@ -574,6 +577,11 @@ class BlindControlConfig:
             axis_inverted=_bool(raw.get("axis_inverted", False), "axis_inverted"),
             automation_enabled=_bool(raw.get("automation_enabled", True), "automation_enabled"),
             apply_enabled=_bool(raw.get("apply_enabled", True), "apply_enabled"),
+            open_meteo_api_url=(
+                normalize_open_meteo_url(raw["open_meteo_api_url"])
+                if raw.get("open_meteo_api_url")
+                else ""
+            ),
             opening_safety_polarity=str(raw.get("opening_safety_polarity", "unspecified")),
             input_bindings=_bindings(
                 raw.get("input_bindings", raw.get("bindings")),
@@ -620,6 +628,7 @@ class BlindControlConfig:
             "axis_inverted": self.axis_inverted,
             "automation_enabled": self.automation_enabled,
             "apply_enabled": self.apply_enabled,
+            "open_meteo_api_url": self.open_meteo_api_url,
             "opening_safety_polarity": self.opening_safety_polarity,
             "input_bindings": dict(self.input_bindings),
             "legacy_bindings": dict(self.legacy_bindings),
@@ -679,4 +688,10 @@ def binding_status(config: BlindControlConfig, key: str, *, legacy: bool = False
         if config.opening_safety_polarity == "unspecified":
             return "conditional_unresolved"
         return "conditional_resolved"
+    if key in {"expected_direct_radiation", "expected_diffuse_radiation"}:
+        if configured:
+            return "external_override_active"
+        if config.open_meteo_api_url:
+            return "internal_provider_active"
+        return "provider_unavailable"
     return "optional_bound" if configured else "optional_intentionally_empty"

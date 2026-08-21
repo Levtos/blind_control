@@ -23,6 +23,7 @@ from custom_components.blind_control.contracts import (  # noqa: E402
 )
 from custom_components.blind_control.cooldown import CooldownTracker  # noqa: E402
 from custom_components.blind_control.engine import DecisionEngine  # noqa: E402
+from custom_components.blind_control.open_meteo import suggested_open_meteo_url  # noqa: E402
 from custom_components.blind_control.shadow import ShadowRuntime  # noqa: E402
 from custom_components.blind_control.shadow_diff import DiffClassification  # noqa: E402
 from custom_components.blind_control.solar import calculate_solar_exposure  # noqa: E402
@@ -114,6 +115,42 @@ class DecisionEngineTests(unittest.TestCase):
                 "requirement"
             ],
             "required",
+        )
+
+    def test_ux_distinguishes_internal_provider_external_override_and_unavailable(self) -> None:
+        snapshot = ShadowRuntime().evaluate(ready_inputs(), now=0)
+        configured = BlindControlConfig.from_mapping(
+            {"open_meteo_api_url": suggested_open_meteo_url(50, 8)}
+        )
+
+        def radiation_status(projection, key):
+            solar = next(
+                group
+                for group in projection["settings"]["binding_groups"]
+                if group["key"] == "solar_bindings"
+            )
+            return next(field for field in solar["fields"] if field["key"] == key)["status"]
+
+        ready = build_ux_snapshot(snapshot, configured, provider_status="ready")
+        self.assertEqual(
+            radiation_status(ready, "expected_direct_radiation"),
+            "internal_provider_active",
+        )
+        unavailable = build_ux_snapshot(snapshot, configured, provider_status="unavailable")
+        self.assertEqual(
+            radiation_status(unavailable, "expected_direct_radiation"),
+            "provider_unavailable",
+        )
+        external = BlindControlConfig.from_mapping(
+            {
+                **configured.to_mapping(),
+                "input_bindings": {"expected_direct_radiation": "sensor.external_contract"},
+            }
+        )
+        projected = build_ux_snapshot(snapshot, external, provider_status="unavailable")
+        self.assertEqual(
+            radiation_status(projected, "expected_direct_radiation"),
+            "external_override_active",
         )
 
     def test_missing_inputs_never_fall_silently_to_open(self) -> None:
