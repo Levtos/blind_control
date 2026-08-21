@@ -87,6 +87,15 @@
     safe_position: 'Safety-Position',
     safety_ready: 'Safety bereit',
     shadow_ready: 'Shadow bereit',
+    required_resolved: 'Pflicht aufgelöst',
+    required_unresolved: 'Pflicht nicht aufgelöst',
+    conditional_resolved: 'Bedingt aufgelöst',
+    conditional_unresolved: 'Bedingt nicht aufgelöst',
+    conditional_not_applicable: 'Nicht erforderlich',
+    optional_bound: 'Optional gebunden',
+    optional_intentionally_empty: 'Bewusst leer',
+    legacy_bound: 'Legacy gebunden',
+    legacy_not_available: 'Legacy nicht verfügbar',
   };
 
   const labelFor = (value: string | null | undefined): string => {
@@ -119,6 +128,12 @@
     if (value === 'failure' || value === 'error' || value === 'unavailable') return 'error';
     if (value === 'blocked' || value === 'manual' || value === 'holding_safe_position') return 'warning';
     return 'warning';
+  };
+
+  const bindingStatusTone = (value: string): string => {
+    if (value === 'required_unresolved' || value === 'conditional_unresolved') return 'warning';
+    if (value === 'required_resolved' || value === 'conditional_resolved' || value === 'optional_bound' || value === 'legacy_bound') return 'ready';
+    return 'muted';
   };
 
   const householdLabel = (value: boolean | null): string =>
@@ -438,7 +453,7 @@
               {#each group.fields as field}
                 <div class="binding-row">
                   <strong>{labelFor(field.key)}</strong>
-                  <span class={field.configured ? 'ready' : 'warning'}>{field.configured ? 'konfiguriert' : 'nicht konfiguriert'}</span>
+                  <span class={bindingStatusTone(field.status)}>{labelFor(field.status)}</span>
                   <small>{field.requirement === 'required' ? 'Pflicht' : field.requirement === 'conditional' ? 'bedingt erforderlich' : 'optional'} · {field.owner} · {field.max_age_seconds === null ? 'stateful' : `${field.max_age_seconds} s`} · {field.require_timestamp ? 'Zeitbeleg erforderlich' : 'kein Zeitbeleg erforderlich'}</small>
                 </div>
               {/each}

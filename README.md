@@ -52,7 +52,11 @@ this AP2 follow-up is a Draft PR only.
   trend, model radiation and cloud evidence remain capability-aware additions
 - native OptionsFlow Entity Selectors grouped for Core State,
   Opening/Safety/Cover, Solar, Temperature/Weather and Legacy comparison;
-  the panel shows redacted configured/not-configured status only
+  contract-based installation-local suggestions preserve user choices and
+  intentionally empty optional slots; the panel shows only redacted readiness
+  states for the exact 88-field contract
+- optional current DNI/diffuse model evidence comes from one installation-side
+  Home Assistant Core REST request; Blind Control contains no weather API client
 - field-specific Core-State Presence/Activity/Day adapters, explicit Opening
   polarity, and standard-cover availability/current-position handling
 - HA 2026.8 `async_reload(entry_id)` lifecycle and Svelte-5-proxy-safe draft

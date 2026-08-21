@@ -34,9 +34,10 @@ class _FakeSelector:
 
 
 class _SchemaKey:
-    def __init__(self, key, required):
+    def __init__(self, key, required, options=None):
         self.key = key
         self.required = required
+        self.options = options or {}
 
     def __hash__(self):
         return hash(self.key)
@@ -56,12 +57,12 @@ class _FakeVoluptuous(types.ModuleType):
     Schema = _FakeSchema
 
     @staticmethod
-    def Required(key, **_kwargs):
-        return _SchemaKey(key, "required")
+    def Required(key, **kwargs):
+        return _SchemaKey(key, "required", kwargs)
 
     @staticmethod
-    def Optional(key, **_kwargs):
-        return _SchemaKey(key, "optional")
+    def Optional(key, **kwargs):
+        return _SchemaKey(key, "optional", kwargs)
 
     @staticmethod
     def Coerce(value):
@@ -317,6 +318,13 @@ def _schema_value(schema: _FakeSchema, key: str):
     for schema_key, value in schema.schema.items():
         if getattr(schema_key, "key", schema_key) == key:
             return value
+    raise KeyError(key)
+
+
+def _schema_key(schema: _FakeSchema, key: str):
+    for schema_key in schema.schema:
+        if getattr(schema_key, "key", schema_key) == key:
+            return schema_key
     raise KeyError(key)
 
 
@@ -663,10 +671,24 @@ class BootstrapTests(unittest.TestCase):
             )
             self.assertEqual(binding_write.errors[0][1], "invalid_options")
             self.assertEqual(len(hass.config_entries.updates), 1)
+            intent_write = _FakeConnection(is_admin=True)
+            asyncio.run(
+                update_handler(
+                    hass,
+                    intent_write,
+                    {
+                        "id": 5,
+                        "entry_id": "entry-1",
+                        "options": {"binding_intents": {"activity_state": "intentionally_empty"}},
+                    },
+                )
+            )
+            self.assertEqual(intent_write.errors[0][1], "invalid_options")
+            self.assertEqual(len(hass.config_entries.updates), 1)
 
             read_only = _FakeConnection(is_admin=True)
-            asyncio.run(get_handler(hass, read_only, {"id": 5, "entry_id": "entry-1"}))
-            self.assertEqual(read_only.results[0][0], 5)
+            asyncio.run(get_handler(hass, read_only, {"id": 6, "entry_id": "entry-1"}))
+            self.assertEqual(read_only.results[0][0], 6)
             projection = read_only.results[0][1]
             self.assertEqual(projection["version"], "blind_control.ux.v2")
             serialized = json.dumps(projection)
@@ -707,6 +729,31 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(
                 polarity_selector.config["select"]["translation_key"],
                 "opening_safety_polarity",
+            )
+            visible_fields = sum(
+                len(value.schema.schema) if isinstance(value, _FakeSection) else 1
+                for value in form["data_schema"].schema.values()
+            )
+            self.assertEqual(visible_fields, 88)
+
+            suggested_schema = loaded._config_schema(
+                suggestions=loaded.BindingSuggestions(
+                    {"bio_state": "sensor.contract_bio"},
+                    {"active_mode": "sensor.contract_legacy"},
+                    "negative_unsafe",
+                )
+            )
+            suggested_core = _schema_value(suggested_schema, "core_state_bindings")
+            self.assertEqual(
+                _schema_key(suggested_core.schema, "bio_state").options["description"][
+                    "suggested_value"
+                ],
+                "sensor.contract_bio",
+            )
+            suggested_opening = _schema_value(suggested_schema, "opening_safety_cover_bindings")
+            self.assertEqual(
+                _schema_key(suggested_opening.schema, "opening_safety_polarity").options["default"],
+                "negative_unsafe",
             )
 
             from custom_components.blind_control.config import BlindControlConfig
@@ -757,6 +804,7 @@ class BootstrapTests(unittest.TestCase):
                 {"core_state_bindings": {"bio_state": ""}}, existing
             )
             self.assertNotIn("bio_state", cleared["input_bindings"])
+            self.assertEqual(cleared["binding_intents"]["bio_state"], "intentionally_empty")
             options_flow = loaded.BlindControlOptionsFlow(
                 _FakeConfigEntry("entry-1", data=result["data"])
             )

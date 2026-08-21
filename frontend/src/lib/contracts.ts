@@ -65,6 +65,16 @@ export type BindingField = BindingFreshness & {
   key: string;
   configured: boolean;
   requirement: 'required' | 'conditional' | 'optional';
+  status:
+    | 'required_resolved'
+    | 'required_unresolved'
+    | 'conditional_resolved'
+    | 'conditional_unresolved'
+    | 'conditional_not_applicable'
+    | 'optional_bound'
+    | 'optional_intentionally_empty'
+    | 'legacy_bound'
+    | 'legacy_not_available';
 };
 
 export type BindingGroup = {

@@ -2,6 +2,11 @@
 
 **Dokumentversion:** 0.1.0
 
+> Die Abschnitte 1 bis 5 konservieren die historische AP1-Inventur und ihre
+> damaligen offenen Punkte. Für AP2-Laufzeit und Installation ist ausschließlich
+> der redigierte Contract ab Abschnitt 6, insbesondere 7.3, maßgeblich; die
+> historischen IDs sind keine Suggestions oder Defaults.
+
 Diese Matrix bindet keine produktive ConfigEntry. Evidence-Matrix,
 historische Entity-IDs und Live-Snapshots sind keine automatische
 Aktivierungsfreigabe. Ein Feld ohne Owner-/Freshness-Nachweis bleibt
@@ -137,6 +142,11 @@ Telemetrie und die Coverposition verwenden eine eigene Maximalalter-Policy und
 benötigen die geforderte Timestamp-Evidence. Fehlende erforderliche Zeit-
 Evidence bleibt `stale`. Jede Bindung führt Owner, `max_age_seconds` und
 `require_timestamp` im effektiven Options-/UX-Contract.
+Publizierte Owner-Qualität (`quality_status`, `quality`, `source_quality`,
+`fresh`, `degraded`) wird vor der HA-Zeitprüfung ausgewertet; ein aktueller
+HA-Zeitstempel kann deshalb ein degradiertes Owner-Signal nicht gesund machen.
+Die feldspezifischen Defaultfenster entsprechen den realen Owner-Kadenzen und
+können weiterhin pro Binding explizit kalibriert werden.
 
 `activity_state = none` ist der blind-spezifische, aus Core State abgeleitete
 Inaktivitätswert. `music` mit `pc_active=true` wird `pc`; `gaming` mit einer
@@ -207,8 +217,9 @@ Opening/Safety/Cover, Solar, Temperatur/Wetter und Legacy-Vergleich. Leere
 optionale Werte werden beim Persistieren entfernt. Der WebSocket-Optionspfad
 ist admin-geschützt, akzeptiert aber keine Binding-Mappings; dafür ist allein
 der OptionsFlow zuständig. Die Panel-Projektion enthält für jedes Feld nur
-`configured`, `requirement`, Gruppen-Readiness, `owner`, `max_age_seconds` und
-`require_timestamp`. `opening_safety_polarity` ist `unspecified`,
+`configured`, `requirement`, den unten definierten Binding-`status`,
+Gruppen-Readiness, `owner`, `max_age_seconds` und `require_timestamp`.
+`opening_safety_polarity` ist `unspecified`,
 `positive_safe` oder `negative_unsafe`; nur die beiden expliziten Polaritäten
 dürfen ein Kipp-Safety-Signal auswerten.
 
@@ -231,3 +242,61 @@ redigierte Contract liegt in den Attributen. Sie erhält nur einen stabilen
 Unique-ID-Suffix aus der ConfigEntry-Instanz, keine vorab erfundene Entity-ID,
 und besitzt weder Service noch Write-/Coverpfad. WebSocket, Panel und Sensor
 verwenden dieselbe redigierte Projektion.
+
+### 7.3 AP2-Installations- und Suggestion-Contract
+
+Der OptionsFlow hat exakt 88 sichtbare Felder: 23 allgemeine Defaults, 32
+Positionsdefaults, 28 aktuelle Input-Bindings, vier optionale Legacy-Bindings
+und eine Opening-Safety-Polarität. Die 55 Defaultfelder sind keine
+Entity-Zuordnungen. Eine kleine installationslokale Discovery darf vorhandene
+HA-States anhand publizierter Attribute und Source-Referenzen als
+`suggested_value` anbieten. Sie ist keine Registry und persistiert keine zweite
+Owner-Wahrheit. Reihenfolge: gespeicherte Nutzerwahl vor bewusst leerem Slot
+vor neuem Contract-Vorschlag. Entity-IDs verlassen Config-/OptionsFlow nicht.
+
+Statuswerte sind `required_resolved`, `required_unresolved`,
+`conditional_resolved`, `conditional_unresolved`,
+`conditional_not_applicable`, `optional_bound`,
+`optional_intentionally_empty`, `legacy_bound` und
+`legacy_not_available`.
+
+| Feld | Klasse | Owner-/Wertvertrag | Einheit | Default-Freshness |
+| --- | --- | --- | --- | --- |
+| `bio_state` | required automatic | Core State, kanonischer Bio-State | Zustand | stateful, Owner-Quality |
+| `activity_state` | required automatic | Core State plus blind-spezifischer Glare-Adapter | `none|screen|pc|tv` | stateful, Owner-Quality |
+| `day_state` | required automatic | Core State, neun kanonische Phasen | Zustand | stateful, Owner-Quality |
+| `day_context` | required automatic | Core State; `werktag|wochenende|frei` wird kanonisch adaptiert | Zustand | stateful, Owner-Quality |
+| `away` | required automatic | Core State Presence; `away_gate` hat Vorrang | boolean, `true` = abwesend | stateful, Owner-Quality |
+| `private_time` | required automatic | Core State Activity/Private-Attribut | boolean | stateful, Owner-Quality |
+| `privacy` | required automatic | bestehender Privacy-Owner/-Kandidat | boolean | stateful, Owner-Quality |
+| `outdoor_lux` | required automatic | lokaler normalisierter Außenlux | lx | 900 s, Timestamp plus Owner-Quality |
+| `sun_elevation` | required automatic | geeigneter Sun2-State oder Standard-Sun-Attribut | Grad | 900 s, Timestamp erforderlich |
+| `sun_azimuth` | required automatic | geeigneter Sun2-State oder Standard-Sun-Attribut | Grad | 900 s, Timestamp erforderlich |
+| `indoor_temperature` | required automatic | bestehender Climate-Owner, `temperature` oder numerischer State | °C | 1800 s, Timestamp plus Owner-Quality |
+| `outdoor_temperature` | required automatic | bestehender Weather-/Umwelt-Owner | °C | 1800 s, Timestamp plus Owner-Quality |
+| `opening_state` | required technical | Opening Domain Owner, `closed|open|tilted` | Zustand | Timestamp erforderlich, nicht altersbegrenzt |
+| `cover_available` | required technical | Standard-Cover-HA-Verfügbarkeit; `open|closed` sind verfügbar | boolean | Timestamp erforderlich, nicht altersbegrenzt |
+| `cover_ready` | required technical | bestehender technischer Readiness-Owner | boolean | Timestamp erforderlich, nicht altersbegrenzt |
+| `cover_position` | required technical | Standard-Cover `current_position` | % | 120 s, Source- oder HA-Timestamp |
+| `opening_safe_for_blind` | conditional | Opening-Safety-Owner; nur mit expliziter positiver oder negativer Polarität | boolean safe | Timestamp erforderlich, nicht altersbegrenzt |
+| `lux_trend` | optional | eigener Owner oder intern aus zwei frischen Luxpunkten abgeleitet | lx/Beobachtung | 900 s bei Binding |
+| `expected_direct_radiation` | optional | HA-Core-REST-Projektion von `current.direct_normal_irradiance_instant` | W/m² | 1200 s bei Binding |
+| `expected_diffuse_radiation` | optional | HA-Core-REST-Projektion von `current.diffuse_radiation_instant` | W/m² | 1200 s bei Binding |
+| `cloud_cover` | optional | bestehender Weather-/Umwelt-Owner | % | 1800 s bei Binding |
+| `indoor_temperature_trend` | optional | vorhandener Owner, sonst leer | °C/Trend | 1800 s bei Binding |
+| `outdoor_temperature_trend` | optional | vorhandener Owner, sonst leer | °C/Trend | 1800 s bei Binding |
+| `weather_alert` | optional | vorhandener Owner, sonst leer | boolean | 1800 s bei Binding |
+| `precipitation_trend` | optional | vorhandener Owner, sonst leer | Owner-Einheit | 1800 s bei Binding |
+| `wind_trend` | optional | vorhandener Owner, sonst leer | Owner-Einheit | 1800 s bei Binding |
+| `pressure_trend` | optional | vorhandener Owner, sonst leer | Owner-Einheit | 1800 s bei Binding |
+| `air_movement` | optional | vorhandener Owner, sonst leer | boolean | 1800 s bei Binding |
+| `active_mode` | legacy optional | alte Policy-Diagnose | Zustand | 120 s, Timestamp erforderlich |
+| `effective_target` | legacy optional | alte Policy-Diagnose | % | 120 s, Timestamp erforderlich |
+| `safety_status` | legacy optional | alte Policy-Diagnose/Blockerprojektion | Zustand | 120 s, Timestamp erforderlich |
+| `apply_status` | legacy optional | alte Policy-Diagnose/Applyprojektion | Zustand | 120 s, Timestamp erforderlich |
+
+Die beiden Modellstrahlungswerte entstehen installationsseitig durch einen
+gemeinsamen Home-Assistant-Core-REST-Abruf. Blind Control enthält weder
+Open-Meteo-Client noch API-Key-, Forecast-, PV- oder Standortlogik. Der
+vollständige koordinatenfreie Vertrag steht in
+[OPEN_METEO_REST.md](OPEN_METEO_REST.md).

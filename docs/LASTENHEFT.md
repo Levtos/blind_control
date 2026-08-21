@@ -795,7 +795,7 @@ Restore-Evidence bleibt degradiert und kann keinen Override begründen.
 
 ### 28.5 Bindings und stabile Diagnoseprojektion
 
-Optionale Owner-Bindings werden ausschließlich in den nativen
+Owner-Bindings werden ausschließlich in den nativen
 Home-Assistant-Entity-Selectoren des OptionsFlow bearbeitet und fachlich
 gruppiert: Core State, Opening/Safety/Cover, Solar, Temperatur/Wetter und
 Legacy-Vergleich. Leere Slots sind nicht konfiguriert und werden weder als
@@ -813,3 +813,26 @@ der Mastermodus, die genannten Werte sind stabile Attribute. Die
 Integrationsinstanz bestimmt die Entity-ID selbst; weder Produktcode noch
 Dokumentation tragen eine installationsspezifische ID vor. Es gibt keine
 Services, keine Steuerung und keine Entity-Flut.
+
+Der AP2-OptionsFlow umfasst exakt 88 sichtbare Felder: 55 bereits mit Defaults
+versehene allgemeine/Positionswerte, 28 aktuelle Input-Bindings, vier optionale
+Legacy-Vergleichsbindings und eine explizite Opening-Safety-Polarität. Von den
+28 Inputs sind zwölf fachlich und vier technisch zwingend, ein Safety-Signal
+ist bedingt und elf Evidence-Signale sind optional. Fehlende optionale Trends
+oder Modellstrahlung sind bewusst leer und allein kein Failure-Grund.
+
+Eine kleine installationslokale Suggestion darf vorhandene Owner über ihre
+publizierten Contracts vorfüllen. Sie ist keine zentrale Binding Registry,
+enthält keine festen Installations-IDs und überschreibt weder eine gespeicherte
+Nutzerwahl noch einen bewusst geleerten Slot. Der Panelstatus unterscheidet
+aufgelöste/nicht aufgelöste Pflichtfelder, aufgelöste/nicht anwendbare
+Conditional-Felder, gebundene/bewusst leere Optionals und
+gebundene/nicht verfügbare Legacy-Vergleiche.
+
+Optionale Modellstrahlung wird außerhalb von Blind Control durch einen
+gemeinsamen Home-Assistant-Core-REST-Abruf bereitgestellt: aktuelles
+`direct_normal_irradiance_instant` als direkte und aktuelles
+`diffuse_radiation_instant` als diffuse Strahlung, Modell
+`dwd_icon_seamless`, 15-Minuten-Rhythmus, ohne API-Key. Blind Control bleibt
+reiner Consumer; lokaler Außenlux bleibt zwingende Echtzeitbeobachtung und ein
+fehlender Lux-Trend wird weiterhin intern aus frischen Beobachtungen abgeleitet.

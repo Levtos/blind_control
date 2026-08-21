@@ -163,8 +163,12 @@ allein den admin-geschützten Snapshot-Contract. Sie zeigt den fachlichen Baum
 und die technische Ebene getrennt. Binding-Bearbeitung bleibt im nativen
 OptionsFlow mit Entity-Selectoren und den Gruppen Core State,
 Opening/Safety/Cover, Solar, Temperatur/Wetter und Legacy-Vergleich; die
-öffentliche Projektion enthält nur `configured` und die Owner-/Freshness-Policy,
-nie Entity-IDs.
+öffentliche Projektion enthält nur Status und Owner-/Freshness-Policy, nie
+Entity-IDs. Eine kleine installierte-State-Discovery liefert ausschließlich
+OptionsFlow-`suggested_value`s anhand publizierter Contractattribute und
+Source-Referenzen. Sie ist keine Registry: gespeicherte Nutzerwerte und
+bewusst leere Slots haben Vorrang, und die Engine konsumiert weiterhin nur die
+tatsächlich persistierten Bindings.
 
 `blind_control.automation_projection.v1` ist bewusst klein: Mastermodus,
 aktive Kategorie/-variante, Failure-Status/-Grund/-Blocker, fachliches und
@@ -202,6 +206,13 @@ Confidence-Evidence. `SolarExposure` projiziert vorhandene und fehlende
 Capabilities, verwendete und abgeleitete Evidence, Confidence und tatsächliche
 Quality-Blocker. Nicht frische optionale Evidence blockiert nur dann, wenn die
 verbleibende Kombination insgesamt nicht belastbar ist.
+
+Optionale aktuelle DNI-/Diffus-Evidence folgt dem Zwischenweg
+`Open-Meteo -> Home-Assistant-Core-REST -> zwei Sensoren -> Blind Control`.
+Ein gemeinsamer installationsseitiger Abruf im 15-Minuten-Rhythmus liest die
+beiden `current.*_instant`-Felder des Modells `dwd_icon_seamless`. Standort,
+HTTP und Secret bleiben vollständig beim HA-Installationsrepo. Blind Control
+besitzt keinen Netzwerk-, API-Key-, Forecast-, PV- oder Weather-State-Pfad.
 
 Die Panel-Draft-Grenze verwendet `$state.snapshot` und eine rekursive
 JSON-Entkopplung. Dadurch erreicht kein Svelte-5-Proxy `structuredClone`; Dirty

@@ -8,6 +8,10 @@ from dataclasses import dataclass
 
 CONFIG_VERSION = 2
 
+BINDING_INTENT_BOUND = "bound"
+BINDING_INTENT_EMPTY = "intentionally_empty"
+BINDING_INTENTS = frozenset({BINDING_INTENT_BOUND, BINDING_INTENT_EMPTY})
+
 OPENING_SAFETY_POLARITIES = (
     "unspecified",
     "positive_safe",
@@ -178,8 +182,32 @@ _BINDING_OWNER_BY_KEY = {
         },
         "weather_environment",
     ),
+    "privacy": "privacy_owner",
+    "opening_state": "opening_owner",
+    "opening_safe_for_blind": "opening_owner",
+    "cover_available": "cover_device",
+    "cover_position": "cover_device",
+    "cover_ready": "technical_readiness",
 }
 _ENTITY_ID = re.compile(r"^[a-z][a-z0-9_]*\.[a-z0-9_]+$")
+_FIELD_FRESHNESS_FLOORS = {
+    "outdoor_lux": 900.0,
+    "lux_trend": 900.0,
+    "sun_elevation": 900.0,
+    "sun_azimuth": 900.0,
+    "expected_direct_radiation": 1200.0,
+    "expected_diffuse_radiation": 1200.0,
+    "cloud_cover": 1800.0,
+    "indoor_temperature": 1800.0,
+    "outdoor_temperature": 1800.0,
+    "indoor_temperature_trend": 1800.0,
+    "outdoor_temperature_trend": 1800.0,
+    "weather_alert": 1800.0,
+    "precipitation_trend": 1800.0,
+    "wind_trend": 1800.0,
+    "pressure_trend": 1800.0,
+    "air_movement": 1800.0,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -226,7 +254,11 @@ def default_binding_freshness(
         return BindingFreshness(None, False, owner)
     if key in SAFETY_STATE_BINDING_KEYS:
         return BindingFreshness(None, True, owner)
-    return BindingFreshness(freshness_seconds, True, owner)
+    return BindingFreshness(
+        max(freshness_seconds, _FIELD_FRESHNESS_FLOORS.get(key, freshness_seconds)),
+        True,
+        owner,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -329,6 +361,23 @@ def _bindings(
     return tuple(sorted(result))
 
 
+def _binding_intents(value: object) -> tuple[tuple[str, str], ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, Mapping):
+        raise ValueError("binding_intents must be a mapping")
+    allowed = set(INPUT_BINDING_KEYS) | set(LEGACY_BINDING_KEYS)
+    result: list[tuple[str, str]] = []
+    for key, raw_intent in value.items():
+        if key not in allowed:
+            raise ValueError(f"unknown binding_intents key: {key}")
+        intent = str(raw_intent)
+        if intent not in BINDING_INTENTS:
+            raise ValueError(f"unsupported binding_intents value for {key}")
+        result.append((key, intent))
+    return tuple(sorted(result))
+
+
 def _binding_freshness(
     value: object, freshness_seconds: float
 ) -> tuple[tuple[str, BindingFreshness], ...]:
@@ -384,6 +433,7 @@ class BlindControlConfig:
     opening_safety_polarity: str = "unspecified"
     input_bindings: tuple[tuple[str, str], ...] = ()
     legacy_bindings: tuple[tuple[str, str], ...] = ()
+    binding_intents: tuple[tuple[str, str], ...] = ()
     observation_freshness_seconds: float = 120.0
     binding_freshness: tuple[tuple[str, BindingFreshness], ...] = ()
 
@@ -443,6 +493,9 @@ class BlindControlConfig:
         if self.opening_safety_polarity not in OPENING_SAFETY_POLARITIES:
             raise ValueError("opening_safety_polarity is not supported")
         allowed = set(INPUT_BINDING_KEYS) | set(LEGACY_BINDING_KEYS)
+        for key, intent in self.binding_intents:
+            if key not in allowed or intent not in BINDING_INTENTS:
+                raise ValueError("binding_intents contains an invalid field intent")
         for key, policy in self.binding_freshness:
             if key not in allowed or not isinstance(policy, BindingFreshness):
                 raise ValueError("binding_freshness contains an invalid field policy")
@@ -532,6 +585,7 @@ class BlindControlConfig:
                 name="legacy_bindings",
                 allowed=LEGACY_BINDING_KEYS,
             ),
+            binding_intents=_binding_intents(raw.get("binding_intents")),
             observation_freshness_seconds=observation_freshness_seconds,
             binding_freshness=_binding_freshness(
                 raw.get("binding_freshness"), observation_freshness_seconds
@@ -569,6 +623,7 @@ class BlindControlConfig:
             "opening_safety_polarity": self.opening_safety_polarity,
             "input_bindings": dict(self.input_bindings),
             "legacy_bindings": dict(self.legacy_bindings),
+            "binding_intents": dict(self.binding_intents),
             "observation_freshness_seconds": self.observation_freshness_seconds,
             "binding_freshness": self.binding_freshness_mapping(),
             "heat_outdoor_threshold": self.heat_outdoor_threshold,
@@ -607,3 +662,21 @@ def binding_requirement(key: str, *, legacy: bool = False) -> str:
     if key in CONDITIONAL_BINDING_KEYS:
         return "conditional"
     return "optional"
+
+
+def binding_status(config: BlindControlConfig, key: str, *, legacy: bool = False) -> str:
+    """Return the installability state without exposing the selected entity ID."""
+
+    bindings = dict(config.legacy_bindings if legacy else config.input_bindings)
+    configured = key in bindings
+    if legacy:
+        return "legacy_bound" if configured else "legacy_not_available"
+    if key in MANDATORY_AUTOMATIC_BINDING_KEYS | MANDATORY_TECHNICAL_BINDING_KEYS:
+        return "required_resolved" if configured else "required_unresolved"
+    if key in CONDITIONAL_BINDING_KEYS:
+        if not configured:
+            return "conditional_not_applicable"
+        if config.opening_safety_polarity == "unspecified":
+            return "conditional_unresolved"
+        return "conditional_resolved"
+    return "optional_bound" if configured else "optional_intentionally_empty"

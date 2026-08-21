@@ -57,6 +57,11 @@ Day Context, Away, Private Time, Privacy sowie Innen-/Außentemperatur. Für ein
 Tageslicht-Solarentscheidung sind Sonnenhöhe, Sonnenazimut und Außenlux die
 zwingende Kombination.
 
+Technisch zwingend sind Opening State, Cover Availability, technische
+Cover-Readiness und Coverposition. `opening_safe_for_blind` ist bedingt: ohne
+benötigte Kipp-Safety darf es `not applicable` bleiben, mit Binding ist eine
+explizite Signalpolarität zwingend.
+
 Lux-Trend, direkte/diffuse Modellstrahlung und Bewölkung sind optionale oder
 ersetzbare Evidence. Ein ungebundener Lux-Trend wird aus zwei verschiedenen
 frischen Luxbeobachtungen abgeleitet. Optionale Evidence erhöht Confidence und
@@ -94,3 +99,9 @@ Optionen neu auf. Das Panel entkoppelt Svelte-5-Proxies mit `$state.snapshot`
 und einer JSON-förmigen Kopie. Polls überschreiben Dirty Drafts nicht;
 Save-Fehler behalten lokale Änderungen, Save-Erfolg synchronisiert mit dem
 bestätigten Serverstand.
+
+Die OptionsFlow-Suggestion ist installationslokal und contract-basiert. Sie
+ändert keine Runtime-Bindings, bevor Benni den Flow speichert, überschreibt
+keine Nutzerwahl und respektiert bewusst leere optionale Slots. Modell-DNI und
+diffuse Strahlung kommen optional aus zwei HA-Sensoren eines gemeinsamen
+HA-Core-REST-Abrufs; Blind Control besitzt keinen Wetter-HTTP-Client.

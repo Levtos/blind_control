@@ -30,6 +30,20 @@ class BoundaryTests(unittest.TestCase):
             for token in forbidden:
                 self.assertNotIn(token, source, f"{token} in {path}")
 
+    def test_blind_control_has_no_weather_api_or_pv_client_contract(self) -> None:
+        product_source = "\n".join(
+            path.read_text(encoding="utf-8") for path in PACKAGE.rglob("*.py")
+        ).lower()
+        for forbidden in (
+            "api.open-meteo.com",
+            "dwd_icon_seamless",
+            "aiohttp",
+            "api_key",
+            "photovoltaic",
+            "pv_array",
+        ):
+            self.assertNotIn(forbidden, product_source)
+
     def test_only_read_only_sensor_platform_is_forwarded(self) -> None:
         source = (PACKAGE / "__init__.py").read_text(encoding="utf-8")
         sensor = (PACKAGE / "sensor.py").read_text(encoding="utf-8")

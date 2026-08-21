@@ -29,6 +29,7 @@ class DocumentationTests(unittest.TestCase):
             "MIGRATION.md",
             "AP2_SHADOW.md",
             "STATUS_MODEL.md",
+            "OPEN_METEO_REST.md",
         ):
             self.assertTrue((DOCS / filename).is_file(), filename)
 
@@ -311,7 +312,7 @@ class DocumentationTests(unittest.TestCase):
         for term in (
             "Native Entity-Selectoren",
             "binding_groups",
-            "nicht konfiguriert",
+            "optional_intentionally_empty",
             "FACHLICHER ENTSCHEIDUNGSBAUM",
             "TECHNISCHE EBENE",
             "HAUSHALT & KONTEXT",
@@ -324,6 +325,19 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("section(", config_flow)
         self.assertIn('getattr(self.hass, "add_job"', coordinator)
         self.assertIn("_schedule_refresh_in_event_loop", coordinator)
+
+    def test_open_meteo_rest_contract_uses_one_current_request_for_two_values(self) -> None:
+        contract = (DOCS / "OPEN_METEO_REST.md").read_text(encoding="utf-8")
+
+        self.assertEqual(contract.count("resource: !secret blind_control_open_meteo_url"), 1)
+        self.assertEqual(contract.count("- name: <lokaler"), 2)
+        self.assertIn("current.direct_normal_irradiance_instant", contract)
+        self.assertIn("current.diffuse_radiation_instant", contract)
+        self.assertIn("dwd_icon_seamless", contract)
+        self.assertIn("scan_interval: 900", contract)
+        self.assertNotRegex(contract, r"latitude=\d")
+        self.assertNotRegex(contract, r"longitude=\d")
+        self.assertNotIn("hourly:", contract)
 
 
 if __name__ == "__main__":

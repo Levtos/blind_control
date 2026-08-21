@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .config import BINDING_GROUPS, BlindControlConfig, binding_requirement
+from .config import BINDING_GROUPS, BlindControlConfig, binding_requirement, binding_status
 from .contracts import redact_diagnostic_value
 from .shadow import ShadowSnapshot
 
@@ -185,6 +185,7 @@ def _binding_groups(config: BlindControlConfig) -> list[dict[str, object]]:
                 "key": field,
                 "configured": field in bindings,
                 "requirement": binding_requirement(field, legacy=legacy),
+                "status": binding_status(config, field, legacy=legacy),
                 **config.binding_policy(field, legacy=legacy).as_dict(),
             }
             for field in fields
@@ -192,7 +193,7 @@ def _binding_groups(config: BlindControlConfig) -> list[dict[str, object]]:
         missing_required = [
             field["key"]
             for field in projected_fields
-            if field["requirement"] == "required" and not field["configured"]
+            if field["status"] in {"required_unresolved", "conditional_unresolved"}
         ]
         groups.append(
             {

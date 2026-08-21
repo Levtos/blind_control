@@ -421,6 +421,12 @@ def _attribute_value(key: str, state: object, raw_state: object) -> object:
         "sun_elevation": "elevation",
         "sun_azimuth": "azimuth",
         "cover_position": "current_position",
+        "privacy": "privacy_candidate",
+        "indoor_temperature": "temperature",
+        "outdoor_temperature": "outdoor_temperature",
+        "cloud_cover": "cloud_coverage",
+        "active_mode": "active_mode",
+        "effective_target": "active_position",
     }.get(key)
     if attribute_key and attribute_key in attributes:
         return attributes[attribute_key]
@@ -439,11 +445,15 @@ def _convert_value(
         return _convert_away(raw_state, attributes)
     if key == "activity_state":
         return _convert_activity(raw_state, attributes)
+    if key == "private_time":
+        return _convert_private_time(raw_state, attributes)
     if key == "day_state":
         normalized = str(raw_state).strip().lower()
         if normalized not in _CANONICAL_DAY_STATES:
             raise ValueError("day state is not canonical")
         return normalized, "canonical_nine_phase_day_state"
+    if key == "day_context":
+        return _convert_day_context(raw_state)
     if key == "cover_available":
         return _convert_cover_availability(raw_state)
     if key == "opening_safe_for_blind":
@@ -453,6 +463,20 @@ def _convert_value(
         if opening_safety_polarity == "negative_unsafe":
             return not active, "explicit_negative_unsafe_polarity_inverted"
         return active, "explicit_positive_safe_polarity"
+    if key in {"safety_status", "apply_status"} and all(
+        name in attributes for name in ("apply_enabled", "blockers")
+    ):
+        blockers = attributes["blockers"]
+        blocked = (
+            bool(blockers)
+            if isinstance(blockers, (list, tuple, set))
+            else _canonical_bool(blockers)
+        )
+        if key == "safety_status":
+            return ("blocked" if blocked else "ready"), "legacy_debug_blocker_projection"
+        apply_enabled = _canonical_bool(attributes["apply_enabled"])
+        status = "blocked" if blocked else ("ready" if apply_enabled else "disabled")
+        return status, "legacy_debug_apply_projection"
     if key in _BOOLEAN_KEYS:
         return _canonical_bool(value), "canonical_boolean_contract"
     if key in _NUMERIC_KEYS:
@@ -497,6 +521,34 @@ def _convert_away(
     if normalized in {"on", "off", "true", "false", "yes", "no", "1", "0"}:
         return _canonical_bool(normalized), "controlled_boolean_presence_state"
     raise ValueError("presence state is not canonical")
+
+
+def _convert_private_time(
+    raw_state: object,
+    attributes: Mapping[str, object],
+) -> tuple[bool, str]:
+    state_private = str(raw_state).strip().lower() == "private_time"
+    if "private" not in attributes:
+        return state_private, "core_state_private_time_state"
+    attribute_private = _canonical_bool(attributes["private"])
+    if state_private != attribute_private and state_private:
+        raise ValueError("private-time state conflicts with owner attribute")
+    return attribute_private, "core_state_private_attribute"
+
+
+def _convert_day_context(raw_state: object) -> tuple[str, str]:
+    normalized = str(raw_state).strip().lower()
+    mapping = {
+        "werktag": "weekday",
+        "wochenende": "weekend",
+        "frei": "holiday",
+        "weekday": "weekday",
+        "weekend": "weekend",
+        "holiday": "holiday",
+    }
+    if normalized not in mapping:
+        raise ValueError("day context is not canonical")
+    return mapping[normalized], "canonical_day_context_adapter"
 
 
 def _convert_cover_availability(raw_state: object) -> tuple[bool, str]:
@@ -595,10 +647,21 @@ def _explicit_quality(attributes: Mapping[str, object]) -> InputQuality | None:
     decision = attributes.get("activity_decision")
     if value is None and isinstance(decision, Mapping):
         value = decision.get("quality_status")
+    if value is None and "source_quality" in attributes:
+        value = attributes["source_quality"]
+    if value is None and _true_bool(attributes.get("degraded")):
+        return InputQuality.DEGRADED
+    if value is None and "fresh" in attributes:
+        try:
+            return (
+                InputQuality.FRESH if _canonical_bool(attributes["fresh"]) else InputQuality.STALE
+            )
+        except (TypeError, ValueError):
+            return InputQuality.DEGRADED
     if value is None:
         return None
     normalized = str(value).strip().lower()
-    if normalized in {"valid", "ok", "ready"}:
+    if normalized in {"valid", "ok", "ready", "fresh"}:
         return InputQuality.FRESH
     try:
         return InputQuality(normalized)

@@ -191,7 +191,12 @@ Produktpfad. Status-Badges stammen aus dem Snapshot, Coverposition und
 Haushalt werden in der Übersicht gezeigt. Input- und Legacy-Bindings werden
 allein über native Entity-Selectoren im OptionsFlow gepflegt, gruppiert als
 Core State, Opening/Safety/Cover, Solar, Temperatur/Wetter und
-Legacy-Vergleich. Leere optionale Slots sind sichtbar nicht konfiguriert;
+Legacy-Vergleich. Die exakt 88 sichtbaren Felder bestehen aus 55 Defaults,
+28 aktuellen Bindings, vier Legacy-Bindings und einer Safety-Polarität. Der
+Status unterscheidet `required_resolved|required_unresolved`,
+`conditional_resolved|conditional_unresolved|conditional_not_applicable`,
+`optional_bound|optional_intentionally_empty` und
+`legacy_bound|legacy_not_available`. Leere optionale Slots sind bewusst leer;
 konfigurierte Binding-Werte werden in der Snapshot-Projektion nie
 zurückgegeben. Der Snapshot-Read und Options-Update sind admin-geschützt; der
 WebSocket lehnt Binding-Mappings ausdrücklich ab. Source-, Legacy- und
@@ -237,13 +242,20 @@ Projektion. Die Sensorplattform besitzt weder Service noch Schreibpfad.
   `automation_projection.v1`-Contract, Registry-Lifecycle und keinen Services;
 - echte Contracttests für State-Listener, Freshness-Timer, WebSocket-Read/
   Update/Admin-Gate, OptionsFlow-Reload und Panel-Registrierung;
+- contract-basierte, installationslokale OptionsFlow-Suggestions ohne feste
+  Entity-IDs oder zweite Registry; gespeicherte/geleerte Nutzerentscheidungen
+  haben Vorrang;
+- vorbereiteter HA-Core-REST-Zwischenvertrag für einen Abruf und zwei optionale
+  aktuelle Modellstrahlungswerte; Blind Control enthält keinen HTTP-Client;
 - keine produktive Coverfahrt und keine alte Policy-Änderung.
 
 ### Für spätere AP2-Batches beziehungsweise vor Cutover offen
 
-- konkrete produktive Werte für die owner-bestätigten Home-Assistant-
-  Input-/Legacy-Bindings müssen pro Installation über OptionsFlow gesetzt und
-  fachlich bestätigt werden; der generische Laufzeitpfad ist implementiert;
+- die contract-basiert vorgeschlagenen produktiven Input-/Legacy-Bindings
+  müssen von Benni im nativen OptionsFlow geprüft und gespeichert werden;
+- die vorbereitete installationsseitige REST-Package-Konfiguration muss mit
+  lokalem Standort-Secret übernommen und erst in einem separaten Live-Gate
+  durch Home Assistant geladen werden;
 - die installierbare laufende Shadow-Auswertung und nutzbare Projektion sind
   technisch contract-getestet; reale HA-Live-Traces und feldweise
   Alt/Neu-Paritätsklassifikation müssen weiterhin als getrennte
@@ -325,3 +337,27 @@ keine Services und keinen Cover-/Apply-Schreibpfad.
 
 Der Status bleibt `Installed / Shadow / Not Live`. Diese Korrekturen führen
 keinen HA-Reload, keine Coverfahrt und keinen Apply-Owner-Wechsel aus.
+
+## 12. Installationsfähige Binding-Nachbesserung
+
+Der OptionsFlow kann vorhandene Owner-Contracts read-only aus dem aktuellen
+HA-Statebestand erkennen. Verwendet werden Contractattribute, Rollen und
+Source-Referenzen; es gibt keine öffentliche oder zentrale Binding Registry.
+Eine gespeicherte Nutzerwahl bleibt unverändert, ein explizit geleerter Slot
+wird als `intentionally_empty` gemerkt und nicht erneut vorgeschlagen.
+Suggestions werden erst durch Bennis OptionsFlow-Save zu Runtime-Bindings.
+
+Die 16 Pflichtbindungen besitzen feste fachliche Ownerklassen: Core State für
+Bio, Activity, Day, Day Context, Presence und Private Time; der bestehende
+Privacy-Owner; Opening Domain Owner; Standard-Cover; technische Readiness;
+lokaler Außenlux; geeigneter Sun-State; Climate- und Weather-Owner. Das
+bedingte Kipp-Signal wird nur zusammen mit expliziter Polarität verwendet.
+Fehlende optionale Trends bleiben bewusst leer. Lux-Trend kann weiterhin aus
+zwei verschiedenen frischen Außenluxbeobachtungen entstehen.
+
+Für aktuelle direkte und diffuse Modellstrahlung ist der koordinatenfreie
+Vertrag in `docs/OPEN_METEO_REST.md` festgelegt. Ein installationsseitiger
+HA-Core-REST-Abruf liefert beide Sensoren im 15-Minuten-Rhythmus aus
+`current.direct_normal_irradiance_instant` und
+`current.diffuse_radiation_instant`. Blind Control führt keinen HTTP-Abruf aus
+und behandelt beide Felder weiterhin als optionale Confidence-Evidence.
