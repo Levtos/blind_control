@@ -37,6 +37,7 @@ from .contracts import (
     InputQuality,
     LegacyEvidence,
 )
+from .open_meteo import OPEN_METEO_PROVIDER
 from .shadow import ShadowRuntime, ShadowSnapshot
 from .ux_contract import build_ux_snapshot
 
@@ -90,13 +91,19 @@ def build_inputs_from_states(
     config: BlindControlConfig,
     *,
     now: datetime | None = None,
+    provider_observations: Mapping[str, InputObservation[float]] | None = None,
 ) -> BlindControlInputs:
     """Build the complete input contract from configured HA state objects."""
 
     now = now or datetime.now(UTC)
     configured = dict(config.input_bindings)
-    values = {
-        key: _observation_for_entity(
+    provider_observations = provider_observations or {}
+    values = {}
+    for key in INPUT_BINDING_KEYS:
+        if key not in configured and key in provider_observations:
+            values[key] = provider_observations[key]
+            continue
+        values[key] = _observation_for_entity(
             key,
             configured.get(key),
             states.get(configured[key]) if key in configured else None,
@@ -104,8 +111,6 @@ def build_inputs_from_states(
             now,
             opening_safety_polarity=config.opening_safety_polarity,
         )
-        for key in INPUT_BINDING_KEYS
-    }
     return BlindControlInputs(**values)
 
 
@@ -148,11 +153,13 @@ class ShadowCoordinator:
         entry: object,
         config: BlindControlConfig,
         shadow: ShadowRuntime,
+        radiation_provider: object | None = None,
     ) -> None:
         self.hass = hass
         self.entry = entry
         self.config = config
         self.shadow = shadow
+        self.radiation_provider = radiation_provider
         self.snapshot: ShadowSnapshot | None = None
         self.ux_snapshot: dict[str, object] | None = None
         self._unsubscribers: list[object] = []
@@ -187,6 +194,10 @@ class ShadowCoordinator:
             self._unsubscribers.append(
                 async_track_state_change_event(self.hass, self.entity_ids, self._state_changed)
             )
+        if self.radiation_provider is not None:
+            add_listener = getattr(self.radiation_provider, "async_add_listener", None)
+            if callable(add_listener):
+                self._unsubscribers.append(add_listener(self._provider_updated))
         self._unsubscribers.append(
             async_track_time_interval(
                 self.hass,
@@ -216,7 +227,15 @@ class ShadowCoordinator:
             if getattr(self.hass, "states", None) is not None
         }
         inputs = self._with_derived_lux_trend(
-            build_inputs_from_states(states, self.config, now=now)
+            build_inputs_from_states(
+                states,
+                self.config,
+                now=now,
+                provider_observations=_radiation_provider_observations(
+                    self.radiation_provider,
+                    now=now,
+                ),
+            )
         )
         legacy = build_legacy_evidence_from_states(states, self.config, now=now)
         position = _number_value(inputs.cover_position)
@@ -237,7 +256,11 @@ class ShadowCoordinator:
             legacy_snapshot=legacy,
         )
         self.snapshot = snapshot
-        self.ux_snapshot = build_ux_snapshot(snapshot, self.config)
+        self.ux_snapshot = build_ux_snapshot(
+            snapshot,
+            self.config,
+            provider_status=_radiation_provider_status(self.radiation_provider, now=now),
+        )
         runtime_data = getattr(self.entry, "runtime_data", None)
         if runtime_data is not None:
             runtime_data.snapshot = snapshot
@@ -315,6 +338,12 @@ class ShadowCoordinator:
         self._schedule_refresh()
 
     @callback
+    def _provider_updated(self) -> None:
+        """Re-evaluate Shadow after one read-only provider refresh."""
+
+        self._schedule_refresh()
+
+    @callback
     def _schedule_refresh(self) -> None:
         """Hop through Home Assistant's thread-safe scheduler before task creation."""
 
@@ -342,6 +371,61 @@ class ShadowCoordinator:
             self._refresh_task = create_task(self.async_refresh())
         else:
             self._refresh_task = asyncio.create_task(self.async_refresh())
+
+
+def _radiation_provider_status(provider: object | None, *, now: datetime) -> str:
+    if provider is None:
+        return "unconfigured"
+    status = getattr(provider, "provider_status", None)
+    return status(now=now) if callable(status) else "unavailable"
+
+
+def _radiation_provider_observations(
+    provider: object | None,
+    *,
+    now: datetime,
+) -> dict[str, InputObservation[float]]:
+    """Project provider data without exposing its private request URL."""
+
+    status = _radiation_provider_status(provider, now=now)
+    data = getattr(provider, "data", None) if provider is not None else None
+    keys = {
+        "expected_direct_radiation": "direct_normal_irradiance",
+        "expected_diffuse_radiation": "diffuse_radiation",
+    }
+    if status == "unconfigured":
+        return {
+            key: InputObservation.missing(
+                source=OPEN_METEO_PROVIDER,
+                reason="internal_provider_not_configured",
+            )
+            for key in keys
+        }
+    if data is None:
+        return {
+            key: InputObservation(
+                source=OPEN_METEO_PROVIDER,
+                quality=InputQuality.UNAVAILABLE,
+                reason="internal_provider_first_update_unavailable",
+            )
+            for key in keys
+        }
+    quality = InputQuality.STALE if status == "stale" else InputQuality.FRESH
+    reason = {
+        "ready": "internal_provider_fresh",
+        "degraded": "internal_provider_last_success_within_freshness",
+        "stale": "internal_provider_last_success_stale",
+    }.get(status, "internal_provider_unavailable")
+    return {
+        key: InputObservation(
+            value=float(getattr(data, attribute)),
+            source=OPEN_METEO_PROVIDER,
+            quality=quality,
+            reason=reason,
+            updated_at=getattr(data, "fetched_at", None),
+        )
+        for key, attribute in keys.items()
+    }
 
 
 def _observation_for_entity(
@@ -421,6 +505,12 @@ def _attribute_value(key: str, state: object, raw_state: object) -> object:
         "sun_elevation": "elevation",
         "sun_azimuth": "azimuth",
         "cover_position": "current_position",
+        "privacy": "privacy_candidate",
+        "indoor_temperature": "temperature",
+        "outdoor_temperature": "outdoor_temperature",
+        "cloud_cover": "cloud_coverage",
+        "active_mode": "active_mode",
+        "effective_target": "active_position",
     }.get(key)
     if attribute_key and attribute_key in attributes:
         return attributes[attribute_key]
@@ -439,11 +529,15 @@ def _convert_value(
         return _convert_away(raw_state, attributes)
     if key == "activity_state":
         return _convert_activity(raw_state, attributes)
+    if key == "private_time":
+        return _convert_private_time(raw_state, attributes)
     if key == "day_state":
         normalized = str(raw_state).strip().lower()
         if normalized not in _CANONICAL_DAY_STATES:
             raise ValueError("day state is not canonical")
         return normalized, "canonical_nine_phase_day_state"
+    if key == "day_context":
+        return _convert_day_context(raw_state)
     if key == "cover_available":
         return _convert_cover_availability(raw_state)
     if key == "opening_safe_for_blind":
@@ -453,6 +547,20 @@ def _convert_value(
         if opening_safety_polarity == "negative_unsafe":
             return not active, "explicit_negative_unsafe_polarity_inverted"
         return active, "explicit_positive_safe_polarity"
+    if key in {"safety_status", "apply_status"} and all(
+        name in attributes for name in ("apply_enabled", "blockers")
+    ):
+        blockers = attributes["blockers"]
+        blocked = (
+            bool(blockers)
+            if isinstance(blockers, (list, tuple, set))
+            else _canonical_bool(blockers)
+        )
+        if key == "safety_status":
+            return ("blocked" if blocked else "ready"), "legacy_debug_blocker_projection"
+        apply_enabled = _canonical_bool(attributes["apply_enabled"])
+        status = "blocked" if blocked else ("ready" if apply_enabled else "disabled")
+        return status, "legacy_debug_apply_projection"
     if key in _BOOLEAN_KEYS:
         return _canonical_bool(value), "canonical_boolean_contract"
     if key in _NUMERIC_KEYS:
@@ -497,6 +605,34 @@ def _convert_away(
     if normalized in {"on", "off", "true", "false", "yes", "no", "1", "0"}:
         return _canonical_bool(normalized), "controlled_boolean_presence_state"
     raise ValueError("presence state is not canonical")
+
+
+def _convert_private_time(
+    raw_state: object,
+    attributes: Mapping[str, object],
+) -> tuple[bool, str]:
+    state_private = str(raw_state).strip().lower() == "private_time"
+    if "private" not in attributes:
+        return state_private, "core_state_private_time_state"
+    attribute_private = _canonical_bool(attributes["private"])
+    if state_private != attribute_private and state_private:
+        raise ValueError("private-time state conflicts with owner attribute")
+    return attribute_private, "core_state_private_attribute"
+
+
+def _convert_day_context(raw_state: object) -> tuple[str, str]:
+    normalized = str(raw_state).strip().lower()
+    mapping = {
+        "werktag": "weekday",
+        "wochenende": "weekend",
+        "frei": "holiday",
+        "weekday": "weekday",
+        "weekend": "weekend",
+        "holiday": "holiday",
+    }
+    if normalized not in mapping:
+        raise ValueError("day context is not canonical")
+    return mapping[normalized], "canonical_day_context_adapter"
 
 
 def _convert_cover_availability(raw_state: object) -> tuple[bool, str]:
@@ -595,10 +731,21 @@ def _explicit_quality(attributes: Mapping[str, object]) -> InputQuality | None:
     decision = attributes.get("activity_decision")
     if value is None and isinstance(decision, Mapping):
         value = decision.get("quality_status")
+    if value is None and "source_quality" in attributes:
+        value = attributes["source_quality"]
+    if value is None and _true_bool(attributes.get("degraded")):
+        return InputQuality.DEGRADED
+    if value is None and "fresh" in attributes:
+        try:
+            return (
+                InputQuality.FRESH if _canonical_bool(attributes["fresh"]) else InputQuality.STALE
+            )
+        except (TypeError, ValueError):
+            return InputQuality.DEGRADED
     if value is None:
         return None
     normalized = str(value).strip().lower()
-    if normalized in {"valid", "ok", "ready"}:
+    if normalized in {"valid", "ok", "ready", "fresh"}:
         return InputQuality.FRESH
     try:
         return InputQuality(normalized)

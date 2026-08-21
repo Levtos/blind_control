@@ -29,6 +29,7 @@ class DocumentationTests(unittest.TestCase):
             "MIGRATION.md",
             "AP2_SHADOW.md",
             "STATUS_MODEL.md",
+            "OPEN_METEO_REST.md",
         ):
             self.assertTrue((DOCS / filename).is_file(), filename)
 
@@ -216,6 +217,9 @@ class DocumentationTests(unittest.TestCase):
             document = json.loads((PACKAGE / filename).read_text(encoding="utf-8"))
             for flow, step in (("config", "user"), ("options", "init")):
                 form = document[flow]["step"][step]
+                self.assertIn("open_meteo_api_url", form["data"])
+                self.assertNotEqual(form["data"]["open_meteo_api_url"], "open_meteo_api_url")
+                self.assertTrue(form["data_description"]["open_meteo_api_url"].strip())
                 for section, fields in binding_groups.items():
                     labels = form["sections"][section]["data"]
                     descriptions = form["sections"][section]["data_description"]
@@ -311,7 +315,7 @@ class DocumentationTests(unittest.TestCase):
         for term in (
             "Native Entity-Selectoren",
             "binding_groups",
-            "nicht konfiguriert",
+            "optional_intentionally_empty",
             "FACHLICHER ENTSCHEIDUNGSBAUM",
             "TECHNISCHE EBENE",
             "HAUSHALT & KONTEXT",
@@ -324,6 +328,24 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("section(", config_flow)
         self.assertIn('getattr(self.hass, "add_job"', coordinator)
         self.assertIn("_schedule_refresh_in_event_loop", coordinator)
+
+    def test_internal_open_meteo_contract_uses_one_current_request_for_two_values(self) -> None:
+        contract = (DOCS / "OPEN_METEO_REST.md").read_text(encoding="utf-8")
+        provider = (PACKAGE / "radiation_provider.py").read_text(encoding="utf-8")
+
+        self.assertEqual(provider.count("session.get("), 1)
+        self.assertIn("current.direct_normal_irradiance_instant", contract)
+        self.assertIn("current.diffuse_radiation_instant", contract)
+        self.assertIn("dwd_icon_seamless", contract)
+        self.assertIn("900 Sekunden", contract)
+        self.assertIn("blind_control_dni_instant", contract)
+        self.assertIn("blind_control_diffuse_radiation_instant", contract)
+        self.assertIn("ConfigFlow/OptionsFlow", contract)
+        self.assertNotIn("```yaml", contract)
+        self.assertNotIn("!secret", contract)
+        self.assertNotRegex(contract, r"latitude=\d")
+        self.assertNotRegex(contract, r"longitude=\d")
+        self.assertNotIn("hourly:", contract)
 
 
 if __name__ == "__main__":

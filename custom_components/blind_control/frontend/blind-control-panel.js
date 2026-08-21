@@ -4254,7 +4254,21 @@ function App($$anchor, $$props) {
     blocked: "blockiert",
     safe_position: "Safety-Position",
     safety_ready: "Safety bereit",
-    shadow_ready: "Shadow bereit"
+    shadow_ready: "Shadow bereit",
+    required_resolved: "Pflicht aufgelöst",
+    required_unresolved: "Pflicht nicht aufgelöst",
+    conditional_resolved: "Bedingt aufgelöst",
+    conditional_unresolved: "Bedingt nicht aufgelöst",
+    conditional_not_applicable: "Nicht erforderlich",
+    optional_bound: "Optional gebunden",
+    optional_intentionally_empty: "Bewusst leer",
+    internal_provider_active: "Interner Provider aktiv",
+    internal_provider_degraded: "Interner Provider mit letztem frischen Wert",
+    external_override_active: "Externes Override aktiv",
+    provider_unavailable: "Provider nicht verfügbar",
+    provider_stale: "Providerwert veraltet",
+    legacy_bound: "Legacy gebunden",
+    legacy_not_available: "Legacy nicht verfügbar"
   };
   const labelFor = (value) => {
     if (!value) return "—";
@@ -4272,6 +4286,12 @@ function App($$anchor, $$props) {
     if (value === "failure" || value === "error" || value === "unavailable") return "error";
     if (value === "blocked" || value === "manual" || value === "holding_safe_position") return "warning";
     return "warning";
+  };
+  const bindingStatusTone = (value) => {
+    if (value === "required_unresolved" || value === "conditional_unresolved") return "warning";
+    if (value === "required_resolved" || value === "conditional_resolved" || value === "optional_bound" || value === "legacy_bound" || value === "internal_provider_active" || value === "external_override_active") return "ready";
+    if (value === "provider_unavailable" || value === "provider_stale") return "warning";
+    return "muted";
   };
   const householdLabel = (value) => value === null ? "—" : value ? "ja" : "nein";
   const contextValue = (value) => typeof value === "boolean" ? householdLabel(value) : statusLabel(value);
@@ -4880,13 +4900,17 @@ function App($$anchor, $$props) {
           var small_3 = sibling(span_16, 2);
           var text_61 = child(small_3);
           template_effect(
-            ($0) => {
+            ($0, $1, $2) => {
               set_text(text_59, $0);
-              set_class(span_16, 1, clsx(get(field).configured ? "ready" : "warning"));
-              set_text(text_60, get(field).configured ? "konfiguriert" : "nicht konfiguriert");
+              set_class(span_16, 1, $1);
+              set_text(text_60, $2);
               set_text(text_61, `${get(field).requirement === "required" ? "Pflicht" : get(field).requirement === "conditional" ? "bedingt erforderlich" : "optional"} · ${get(field).owner ?? ""} · ${get(field).max_age_seconds === null ? "stateful" : `${get(field).max_age_seconds} s`} · ${get(field).require_timestamp ? "Zeitbeleg erforderlich" : "kein Zeitbeleg erforderlich"}`);
             },
-            [() => labelFor(get(field).key)]
+            [
+              () => labelFor(get(field).key),
+              () => clsx(bindingStatusTone(get(field).status)),
+              () => labelFor(get(field).status)
+            ]
           );
           append($$anchor4, div_52);
         });

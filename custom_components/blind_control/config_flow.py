@@ -10,16 +10,24 @@ from homeassistant.config_entries import ConfigFlow, OptionsFlow
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers.selector import selector
 
+from .binding_suggestions import BindingSuggestions, discover_binding_suggestions
 from .config import (
     BINDING_GROUPS,
+    BINDING_INTENT_BOUND,
+    BINDING_INTENT_EMPTY,
     DEFAULT_PROFILE_NAMES,
     OPENING_SAFETY_POLARITIES,
     BlindControlConfig,
 )
 from .const import DOMAIN
+from .open_meteo import OpenMeteoUrlError, suggested_open_meteo_url
 
 
-def _config_schema(config: BlindControlConfig | None = None):
+def _config_schema(
+    config: BlindControlConfig | None = None,
+    suggestions: BindingSuggestions | None = None,
+    open_meteo_suggestion: str = "",
+):
     config = config or BlindControlConfig.defaults()
     fields: dict[object, object] = {
         vol.Required("window_azimuth", default=config.window_azimuth): vol.All(
@@ -33,6 +41,10 @@ def _config_schema(config: BlindControlConfig | None = None):
             [True, False]
         ),
         vol.Required("apply_enabled", default=config.apply_enabled): vol.In([True, False]),
+        vol.Required(
+            "open_meteo_api_url",
+            default=config.open_meteo_api_url or open_meteo_suggestion,
+        ): selector({"text": {"type": "url"}}),
         vol.Required(
             "observation_freshness_seconds", default=config.observation_freshness_seconds
         ): vol.All(vol.Coerce(float), vol.Range(min=1, max=86400)),
@@ -93,19 +105,28 @@ def _config_schema(config: BlindControlConfig | None = None):
         )
     input_bindings = dict(config.input_bindings)
     legacy_bindings = dict(config.legacy_bindings)
+    suggested_input = dict(suggestions.input_bindings) if suggestions else {}
+    suggested_legacy = dict(suggestions.legacy_bindings) if suggestions else {}
     for section_key, _label, keys, legacy in BINDING_GROUPS:
         bindings = legacy_bindings if legacy else input_bindings
+        suggested_bindings = suggested_legacy if legacy else suggested_input
         binding_fields: dict[object, object] = {}
         for key in keys:
             field_kwargs: dict[str, object] = {}
-            if key in bindings:
-                field_kwargs["description"] = {"suggested_value": bindings[key]}
+            suggested_value = bindings.get(key, suggested_bindings.get(key))
+            if suggested_value:
+                field_kwargs["description"] = {"suggested_value": suggested_value}
             binding_fields[vol.Optional(key, **field_kwargs)] = selector({"entity": {}})
         if section_key == "opening_safety_cover_bindings":
             binding_fields[
                 vol.Required(
                     "opening_safety_polarity",
-                    default=config.opening_safety_polarity,
+                    default=(
+                        config.opening_safety_polarity
+                        if config.opening_safety_polarity != "unspecified"
+                        else (suggestions.opening_safety_polarity if suggestions else None)
+                        or "unspecified"
+                    ),
                 )
             ] = selector(
                 {
@@ -139,6 +160,7 @@ def _mapping_from_form(
         }
     input_bindings = dict(config.input_bindings)
     legacy_bindings = dict(config.legacy_bindings)
+    binding_intents = dict(config.binding_intents)
     for section_key, _label, keys, legacy in BINDING_GROUPS:
         raw_section = values.pop(section_key, {})
         if raw_section is None:
@@ -157,10 +179,13 @@ def _mapping_from_form(
             value = raw_section[key]
             if value in (None, ""):
                 bindings.pop(key, None)
+                binding_intents[key] = BINDING_INTENT_EMPTY
             else:
                 bindings[key] = value
+                binding_intents[key] = BINDING_INTENT_BOUND
     values["input_bindings"] = input_bindings
     values["legacy_bindings"] = legacy_bindings
+    values["binding_intents"] = binding_intents
     values["profiles"] = profiles
     return values
 
@@ -171,20 +196,44 @@ class BlindControlConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
+        open_meteo_suggestion = _suggested_provider_url(getattr(self, "hass", None))
+        suggestions = discover_binding_suggestions(
+            getattr(self, "hass", None), BlindControlConfig.defaults()
+        )
         if user_input is not None:
             try:
                 config = BlindControlConfig.from_mapping(_mapping_from_form(user_input))
+            except OpenMeteoUrlError:
+                return self.async_show_form(
+                    step_id="user",
+                    data_schema=_config_schema(
+                        suggestions=suggestions,
+                        open_meteo_suggestion=str(
+                            user_input.get("open_meteo_api_url", open_meteo_suggestion)
+                        ),
+                    ),
+                    errors={"open_meteo_api_url": "invalid_open_meteo_url"},
+                )
             except (TypeError, ValueError, KeyError):
                 return self.async_show_form(
                     step_id="user",
-                    data_schema=_config_schema(),
+                    data_schema=_config_schema(
+                        suggestions=suggestions,
+                        open_meteo_suggestion=open_meteo_suggestion,
+                    ),
                     errors={"base": "invalid_configuration"},
                 )
             await self.async_set_unique_id(DOMAIN)
             self._abort_if_unique_id_configured()
             return self.async_create_entry(title="Blind Control", data=config.to_mapping())
 
-        return self.async_show_form(step_id="user", data_schema=_config_schema())
+        return self.async_show_form(
+            step_id="user",
+            data_schema=_config_schema(
+                suggestions=suggestions,
+                open_meteo_suggestion=open_meteo_suggestion,
+            ),
+        )
 
     @staticmethod
     def async_get_options_flow(config_entry):
@@ -201,14 +250,46 @@ class BlindControlOptionsFlow(OptionsFlow):
         current = BlindControlConfig.from_mapping(
             {**getattr(self._entry, "data", {}), **getattr(self._entry, "options", {})}
         )
+        suggestions = discover_binding_suggestions(getattr(self, "hass", None), current)
+        open_meteo_suggestion = current.open_meteo_api_url or _suggested_provider_url(
+            getattr(self, "hass", None)
+        )
         if user_input is not None:
             try:
                 config = BlindControlConfig.from_mapping(_mapping_from_form(user_input, current))
+            except OpenMeteoUrlError:
+                return self.async_show_form(
+                    step_id="init",
+                    data_schema=_config_schema(
+                        current,
+                        suggestions,
+                        str(user_input.get("open_meteo_api_url", open_meteo_suggestion)),
+                    ),
+                    errors={"open_meteo_api_url": "invalid_open_meteo_url"},
+                )
             except (TypeError, ValueError, KeyError):
                 return self.async_show_form(
                     step_id="init",
-                    data_schema=_config_schema(current),
+                    data_schema=_config_schema(current, suggestions, open_meteo_suggestion),
                     errors={"base": "invalid_configuration"},
                 )
             return self.async_create_entry(title="", data=config.to_mapping())
-        return self.async_show_form(step_id="init", data_schema=_config_schema(current))
+        return self.async_show_form(
+            step_id="init",
+            data_schema=_config_schema(current, suggestions, open_meteo_suggestion),
+        )
+
+
+def _suggested_provider_url(hass: object | None) -> str:
+    """Suggest a private URL only inside the native form, never diagnostics."""
+
+    config = getattr(hass, "config", None)
+    latitude = getattr(config, "latitude", None)
+    longitude = getattr(config, "longitude", None)
+    if latitude is None or longitude is None:
+        return ""
+    return suggested_open_meteo_url(
+        latitude,
+        longitude,
+        getattr(config, "time_zone", "UTC"),
+    )

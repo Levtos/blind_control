@@ -52,15 +52,26 @@ this AP2 follow-up is a Draft PR only.
   trend, model radiation and cloud evidence remain capability-aware additions
 - native OptionsFlow Entity Selectors grouped for Core State,
   Opening/Safety/Cover, Solar, Temperature/Weather and Legacy comparison;
-  the panel shows redacted configured/not-configured status only
+  contract-based installation-local suggestions preserve user choices and
+  intentionally empty optional slots; the panel shows only redacted readiness
+  states for the exact 89-field contract (the additional field is the private
+  Open-Meteo API URL)
+- an isolated internal Open-Meteo coordinator performs one read-only request
+  for current DNI and diffuse radiation every 900 seconds; it is configured
+  entirely in ConfigFlow/OptionsFlow without YAML, secrets file, API key,
+  coordinate form, PV model, Core-State change or new Weather-State integration
+- the provider publishes `Blind Control DNI Instant` and `Blind Control Diffuse
+  Radiation Instant` as registry-stable irradiance measurement sensors; an
+  explicit external radiation binding remains the advanced override
 - field-specific Core-State Presence/Activity/Day adapters, explicit Opening
   polarity, and standard-cover availability/current-position handling
 - HA 2026.8 `async_reload(entry_id)` lifecycle and Svelte-5-proxy-safe draft
   rebasing are contract-tested without a live reload or browser preview
 - setup starts the owner-bound read-only ShadowCoordinator and publishes a
-  snapshot through a read-only WebSocket projection and exactly one native
-  diagnostic status sensor using the same redacted contract; no actuator
-  service or device command path exists
+  snapshot through a read-only WebSocket projection, one native diagnostic
+  status sensor and two read-only radiation sensors on the same device; URL and
+  coordinates are never projected and no actuator service or device command
+  path exists
 - no entity flood, frontend device-command surface, Apply, cover movement,
   productive migration, Cutover, Rename, or live activation
 - no hardcoded productive entity IDs in product Python code

@@ -267,6 +267,98 @@ class CoordinatorTests(unittest.TestCase):
         self.assertEqual(conflict.quality.value, "conflict")
         self.assertIsNone(conflict.value)
 
+    def test_private_time_day_context_and_master_attributes_are_field_specific(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {
+                "input_bindings": {
+                    "private_time": "sensor.owner_activity",
+                    "day_context": "sensor.owner_day_context",
+                    "privacy": "sensor.owner_privacy",
+                    "indoor_temperature": "sensor.owner_indoor",
+                    "outdoor_temperature": "sensor.owner_weather",
+                    "cloud_cover": "sensor.owner_weather",
+                }
+            }
+        )
+        states = {
+            "sensor.owner_activity": FakeState("music", attributes={"private": False}),
+            "sensor.owner_day_context": FakeState("werktag"),
+            "sensor.owner_privacy": FakeState("ready", attributes={"privacy_candidate": True}),
+            "sensor.owner_indoor": FakeState("ready", attributes={"temperature": 23.4}),
+            "sensor.owner_weather": FakeState(
+                "ready",
+                attributes={"outdoor_temperature": 14.2, "cloud_coverage": 56},
+                updated_at=self.now,
+            ),
+        }
+
+        inputs = build_inputs_from_states(states, config, now=self.now)
+
+        self.assertFalse(inputs.private_time.value)
+        self.assertEqual(inputs.day_context.value, "weekday")
+        self.assertTrue(inputs.privacy.value)
+        self.assertEqual(inputs.indoor_temperature.value, 23.4)
+        self.assertEqual(inputs.outdoor_temperature.value, 14.2)
+        self.assertEqual(inputs.cloud_cover.value, 56.0)
+
+    def test_open_meteo_current_radiation_fields_remain_distinct_numeric_evidence(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {
+                "input_bindings": {
+                    "expected_direct_radiation": "sensor.contract_dni",
+                    "expected_diffuse_radiation": "sensor.contract_diffuse",
+                }
+            }
+        )
+        inputs = build_inputs_from_states(
+            {
+                "sensor.contract_dni": FakeState("310", updated_at=self.now),
+                "sensor.contract_diffuse": FakeState("95", updated_at=self.now),
+            },
+            config,
+            now=self.now,
+        )
+
+        self.assertEqual(inputs.expected_direct_radiation.value, 310.0)
+        self.assertEqual(inputs.expected_diffuse_radiation.value, 95.0)
+        self.assertNotEqual(
+            inputs.expected_direct_radiation.source,
+            inputs.expected_diffuse_radiation.source,
+        )
+
+    def test_one_legacy_debug_contract_projects_all_comparison_fields(self) -> None:
+        binding = "sensor.contract_legacy_debug"
+        config = BlindControlConfig.from_mapping(
+            {
+                "legacy_bindings": {
+                    key: binding
+                    for key in ("active_mode", "effective_target", "safety_status", "apply_status")
+                }
+            }
+        )
+        legacy = build_legacy_evidence_from_states(
+            {
+                binding: FakeState(
+                    "shadow",
+                    attributes={
+                        "active_mode": "heat",
+                        "active_position": 15,
+                        "apply_enabled": True,
+                        "blockers": [],
+                    },
+                    updated_at=self.now,
+                )
+            },
+            config,
+            now=self.now,
+        )
+        observations = dict(legacy.observations)
+
+        self.assertEqual(observations["active_mode"].value, "heat")
+        self.assertEqual(observations["effective_target"].value, 15.0)
+        self.assertEqual(observations["safety_status"].value, "ready")
+        self.assertEqual(observations["apply_status"].value, "ready")
+
     def test_every_canonical_day_phase_is_preserved(self) -> None:
         config = BlindControlConfig.from_mapping(
             {"input_bindings": {"day_state": "sensor.owner_day"}}
@@ -435,7 +527,44 @@ class CoordinatorTests(unittest.TestCase):
         self.assertEqual(config.binding_policy("bio_state").max_age_seconds, 1)
         self.assertEqual(config.binding_policy("activity_state").owner, "core_state")
         self.assertIsNone(config.binding_policy("activity_state").max_age_seconds)
-        self.assertEqual(config.binding_policy("cover_position").owner, "technical_device")
+        self.assertEqual(config.binding_policy("cover_position").owner, "cover_device")
+        self.assertEqual(config.binding_policy("cover_position").max_age_seconds, 120)
+        self.assertEqual(config.binding_policy("outdoor_lux").max_age_seconds, 900)
+        self.assertEqual(config.binding_policy("expected_direct_radiation").max_age_seconds, 1200)
+        self.assertEqual(config.binding_policy("outdoor_temperature").max_age_seconds, 1800)
+
+    def test_owner_published_quality_is_not_hidden_by_a_recent_ha_timestamp(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {"input_bindings": {"outdoor_temperature": "sensor.owner_weather"}}
+        )
+        degraded = build_inputs_from_states(
+            {
+                "sensor.owner_weather": FakeState(
+                    "ready",
+                    attributes={
+                        "outdoor_temperature": 14.2,
+                        "source_quality": "degraded",
+                    },
+                    updated_at=self.now,
+                )
+            },
+            config,
+            now=self.now,
+        ).outdoor_temperature
+        stale = build_inputs_from_states(
+            {
+                "sensor.owner_weather": FakeState(
+                    "14.2",
+                    attributes={"fresh": False},
+                    updated_at=self.now,
+                )
+            },
+            config,
+            now=self.now,
+        ).outdoor_temperature
+
+        self.assertEqual(degraded.quality.value, "degraded")
+        self.assertEqual(stale.quality.value, "stale")
 
     def test_coordinator_publishes_running_snapshot_projection_without_writes(self) -> None:
         async def exercise() -> None:

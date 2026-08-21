@@ -10,6 +10,7 @@
           "axis_inverted": "Invert position axis",
           "automation_enabled": "Automation enabled",
           "apply_enabled": "Apply gate enabled",
+          "open_meteo_api_url": "Open-Meteo API URL",
           "observation_freshness_seconds": "Default observation freshness",
           "heat_outdoor_threshold": "Outdoor heat threshold",
           "heat_indoor_threshold": "Indoor heat threshold",
@@ -67,6 +68,7 @@
           "axis_inverted": "Use the explicitly configured inverted profile values.",
           "automation_enabled": "Disables automatic Shadow intent when switched off.",
           "apply_enabled": "Absolute gate for the non-actuating apply intent.",
+          "open_meteo_api_url": "Validated HTTPS forecast URL for the internal read-only radiation provider. No API key, YAML, coordinates form, or restart is required.",
           "observation_freshness_seconds": "Default maximum age for time-critical owner observations.",
           "heat_outdoor_threshold": "Outdoor temperature at which thermal protection may become relevant.",
           "heat_indoor_threshold": "Indoor temperature at which thermal protection may become relevant.",
@@ -194,7 +196,8 @@
       }
     },
     "error": {
-      "invalid_configuration": "Check the position, geometry, and calibration values."
+      "invalid_configuration": "Check the position, geometry, and calibration values.",
+      "invalid_open_meteo_url": "Use the Open-Meteo HTTPS forecast endpoint with model dwd_icon_seamless and both required current radiation fields. API keys, user information, PV parameters, and other hosts are not accepted."
     },
     "abort": {
       "already_configured": "Blind Control is already configured."
@@ -211,6 +214,7 @@
           "axis_inverted": "Invert position axis",
           "automation_enabled": "Automation enabled",
           "apply_enabled": "Apply gate enabled",
+          "open_meteo_api_url": "Open-Meteo API URL",
           "observation_freshness_seconds": "Default observation freshness",
           "heat_outdoor_threshold": "Outdoor heat threshold",
           "heat_indoor_threshold": "Indoor heat threshold",
@@ -268,6 +272,7 @@
           "axis_inverted": "Use the explicitly configured inverted profile values.",
           "automation_enabled": "Disables automatic Shadow intent when switched off.",
           "apply_enabled": "Absolute gate for the non-actuating apply intent.",
+          "open_meteo_api_url": "Validated HTTPS forecast URL for the internal read-only radiation provider. Saving reloads only this Config Entry; no Home Assistant restart is required.",
           "observation_freshness_seconds": "Default maximum age for time-critical owner observations.",
           "heat_outdoor_threshold": "Outdoor temperature at which thermal protection may become relevant.",
           "heat_indoor_threshold": "Indoor temperature at which thermal protection may become relevant.",

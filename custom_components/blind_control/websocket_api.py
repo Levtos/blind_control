@@ -88,7 +88,12 @@ def _merge_options(current: BlindControlConfig, options: Mapping[str, Any]) -> d
 
     merged = current.to_mapping()
     for key, value in options.items():
-        if key in {"input_bindings", "legacy_bindings"}:
+        if key in {
+            "input_bindings",
+            "legacy_bindings",
+            "binding_intents",
+            "open_meteo_api_url",
+        }:
             raise ValueError("entity_bindings_require_native_options_flow")
         merged[key] = value
     return merged

@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
-from homeassistant.components.sensor import SensorEntity
-from homeassistant.const import EntityCategory
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
+from homeassistant.const import EntityCategory, UnitOfIrradiance
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import BlindControlConfigEntry
+from .const import DOMAIN
+from .open_meteo import (
+    OPEN_METEO_MODEL,
+    OPEN_METEO_PROVIDER,
+    OPEN_METEO_UPDATE_INTERVAL_SECONDS,
+)
+from .radiation_provider import OpenMeteoRadiationCoordinator
 from .shadow import ShadowSnapshot
 from .ux_contract import AUTOMATION_PROJECTION_VERSION, build_automation_projection
 
@@ -19,7 +28,37 @@ async def async_setup_entry(
 ) -> None:
     """Add one stable, read-only status sensor for an AP2 Shadow entry."""
 
-    async_add_entities([BlindControlStatusSensor(entry)])
+    provider = entry.runtime_data.radiation_provider
+    entities: list[SensorEntity] = [BlindControlStatusSensor(entry)]
+    if provider is not None:
+        entities.extend(
+            (
+                BlindControlRadiationSensor(
+                    entry,
+                    provider,
+                    name="Blind Control DNI Instant",
+                    unique_id="blind_control_dni_instant",
+                    data_attribute="direct_normal_irradiance",
+                ),
+                BlindControlRadiationSensor(
+                    entry,
+                    provider,
+                    name="Blind Control Diffuse Radiation Instant",
+                    unique_id="blind_control_diffuse_radiation_instant",
+                    data_attribute="diffuse_radiation",
+                ),
+            )
+        )
+    async_add_entities(entities)
+
+
+def _device_info(entry: BlindControlConfigEntry) -> DeviceInfo:
+    return DeviceInfo(
+        identifiers={(DOMAIN, entry.entry_id)},
+        name="Blind Control",
+        manufacturer="Levtos",
+        model="Shadow",
+    )
 
 
 class BlindControlStatusSensor(SensorEntity):
@@ -35,6 +74,7 @@ class BlindControlStatusSensor(SensorEntity):
 
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_shadow_status"
+        self._attr_device_info = _device_info(entry)
 
     @property
     def available(self) -> bool:
@@ -81,3 +121,53 @@ class BlindControlStatusSensor(SensorEntity):
     def _projection(self) -> dict[str, object]:
         snapshot = self._snapshot
         return build_automation_projection(snapshot) if snapshot is not None else {}
+
+
+class BlindControlRadiationSensor(
+    CoordinatorEntity[OpenMeteoRadiationCoordinator],
+    SensorEntity,
+):
+    """Expose one value from the shared read-only provider response."""
+
+    _attr_has_entity_name = False
+    _attr_device_class = SensorDeviceClass.IRRADIANCE
+    _attr_native_unit_of_measurement = UnitOfIrradiance.WATTS_PER_SQUARE_METER
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(
+        self,
+        entry: BlindControlConfigEntry,
+        coordinator: OpenMeteoRadiationCoordinator,
+        *,
+        name: str,
+        unique_id: str,
+        data_attribute: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._attr_name = name
+        self._attr_unique_id = unique_id
+        self._attr_device_info = _device_info(entry)
+        self._data_attribute = data_attribute
+
+    @property
+    def available(self) -> bool:
+        """Retain degraded fresh data but never expose stale data as available."""
+
+        return self.coordinator.data is not None and self.coordinator.provider_status() != "stale"
+
+    @property
+    def native_value(self) -> float | None:
+        data = self.coordinator.data
+        return float(getattr(data, self._data_attribute)) if data is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        data = self.coordinator.data
+        return {
+            "provider": OPEN_METEO_PROVIDER,
+            "model": OPEN_METEO_MODEL,
+            "last_successful_update": data.fetched_at.isoformat() if data else None,
+            "data_timestamp": data.data_timestamp if data else None,
+            "update_interval": OPEN_METEO_UPDATE_INTERVAL_SECONDS,
+            "provider_status": self.coordinator.provider_status(),
+        }
