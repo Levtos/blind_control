@@ -15,7 +15,10 @@ from .config import (
     BINDING_GROUPS,
     BINDING_INTENT_BOUND,
     BINDING_INTENT_EMPTY,
+    CONDITIONAL_BINDING_KEYS,
     DEFAULT_PROFILE_NAMES,
+    MANDATORY_AUTOMATIC_BINDING_KEYS,
+    MANDATORY_TECHNICAL_BINDING_KEYS,
     OPENING_SAFETY_POLARITIES,
     BlindControlConfig,
 )
@@ -111,22 +114,31 @@ def _config_schema(
         bindings = legacy_bindings if legacy else input_bindings
         suggested_bindings = suggested_legacy if legacy else suggested_input
         binding_fields: dict[object, object] = {}
+        section_defaults: dict[str, str] = {}
         for key in keys:
             field_kwargs: dict[str, object] = {}
-            suggested_value = bindings.get(key, suggested_bindings.get(key))
+            suggested_value = _binding_form_value(
+                config,
+                bindings,
+                suggested_bindings,
+                key,
+            )
             if suggested_value:
                 field_kwargs["description"] = {"suggested_value": suggested_value}
+                if key in bindings or _should_prefill_binding(key, legacy):
+                    field_kwargs["default"] = suggested_value
+                    section_defaults[key] = suggested_value
             binding_fields[vol.Optional(key, **field_kwargs)] = selector({"entity": {}})
         if section_key == "opening_safety_cover_bindings":
+            polarity = (
+                config.opening_safety_polarity
+                if config.opening_safety_polarity != "unspecified"
+                else (suggestions.opening_safety_polarity if suggestions else None) or "unspecified"
+            )
             binding_fields[
                 vol.Required(
                     "opening_safety_polarity",
-                    default=(
-                        config.opening_safety_polarity
-                        if config.opening_safety_polarity != "unspecified"
-                        else (suggestions.opening_safety_polarity if suggestions else None)
-                        or "unspecified"
-                    ),
+                    default=polarity,
                 )
             ] = selector(
                 {
@@ -137,11 +149,36 @@ def _config_schema(
                     }
                 }
             )
-        fields[vol.Required(section_key, default={})] = section(
+            if polarity != "unspecified":
+                section_defaults["opening_safety_polarity"] = polarity
+        fields[vol.Required(section_key, default=section_defaults)] = section(
             vol.Schema(binding_fields),
             {"collapsed": True},
         )
     return vol.Schema(fields)
+
+
+def _binding_form_value(
+    config: BlindControlConfig,
+    bindings: Mapping[str, str],
+    suggestions: Mapping[str, str],
+    key: str,
+) -> str | None:
+    """Return a binding for the form while respecting an explicit empty intent."""
+
+    if dict(config.binding_intents).get(key) == BINDING_INTENT_EMPTY:
+        return None
+    return bindings.get(key, suggestions.get(key))
+
+
+def _should_prefill_binding(key: str, legacy: bool) -> bool:
+    """Only auto-bind required/conditional owner contracts; optionals stay suggestions."""
+
+    return not legacy and (
+        key in MANDATORY_AUTOMATIC_BINDING_KEYS
+        or key in MANDATORY_TECHNICAL_BINDING_KEYS
+        or key in CONDITIONAL_BINDING_KEYS
+    )
 
 
 def _mapping_from_form(
@@ -161,6 +198,10 @@ def _mapping_from_form(
     input_bindings = dict(config.input_bindings)
     legacy_bindings = dict(config.legacy_bindings)
     binding_intents = dict(config.binding_intents)
+    for key, intent in binding_intents.items():
+        if intent == BINDING_INTENT_EMPTY:
+            input_bindings.pop(key, None)
+            legacy_bindings.pop(key, None)
     for section_key, _label, keys, legacy in BINDING_GROUPS:
         raw_section = values.pop(section_key, {})
         if raw_section is None:

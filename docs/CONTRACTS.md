@@ -251,9 +251,11 @@ Positionsdefaults, 28 aktuelle Input-Bindings, vier optionale Legacy-Bindings
 und eine Opening-Safety-Polarität. Die 55 bisherigen Defaultfelder sind keine
 Entity-Zuordnungen. Eine kleine installationslokale Discovery darf vorhandene
 HA-States anhand publizierter Attribute und Source-Referenzen als
-`suggested_value` anbieten. Sie ist keine Registry und persistiert keine zweite
-Owner-Wahrheit. Reihenfolge: gespeicherte Nutzerwahl vor bewusst leerem Slot
-vor neuem Contract-Vorschlag. Entity-IDs verlassen Config-/OptionsFlow nicht.
+`suggested_value` anbieten und belastbare required/conditional Bindings als
+echte Formular-Defaults vorausfüllen. Sie ist keine Registry und persistiert
+keine zweite Owner-Wahrheit. Reihenfolge: gespeicherte Nutzerwahl vor bewusst
+leerem Slot vor neuem Contract-Vorschlag; optionale Vorschläge werden nicht
+ohne Nutzerbestätigung gebunden. Entity-IDs verlassen Config-/OptionsFlow nicht.
 
 Statuswerte sind `required_resolved`, `required_unresolved`,
 `conditional_resolved`, `conditional_unresolved`,
@@ -308,3 +310,6 @@ Pro Feld gilt `externes Binding > interner Provider > missing/unavailable`.
 Ein echter Wert 0 bleibt fresh; ein fehlgeschlagener Erstabruf ist unavailable,
 ein letzter Erfolg wird nach 1200 Sekunden stale. Der vollständige öffentliche,
 koordinatenfreie Vertrag steht in [OPEN_METEO_REST.md](OPEN_METEO_REST.md).
+Entries ohne gespeicherte Provider-URL dürfen die aus den lokalen HA-
+Standortdaten erzeugte URL bis zur bestätigten OptionsFlow-Speicherung nur im
+Runtime-Kontext verwenden; fehlender Standort bleibt `provider_unavailable`.

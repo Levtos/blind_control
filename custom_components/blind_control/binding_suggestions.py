@@ -45,9 +45,9 @@ def discover_binding_suggestions(hass: object, config: BlindControlConfig) -> Bi
     if not isinstance(sources, Mapping):
         sources = {}
 
-    def suggest_from_source(key: str, *tokens: str) -> None:
+    def suggest_from_source(key: str, *tokens: str, predicate=None) -> None:
         entity_id = _source_entity(sources, *tokens)
-        if entity_id in by_id:
+        if entity_id in by_id and (predicate is None or predicate(by_id[entity_id])):
             input_suggestions[key] = entity_id
 
     suggest_from_source("bio_state", "bio")
@@ -55,10 +55,27 @@ def discover_binding_suggestions(hass: object, config: BlindControlConfig) -> Bi
     suggest_from_source("day_state", "day_state")
     suggest_from_source("day_context", "day_context")
     suggest_from_source("away", "presence", "away")
-    suggest_from_source("opening_state", "opening")
-    suggest_from_source("outdoor_lux", "lux")
-    suggest_from_source("sun_elevation", "sun")
-    suggest_from_source("sun_azimuth", "sun")
+    suggest_from_source("private_time", "private_time")
+    suggest_from_source("opening_state", "opening", predicate=_is_opening_contract)
+    suggest_from_source(
+        "cover_ready", "cover_ready", "readiness", "ready", predicate=_is_cover_readiness
+    )
+    suggest_from_source("outdoor_lux", "lux", predicate=_is_lux_contract)
+    suggest_from_source("sun_elevation", "sun", predicate=_is_sun_contract)
+    suggest_from_source("sun_azimuth", "sun", predicate=_is_sun_contract)
+    suggest_from_source(
+        "indoor_temperature",
+        "indoor_temperature",
+        "indoor_temp",
+        predicate=_is_indoor_temperature_contract,
+    )
+    suggest_from_source(
+        "outdoor_temperature",
+        "outdoor_temperature",
+        "outdoor_temp",
+        "weather",
+        predicate=_is_weather_contract,
+    )
 
     activity = _state_for_suggestion(input_suggestions.get("activity_state"), by_id) or _first(
         states, _is_core_activity
@@ -76,7 +93,10 @@ def discover_binding_suggestions(hass: object, config: BlindControlConfig) -> Bi
         states, _is_bio_state
     )
     _suggest_state(input_suggestions, "activity_state", activity)
-    _suggest_state(input_suggestions, "private_time", activity)
+    private_time = _state_for_suggestion(input_suggestions.get("private_time"), by_id) or _first(
+        states, _is_private_time_contract
+    )
+    _suggest_state(input_suggestions, "private_time", private_time)
     _suggest_state(input_suggestions, "away", presence)
     _suggest_state(input_suggestions, "day_state", day_state)
     _suggest_state(input_suggestions, "day_context", day_context)
@@ -106,7 +126,9 @@ def discover_binding_suggestions(hass: object, config: BlindControlConfig) -> Bi
     _suggest_state(input_suggestions, "cover_available", cover)
     _suggest_state(input_suggestions, "cover_position", cover)
 
-    readiness = _first(states, _is_cover_readiness)
+    readiness = _state_for_suggestion(input_suggestions.get("cover_ready"), by_id) or _first(
+        states, _is_cover_readiness
+    )
     _suggest_state(input_suggestions, "cover_ready", readiness)
 
     lux = _state_for_suggestion(input_suggestions.get("outdoor_lux"), by_id) or _first(
@@ -120,23 +142,15 @@ def discover_binding_suggestions(hass: object, config: BlindControlConfig) -> Bi
     _suggest_state(input_suggestions, "sun_elevation", sun)
     _suggest_state(input_suggestions, "sun_azimuth", sun)
 
-    indoor_temperature = _first(states, _is_indoor_temperature_contract)
+    indoor_temperature = _state_for_suggestion(
+        input_suggestions.get("indoor_temperature"), by_id
+    ) or _first(states, _is_indoor_temperature_contract)
     _suggest_state(input_suggestions, "indoor_temperature", indoor_temperature)
 
     weather = _weather_from_sources(sources, by_id) or _first(states, _is_weather_contract)
     _suggest_state(input_suggestions, "outdoor_temperature", weather)
     if weather and _has_numeric_attribute(weather, "cloud_coverage", "cloud_cover"):
         _suggest_state(input_suggestions, "cloud_cover", weather)
-
-    for field, marker in (
-        ("expected_direct_radiation", "direct_normal_irradiance_instant"),
-        ("expected_diffuse_radiation", "diffuse_radiation_instant"),
-    ):
-        _suggest_state(
-            input_suggestions,
-            field,
-            _first(states, lambda state, marker=marker: _has_contract_marker(state, marker)),
-        )
 
     legacy = _first(states, _is_legacy_debug_contract)
     if legacy is not None:
@@ -208,7 +222,9 @@ def _apply_user_precedence(
     result = {
         key: value for key, value in suggestions.items() if intents.get(key) != BINDING_INTENT_EMPTY
     }
-    result.update(current)
+    result.update(
+        {key: value for key, value in current.items() if intents.get(key) != BINDING_INTENT_EMPTY}
+    )
     return result
 
 
@@ -222,6 +238,15 @@ def _is_core_activity(state: object) -> bool:
     attributes = _attributes(state)
     return "pc_active" in attributes and (
         "activity_decision" in attributes or "entertainment_active" in attributes
+    )
+
+
+def _is_private_time_contract(state: object) -> bool:
+    attributes = _attributes(state)
+    return (
+        _state_value(state) == "private_time"
+        or "private_time" in attributes
+        or "private" in attributes
     )
 
 
@@ -278,7 +303,10 @@ def _is_lux_contract(state: object) -> bool:
 
 
 def _is_sun_contract(state: object) -> bool:
-    return _has_numeric_attribute(state, "elevation", "azimuth")
+    attributes = _attributes(state)
+    return all(
+        name in attributes and _is_number(attributes[name]) for name in ("elevation", "azimuth")
+    )
 
 
 def _is_indoor_temperature_contract(state: object) -> bool:
@@ -309,15 +337,6 @@ def _is_weather_contract(state: object) -> bool:
 def _has_numeric_attribute(state: object, *names: str) -> bool:
     attributes = _attributes(state)
     return any(name in attributes and _is_number(attributes[name]) for name in names)
-
-
-def _has_contract_marker(state: object, marker: str) -> bool:
-    attributes = _attributes(state)
-    return (
-        marker in attributes
-        or attributes.get("blind_control_evidence") == marker
-        or attributes.get("contract_field") == marker
-    )
 
 
 def _is_legacy_debug_contract(state: object) -> bool:

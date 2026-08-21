@@ -208,6 +208,17 @@ Entity-Werte werden in der öffentlichen Projektion und in der Copy-Aktion
 wertbasiert redigiert; die Copy-Aktion schreibt diese redigierte Debug-Evidence
 in die Clipboard-API.
 
+Bei einer neuen oder bestehenden Installation werden entdeckte, belastbare
+Pflicht- und Conditional-Owner-Bindings als echte OptionsFlow-Defaults gesetzt;
+das betrifft nicht die 55 Konfigurations-/Positionsdefaults. Ein bewusst
+gewähltes Binding bleibt maßgeblich, und ein bewusst leeres Feld wird nicht
+wieder vorgefüllt. Optionale Evidence bleibt ohne ausdrückliche Auswahl leer.
+Für alte Entries ohne Provider-URL nutzt der Runtime-Start die aus den lokalen
+HA-Standortdaten erzeugte URL nur vorübergehend. Nach erfolgreichem Abruf sind
+die internen Strahlungssensoren verfügbar; bei fehlendem Standort, Erstfehler
+oder abgelaufener Freshness bleiben sie sicher `unavailable` beziehungsweise
+`stale`, ohne Defaultwert.
+
 Der Einstellungsentwurf verwendet eine inhaltsbasierte Revision statt der
 Objektidentität des alle fünf Sekunden neu empfangenen Snapshots. Ohne lokale
 Änderung wird ein neuer Serverstand übernommen; während einer Bearbeitung
@@ -258,9 +269,11 @@ Projektion. Die Sensorplattform besitzt weder Service noch Schreibpfad.
 
 - die contract-basiert vorgeschlagenen produktiven Input-/Legacy-Bindings
   müssen von Benni im nativen OptionsFlow geprüft und gespeichert werden;
-- Benni muss im nativen Blind-Control-OptionsFlow die ausschließlich dort
-  gespeicherte Open-Meteo-URL prüfen oder einsetzen; YAML, Package und
-  `secrets.yaml` sind ausdrücklich kein Installationsschritt;
+- Benni kann im nativen Blind-Control-OptionsFlow die aus dem HA-Standort
+  vorgeschlagene Open-Meteo-URL prüfen und speichern oder eine eigene gültige
+  URL einsetzen; alte Entries können bis dahin nur temporär im Runtime-Kontext
+  arbeiten. YAML, Package und `secrets.yaml` sind ausdrücklich kein
+  Installationsschritt;
 - die installierbare laufende Shadow-Auswertung und nutzbare Projektion sind
   technisch contract-getestet; reale HA-Live-Traces und feldweise
   Alt/Neu-Paritätsklassifikation müssen weiterhin als getrennte
