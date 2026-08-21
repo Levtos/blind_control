@@ -27,7 +27,8 @@ from custom_components.blind_control.shadow_diff import DiffClassification  # no
 
 
 class FakeState:
-    def __init__(self, state: str, *, attributes=None, updated_at=None):
+    def __init__(self, state: str, *, attributes=None, updated_at=None, entity_id=None):
+        self.entity_id = entity_id
         self.state = state
         self.attributes = attributes or {}
         self.last_updated = updated_at
@@ -513,13 +514,14 @@ class CoordinatorTests(unittest.TestCase):
     def test_freshness_contract_is_owner_and_field_specific(self) -> None:
         config = BlindControlConfig.from_mapping(
             {
+                "input_bindings": {"outdoor_lux": "sensor.outdoor_lux"},
                 "binding_freshness": {
                     "bio_state": {
                         "max_age_seconds": 1,
                         "require_timestamp": True,
                         "owner": "test_bio_owner",
                     }
-                }
+                },
             }
         )
 
@@ -532,6 +534,167 @@ class CoordinatorTests(unittest.TestCase):
         self.assertEqual(config.binding_policy("outdoor_lux").max_age_seconds, 900)
         self.assertEqual(config.binding_policy("expected_direct_radiation").max_age_seconds, 1200)
         self.assertEqual(config.binding_policy("outdoor_temperature").max_age_seconds, 1800)
+
+    def test_legacy_freshness_values_cannot_lower_field_safety_floors(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {
+                "observation_freshness_seconds": 120,
+                "binding_freshness": {
+                    key: {"max_age_seconds": 120, "require_timestamp": True}
+                    for key in (
+                        "outdoor_lux",
+                        "sun_elevation",
+                        "sun_azimuth",
+                        "indoor_temperature",
+                        "outdoor_temperature",
+                    )
+                },
+            }
+        )
+
+        self.assertEqual(config.binding_policy("outdoor_lux").max_age_seconds, 900)
+        self.assertEqual(config.binding_policy("sun_elevation").max_age_seconds, 900)
+        self.assertEqual(config.binding_policy("sun_azimuth").max_age_seconds, 900)
+        self.assertEqual(config.binding_policy("indoor_temperature").max_age_seconds, 1800)
+        self.assertEqual(config.binding_policy("outdoor_temperature").max_age_seconds, 1800)
+
+    def test_sun_observation_between_legacy_age_and_solar_floor_is_fresh(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {
+                "observation_freshness_seconds": 120,
+                "input_bindings": {"sun_elevation": "sensor.sun"},
+                "binding_freshness": {
+                    "sun_elevation": {"max_age_seconds": 120, "require_timestamp": True}
+                },
+            }
+        )
+        observed_at = self.now - timedelta(seconds=600)
+        observation = build_inputs_from_states(
+            {"sensor.sun": FakeState("30", updated_at=observed_at)},
+            config,
+            now=self.now,
+        ).sun_elevation
+
+        self.assertTrue(observation.usable)
+        self.assertEqual(observation.quality.value, "fresh")
+
+    def test_stable_owner_quality_overrides_age_for_environment_measurement(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {"input_bindings": {"indoor_temperature": "sensor.indoor"}}
+        )
+        old = self.now - timedelta(seconds=7200)
+        observation = build_inputs_from_states(
+            {
+                "sensor.indoor": FakeState(
+                    "23.4",
+                    attributes={"source_quality": "healthy"},
+                    updated_at=old,
+                )
+            },
+            config,
+            now=self.now,
+        ).indoor_temperature
+
+        self.assertTrue(observation.usable)
+        self.assertEqual(observation.quality.value, "fresh")
+        self.assertIn("owner_contract_quality_fresh_overrides_stable_ha_age", observation.reason)
+
+    def test_weather_entity_temperature_attribute_is_a_numeric_outdoor_contract(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {"input_bindings": {"outdoor_temperature": "weather.home"}}
+        )
+        observation = build_inputs_from_states(
+            {
+                "weather.home": FakeState(
+                    "sunny",
+                    attributes={"temperature": 14.2},
+                    updated_at=self.now,
+                    entity_id="weather.home",
+                )
+            },
+            config,
+            now=self.now,
+        ).outdoor_temperature
+
+        self.assertTrue(observation.usable)
+        self.assertEqual(observation.value, 14.2)
+
+    def test_activity_quality_uses_fresh_winner_not_irrelevant_stale_candidate(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {"input_bindings": {"activity_state": "sensor.activity"}}
+        )
+        observation = build_inputs_from_states(
+            {
+                "sensor.activity": FakeState(
+                    "music",
+                    attributes={
+                        "pc_active": True,
+                        "activity_decision": {
+                            "winner": "pc_active",
+                            "input_sources": {
+                                "pc_active": ["sensor.pc"],
+                                "music": ["sensor.music"],
+                            },
+                            "freshness": {
+                                "sensor.pc": {"status": "fresh"},
+                                "sensor.music": {"status": "stale"},
+                            },
+                        },
+                    },
+                    updated_at=self.now,
+                )
+            },
+            config,
+            now=self.now,
+        ).activity_state
+
+        self.assertTrue(observation.usable)
+        self.assertEqual(observation.value, "pc")
+        self.assertEqual(observation.quality.value, "fresh")
+
+    def test_stale_private_time_never_becomes_false(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {"input_bindings": {"private_time": "sensor.activity"}}
+        )
+        observation = build_inputs_from_states(
+            {
+                "sensor.activity": FakeState(
+                    "private_time",
+                    attributes={"private": True, "quality_status": "stale"},
+                    updated_at=self.now,
+                )
+            },
+            config,
+            now=self.now,
+        ).private_time
+
+        self.assertFalse(observation.usable)
+        self.assertIsNone(observation.value)
+        self.assertEqual(observation.quality.value, "stale")
+
+    def test_cover_ready_ignores_unrelated_weather_degraded_marker(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {"input_bindings": {"cover_ready": "binary_sensor.ready"}}
+        )
+        observation = build_inputs_from_states(
+            {
+                "binary_sensor.ready": FakeState(
+                    "on",
+                    attributes={
+                        "cover_available": True,
+                        "current_position": 42,
+                        "policy_context_ready": True,
+                        "quality_status": "weather_contract_degraded",
+                    },
+                    updated_at=self.now,
+                )
+            },
+            config,
+            now=self.now,
+        ).cover_ready
+
+        self.assertTrue(observation.usable)
+        self.assertTrue(observation.value)
 
     def test_owner_published_quality_is_not_hidden_by_a_recent_ha_timestamp(self) -> None:
         config = BlindControlConfig.from_mapping(
@@ -627,13 +790,14 @@ class CoordinatorTests(unittest.TestCase):
     def test_coordinator_timer_uses_shortest_field_freshness(self) -> None:
         config = BlindControlConfig.from_mapping(
             {
+                "input_bindings": {"outdoor_lux": "sensor.outdoor_lux"},
                 "binding_freshness": {
                     "outdoor_lux": {
                         "max_age_seconds": 10,
                         "require_timestamp": True,
                         "owner": "solar_owner",
                     }
-                }
+                },
             }
         )
 
@@ -642,7 +806,7 @@ class CoordinatorTests(unittest.TestCase):
                 FakeHass({}), FakeEntry(), config, ShadowRuntime(config)
             )
             await coordinator.async_start()
-            self.assertEqual(registry.intervals[0], timedelta(seconds=5))
+            self.assertEqual(registry.intervals[0], timedelta(seconds=300))
             coordinator.stop()
 
         with fake_home_assistant_event_modules() as registry:

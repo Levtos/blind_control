@@ -464,14 +464,6 @@ def _observation_for_entity(
             reason="restored_state_is_not_fresh_owner_evidence",
             updated_at=_updated_at(key, state),
         )
-    explicit_quality = _explicit_quality(attributes)
-    if explicit_quality is not None and explicit_quality is not InputQuality.FRESH:
-        return InputObservation(
-            source=entity_id,
-            quality=explicit_quality,
-            reason="owner_contract_quality_not_fresh",
-            updated_at=_updated_at(key, state),
-        )
     raw_value = _attribute_value(key, state, raw_state)
     try:
         value, adapter_reason = _convert_value(
@@ -488,10 +480,27 @@ def _observation_for_entity(
             reason="bound_entity_value_parse_error",
             updated_at=_updated_at(key, state),
         )
+    explicit_quality = _explicit_quality(
+        attributes,
+        key=key,
+        selected_value=value,
+    )
+    if explicit_quality is not None and explicit_quality is not InputQuality.FRESH:
+        return InputObservation(
+            source=entity_id,
+            quality=explicit_quality,
+            reason="owner_contract_quality_not_fresh",
+            updated_at=_updated_at(key, state),
+        )
     updated_at = _updated_at(key, state)
-    quality, reason = _freshness(updated_at, now, freshness)
+    quality, reason = _freshness(
+        updated_at,
+        now,
+        freshness,
+        owner_quality=explicit_quality,
+    )
     return InputObservation(
-        value=value,
+        value=value if quality is InputQuality.FRESH or key != "private_time" else None,
         source=entity_id,
         quality=quality,
         reason=f"{adapter_reason};{_timestamp_reason(key, state)};{reason}",
@@ -507,14 +516,27 @@ def _attribute_value(key: str, state: object, raw_state: object) -> object:
         "cover_position": "current_position",
         "privacy": "privacy_candidate",
         "indoor_temperature": "temperature",
-        "outdoor_temperature": "outdoor_temperature",
         "cloud_cover": "cloud_coverage",
         "active_mode": "active_mode",
         "effective_target": "active_position",
     }.get(key)
+    if key == "outdoor_temperature":
+        if "outdoor_temperature" in attributes:
+            attribute_key = "outdoor_temperature"
+        elif _entity_domain(state) == "weather" and "temperature" in attributes:
+            attribute_key = "temperature"
+        elif attributes.get("contract") in {"weather_environment.v1", "outdoor_temperature"}:
+            attribute_key = "temperature"
+    if key == "indoor_temperature" and "temperature" not in attributes:
+        if "current_temperature" in attributes:
+            attribute_key = "current_temperature"
     if attribute_key and attribute_key in attributes:
         return attributes[attribute_key]
     return raw_state
+
+
+def _entity_domain(state: object) -> str:
+    return str(getattr(state, "entity_id", "")).split(".", 1)[0].lower()
 
 
 def _convert_value(
@@ -726,7 +748,21 @@ def _optional_bool_attribute(attributes: Mapping[str, object], key: str) -> bool
     return _canonical_bool(attributes[key])
 
 
-def _explicit_quality(attributes: Mapping[str, object]) -> InputQuality | None:
+def _explicit_quality(
+    attributes: Mapping[str, object], *, key: str | None = None, selected_value: object = None
+) -> InputQuality | None:
+    if key == "activity_state":
+        winner_quality = _activity_winner_quality(attributes, selected_value)
+        if winner_quality is not None:
+            return winner_quality
+    field_quality = _field_quality_value(attributes, key)
+    if field_quality is not _MISSING:
+        return _parse_quality(field_quality)
+    if key == "cover_ready" and _weather_quality_is_unrelated(attributes):
+        for name in ("source_quality", "cover_ready_quality", "readiness_quality"):
+            if name in attributes:
+                return _parse_quality(attributes[name])
+        return None
     value = attributes.get("quality_status", attributes.get("quality"))
     decision = attributes.get("activity_decision")
     if value is None and isinstance(decision, Mapping):
@@ -744,13 +780,130 @@ def _explicit_quality(attributes: Mapping[str, object]) -> InputQuality | None:
             return InputQuality.DEGRADED
     if value is None:
         return None
+    return _parse_quality(value)
+
+
+_MISSING = object()
+
+
+def _field_quality_value(attributes: Mapping[str, object], key: str | None) -> object:
+    if key == "cover_ready":
+        for name in (
+            "cover_ready_quality",
+            "readiness_quality",
+            "cover_ready_fresh",
+            "readiness_fresh",
+        ):
+            if name in attributes:
+                return attributes[name]
+        generic = attributes.get("quality_status", attributes.get("quality"))
+        if str(generic).strip().lower() in {"weather_contract_degraded", "weather_degraded"}:
+            return _MISSING
+    return _MISSING
+
+
+def _weather_quality_is_unrelated(attributes: Mapping[str, object]) -> bool:
+    marker = str(attributes.get("quality_status", attributes.get("quality", ""))).strip().lower()
+    return marker in {"weather_contract_degraded", "weather_degraded"}
+
+
+def _parse_quality(value: object) -> InputQuality:
     normalized = str(value).strip().lower()
-    if normalized in {"valid", "ok", "ready", "fresh"}:
+    if normalized in {"valid", "ok", "ready", "fresh", "healthy", "available", "operational"}:
         return InputQuality.FRESH
     try:
         return InputQuality(normalized)
     except ValueError:
         return InputQuality.DEGRADED
+
+
+def _activity_winner_quality(
+    attributes: Mapping[str, object], selected_value: object
+) -> InputQuality | None:
+    """Use quality for the selected activity evidence, not stale losers."""
+
+    decision = attributes.get("activity_decision")
+    selected = str(selected_value or "").strip().lower()
+    if not isinstance(decision, Mapping):
+        return None
+    winner = decision.get("winner")
+    winner_key = ""
+    if isinstance(winner, Mapping):
+        winner_key = (
+            str(
+                winner.get("key")
+                or winner.get("candidate_key")
+                or winner.get("context")
+                or winner.get("value")
+                or ""
+            )
+            .strip()
+            .lower()
+        )
+        for name in ("quality_status", "quality", "freshness"):
+            if name in winner:
+                return _parse_quality(_quality_marker_value(winner[name]))
+    elif winner is not None:
+        winner_key = str(winner).strip().lower()
+
+    candidates = decision.get("valid_candidates", decision.get("candidates"))
+    if isinstance(candidates, Mapping):
+        candidates = tuple(
+            {"key": candidate_key, **candidate_value}
+            for candidate_key, candidate_value in candidates.items()
+            if isinstance(candidate_value, Mapping)
+        )
+    if isinstance(candidates, (list, tuple)):
+        for candidate in candidates:
+            if not isinstance(candidate, Mapping):
+                continue
+            values = {
+                str(candidate.get(name, "")).strip().lower()
+                for name in ("key", "candidate_key", "context", "variant", "value", "name")
+            }
+            if (winner_key and winner_key in values) or (selected and selected in values):
+                for name in ("quality_status", "quality", "freshness"):
+                    if name in candidate:
+                        return _parse_quality(_quality_marker_value(candidate[name]))
+
+    freshness = decision.get("freshness")
+    input_sources = decision.get("input_sources")
+    if isinstance(input_sources, Mapping) and isinstance(freshness, Mapping):
+        for candidate_key, sources in input_sources.items():
+            candidate_name = str(candidate_key).strip().lower()
+            if not (
+                candidate_name in {winner_key, selected}
+                or winner_key in candidate_name
+                or selected in candidate_name
+            ):
+                continue
+            source_names = sources if isinstance(sources, (list, tuple, set)) else (sources,)
+            markers = [
+                _quality_marker_value(freshness[source])
+                for source in source_names
+                if source in freshness
+            ]
+            if markers:
+                parsed = [_parse_quality(marker) for marker in markers]
+                return next(
+                    (quality for quality in parsed if quality is not InputQuality.FRESH),
+                    InputQuality.FRESH,
+                )
+    if isinstance(freshness, Mapping):
+        for name in (winner_key, selected):
+            marker = freshness.get(name)
+            if marker is not None:
+                return _parse_quality(_quality_marker_value(marker))
+    for name in ("activity_quality_status", "activity_quality", "activity_source_quality"):
+        if name in attributes:
+            return _parse_quality(attributes[name])
+    return None
+
+
+def _quality_marker_value(value: object) -> object:
+    if isinstance(value, Mapping):
+        return value.get("status", value.get("quality", value.get("quality_status", value)))
+    return value
 
 
 def _updated_at(key: str, state: object) -> datetime | None:
@@ -806,7 +959,15 @@ def _freshness(
     updated_at: datetime | None,
     now: datetime,
     policy: BindingFreshness,
+    *,
+    owner_quality: InputQuality | None = None,
 ) -> tuple[InputQuality, str]:
+    if owner_quality is InputQuality.FRESH and policy.owner not in {
+        "cover_device",
+        "opening_owner",
+        "technical_readiness",
+    }:
+        return InputQuality.FRESH, "owner_contract_quality_fresh_overrides_stable_ha_age"
     if updated_at is None:
         if policy.require_timestamp:
             return InputQuality.STALE, "required_timestamp_missing"

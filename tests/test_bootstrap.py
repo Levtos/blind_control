@@ -1274,7 +1274,7 @@ class BootstrapTests(unittest.TestCase):
             result = asyncio.run(flow.async_step_user(user_input))
             self.assertEqual(result["type"], "create_entry")
             self.assertEqual(result["title"], "Blind Control")
-            self.assertEqual(result["data"]["config_version"], 3)
+            self.assertEqual(result["data"]["config_version"], 4)
             self.assertEqual(
                 result["data"]["open_meteo_api_url"],
                 provider_url.options["default"],

@@ -66,6 +66,11 @@ this AP2 follow-up is a Draft PR only.
   explicit external radiation binding remains the advanced override
 - field-specific Core-State Presence/Activity/Day adapters, explicit Opening
   polarity, and standard-cover availability/current-position handling
+- deterministic contract discovery prefers exact owner slugs/roles, data types,
+  device classes and owner attributes; migrated 120-second settings cannot
+  lower the 900-second Solar/Lux or 1800-second Temperature/Weather floors;
+  healthy owner quality preserves stable measurements, while stale
+  Private-Time evidence remains blocking
 - HA 2026.8 `async_reload(entry_id)` lifecycle and Svelte-5-proxy-safe draft
   rebasing are contract-tested without a live reload or browser preview
 - setup starts the owner-bound read-only ShadowCoordinator and publishes a

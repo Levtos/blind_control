@@ -233,3 +233,20 @@ Die Panel-Draft-Grenze verwendet `$state.snapshot` und eine rekursive
 JSON-Entkopplung. Dadurch erreicht kein Svelte-5-Proxy `structuredClone`; Dirty
 Drafts bleiben bei Polls erhalten und erfolgreiche Saves synchronisieren erst
 gegen den bestätigten Server-Snapshot.
+
+Die laufende Binding-Discovery bleibt eine reine Prefill-Projektion. Sie besitzt
+keine zentrale Registry und keine installationsspezifischen IDs. Kandidaten
+werden vollständig nach veröffentlichtem Contract gerankt: exakter Slug oder
+Rolle, erwarteter Datentyp, Device Class und Owner-Attribute, anschließend
+stabile Entity-ID als Tie-Breaker. Der Adapter akzeptiert für `weather.*` die
+HA-Standardsemantik `attributes.temperature`, bevorzugt dedizierte Privacy-
+und Indoor-Contracts und bewahrt bewusste Nutzerbindungen beziehungsweise
+leere Slots.
+
+Die Freshness-Grenzen werden bei Migration erneut normalisiert. Historische
+120-Sekunden-Policies können Solar/Lux nicht unter 900 Sekunden und
+Temperatur/Wetter nicht unter 1800 Sekunden drücken. Eine vom Owner explizit
+gesunde Quality darf stabile Messwerte altersunabhängig tragen, aber nicht die
+strengeren Safety-Zeitverträge von Opening, Readiness und Coverposition
+umgehen. Core State bleibt Owner des Activity-Contracts; Blind Control bewertet
+nur die tatsächlich verwendete Winner-Evidence.

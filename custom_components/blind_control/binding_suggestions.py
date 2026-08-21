@@ -31,24 +31,17 @@ def discover_binding_suggestions(hass: object, config: BlindControlConfig) -> Bi
     input_suggestions: dict[str, str] = {}
     legacy_suggestions: dict[str, str] = {}
 
-    blind_master = _first(
-        states,
-        lambda state: (
-            _attributes(state).get("kind") == "master"
-            and all(
-                key in _attributes(state)
-                for key in ("current_cover_position", "cover_available", "opening_state")
-            )
-        ),
-    )
+    blind_master = _best(states, _is_blind_master, _blind_master_rank)
     sources = _attributes(blind_master).get("source_entities", {}) if blind_master else {}
     if not isinstance(sources, Mapping):
         sources = {}
 
     def suggest_from_source(key: str, *tokens: str, predicate=None) -> None:
-        entity_id = _source_entity(sources, *tokens)
-        if entity_id in by_id and (predicate is None or predicate(by_id[entity_id])):
-            input_suggestions[key] = entity_id
+        for entity_id in _source_entities(sources, *tokens):
+            state = by_id.get(entity_id)
+            if state is not None and (predicate is None or predicate(state)):
+                input_suggestions[key] = entity_id
+                return
 
     suggest_from_source("bio_state", "bio")
     suggest_from_source("activity_state", "activity")
@@ -77,24 +70,24 @@ def discover_binding_suggestions(hass: object, config: BlindControlConfig) -> Bi
         predicate=_is_weather_contract,
     )
 
-    activity = _state_for_suggestion(input_suggestions.get("activity_state"), by_id) or _first(
-        states, _is_core_activity
+    activity = _state_for_suggestion(input_suggestions.get("activity_state"), by_id) or _best(
+        states, _is_core_activity, _core_activity_rank
     )
-    presence = _state_for_suggestion(input_suggestions.get("away"), by_id) or _first(
-        states, lambda state: "away_gate" in _attributes(state)
+    presence = _state_for_suggestion(input_suggestions.get("away"), by_id) or _best(
+        states, _is_presence_contract, _presence_rank
     )
-    day_state = _state_for_suggestion(input_suggestions.get("day_state"), by_id) or _first(
-        states, _is_canonical_day_state
+    day_state = _state_for_suggestion(input_suggestions.get("day_state"), by_id) or _best(
+        states, _is_canonical_day_state, _day_state_rank
     )
-    day_context = _state_for_suggestion(input_suggestions.get("day_context"), by_id) or _first(
-        states, _is_day_context
+    day_context = _state_for_suggestion(input_suggestions.get("day_context"), by_id) or _best(
+        states, _is_day_context, _day_context_rank
     )
-    bio = _state_for_suggestion(input_suggestions.get("bio_state"), by_id) or _first(
-        states, _is_bio_state
+    bio = _state_for_suggestion(input_suggestions.get("bio_state"), by_id) or _best(
+        states, _is_bio_state, _bio_state_rank
     )
     _suggest_state(input_suggestions, "activity_state", activity)
-    private_time = _state_for_suggestion(input_suggestions.get("private_time"), by_id) or _first(
-        states, _is_private_time_contract
+    private_time = _state_for_suggestion(input_suggestions.get("private_time"), by_id) or _best(
+        states, _is_private_time_contract, _private_time_rank
     )
     _suggest_state(input_suggestions, "private_time", private_time)
     _suggest_state(input_suggestions, "away", presence)
@@ -102,57 +95,52 @@ def discover_binding_suggestions(hass: object, config: BlindControlConfig) -> Bi
     _suggest_state(input_suggestions, "day_context", day_context)
     _suggest_state(input_suggestions, "bio_state", bio)
 
-    privacy = _first(
-        states,
-        lambda state: (
-            "privacy_candidate" in _attributes(state)
-            or _attributes(state).get("slug") == "privacy_candidate"
-        ),
-    )
+    privacy = _best(states, _is_privacy_contract, _privacy_rank)
     _suggest_state(input_suggestions, "privacy", privacy)
 
-    opening = _state_for_suggestion(input_suggestions.get("opening_state"), by_id) or _first(
-        states, _is_opening_contract
+    opening = _state_for_suggestion(input_suggestions.get("opening_state"), by_id) or _best(
+        states, _is_opening_contract, _opening_rank
     )
     _suggest_state(input_suggestions, "opening_state", opening)
 
-    opening_safety = _first(
-        states,
-        lambda state: _attributes(state).get("slug") == "opening_unsafe_for_rollo",
-    )
+    opening_safety = _best(states, _is_opening_safety_contract, _opening_safety_rank)
     _suggest_state(input_suggestions, "opening_safe_for_blind", opening_safety)
 
-    cover = _cover_from_sources(sources, by_id) or _first(states, _is_standard_cover)
+    cover = _cover_from_sources(sources, by_id) or _best(
+        states, _is_standard_cover, _standard_cover_rank
+    )
     _suggest_state(input_suggestions, "cover_available", cover)
     _suggest_state(input_suggestions, "cover_position", cover)
 
-    readiness = _state_for_suggestion(input_suggestions.get("cover_ready"), by_id) or _first(
-        states, _is_cover_readiness
+    readiness = _state_for_suggestion(input_suggestions.get("cover_ready"), by_id) or _best(
+        states, _is_cover_readiness, _cover_readiness_rank
     )
     _suggest_state(input_suggestions, "cover_ready", readiness)
 
-    lux = _state_for_suggestion(input_suggestions.get("outdoor_lux"), by_id) or _first(
-        states, _is_lux_contract
+    lux = _state_for_suggestion(input_suggestions.get("outdoor_lux"), by_id) or _best(
+        states, _is_lux_contract, _lux_rank
     )
     _suggest_state(input_suggestions, "outdoor_lux", lux)
 
-    sun = _state_for_suggestion(input_suggestions.get("sun_elevation"), by_id) or _first(
-        states, _is_sun_contract
+    sun = _state_for_suggestion(input_suggestions.get("sun_elevation"), by_id) or _best(
+        states, _is_sun_contract, _sun_rank
     )
     _suggest_state(input_suggestions, "sun_elevation", sun)
     _suggest_state(input_suggestions, "sun_azimuth", sun)
 
     indoor_temperature = _state_for_suggestion(
         input_suggestions.get("indoor_temperature"), by_id
-    ) or _first(states, _is_indoor_temperature_contract)
+    ) or _best(states, _is_indoor_temperature_contract, _indoor_temperature_rank)
     _suggest_state(input_suggestions, "indoor_temperature", indoor_temperature)
 
-    weather = _weather_from_sources(sources, by_id) or _first(states, _is_weather_contract)
+    weather = _weather_from_sources(sources, by_id) or _best(
+        states, _is_weather_contract, _weather_rank
+    )
     _suggest_state(input_suggestions, "outdoor_temperature", weather)
     if weather and _has_numeric_attribute(weather, "cloud_coverage", "cloud_cover"):
         _suggest_state(input_suggestions, "cloud_cover", weather)
 
-    legacy = _first(states, _is_legacy_debug_contract)
+    legacy = _best(states, _is_legacy_debug_contract, _legacy_rank)
     if legacy is not None:
         entity_id = _entity_id(legacy)
         legacy_suggestions.update(
@@ -194,8 +182,13 @@ def _state_value(state: object) -> str:
     return str(getattr(state, "state", "")).strip().lower()
 
 
-def _first(states: Iterable[object], predicate) -> object | None:
-    return next((state for state in states if predicate(state)), None)
+def _best(states: Iterable[object], predicate, rank) -> object | None:
+    """Choose a contract deterministically, independent of HA state order."""
+
+    candidates = [state for state in states if predicate(state)]
+    return (
+        min(candidates, key=lambda state: (-rank(state), _entity_id(state))) if candidates else None
+    )
 
 
 def _state_for_suggestion(entity_id: str | None, by_id: Mapping[str, object]) -> object | None:
@@ -203,11 +196,35 @@ def _state_for_suggestion(entity_id: str | None, by_id: Mapping[str, object]) ->
 
 
 def _source_entity(sources: Mapping[object, object], *tokens: str) -> str:
+    return next(iter(_source_entities(sources, *tokens)), "")
+
+
+def _source_entities(sources: Mapping[object, object], *tokens: str) -> tuple[str, ...]:
+    """Return source bindings by exact role/slug precedence and stable ID tie-break."""
+
+    ranked: list[tuple[int, str]] = []
     for role, value in sources.items():
-        normalized_role = str(role).lower()
-        if any(token in normalized_role for token in tokens) and isinstance(value, str):
-            return value
-    return ""
+        if not isinstance(value, str):
+            continue
+        score = _role_score(role, tokens)
+        if score:
+            ranked.append((score, value))
+    return tuple(value for _score, value in sorted(ranked, key=lambda item: (-item[0], item[1])))
+
+
+def _role_score(role: object, tokens: tuple[str, ...]) -> int:
+    normalized = _slug(role)
+    without_source = normalized.removeprefix("source_")
+    best = 0
+    for token in tokens:
+        expected = _slug(token)
+        if normalized == expected or without_source == expected:
+            best = max(best, 1000)
+        elif normalized == f"source_{expected}" or without_source.endswith(f"_{expected}"):
+            best = max(best, 900)
+        elif expected in without_source.split("_"):
+            best = max(best, 700)
+    return best
 
 
 def _suggest_state(suggestions: dict[str, str], key: str, state: object | None) -> None:
@@ -234,6 +251,22 @@ def _is_bio_state(state: object) -> bool:
     )
 
 
+def _is_blind_master(state: object) -> bool:
+    attributes = _attributes(state)
+    return attributes.get("kind") == "master" and all(
+        key in attributes for key in ("current_cover_position", "cover_available", "opening_state")
+    )
+
+
+def _is_presence_contract(state: object) -> bool:
+    attributes = _attributes(state)
+    return (
+        "away_gate" in attributes
+        or _slug(attributes.get("slug")) in {"presence", "presence_household", "presence_away"}
+        or _slug(attributes.get("role")) in {"presence", "away"}
+    )
+
+
 def _is_core_activity(state: object) -> bool:
     attributes = _attributes(state)
     return "pc_active" in attributes and (
@@ -247,6 +280,29 @@ def _is_private_time_contract(state: object) -> bool:
         _state_value(state) == "private_time"
         or "private_time" in attributes
         or "private" in attributes
+    )
+
+
+def _is_privacy_contract(state: object) -> bool:
+    """Require a dedicated boolean privacy signal, not a generic blind master."""
+
+    attributes = _attributes(state)
+    slug = _slug(attributes.get("slug"))
+    role = _slug(attributes.get("role"))
+    dedicated = slug in {"privacy", "privacy_candidate", "privacy_contract"} or role in {
+        "privacy",
+        "privacy_candidate",
+        "privacy_contract",
+    }
+    candidate_attribute = "privacy_candidate" in attributes and _is_boolean_like(
+        attributes["privacy_candidate"]
+    )
+    if attributes.get("kind") == "master" and not dedicated:
+        return False
+    return (
+        dedicated
+        or candidate_attribute
+        or (_entity_id(state).split(".", 1)[0] == "binary_sensor" and dedicated)
     )
 
 
@@ -274,9 +330,17 @@ def _is_opening_contract(state: object) -> bool:
     )
 
 
+def _is_opening_safety_contract(state: object) -> bool:
+    attributes = _attributes(state)
+    return _slug(attributes.get("slug")) in {
+        "opening_unsafe_for_rollo",
+        "opening_safe_for_blind",
+    }
+
+
 def _is_standard_cover(state: object) -> bool:
-    return _entity_id(state).split(".", 1)[0] == "cover" and "current_position" in _attributes(
-        state
+    return _entity_id(state).split(".", 1)[0] == "cover" and _has_numeric_attribute(
+        state, "current_position"
     )
 
 
@@ -284,22 +348,32 @@ def _cover_from_sources(
     sources: Mapping[object, object], by_id: Mapping[str, object]
 ) -> object | None:
     for token in ("cover_position", "cover_state", "cover"):
-        state = _state_for_suggestion(_source_entity(sources, token), by_id)
-        if state is not None and _is_standard_cover(state):
-            return state
+        for entity_id in _source_entities(sources, token):
+            state = _state_for_suggestion(entity_id, by_id)
+            if state is not None and _is_standard_cover(state):
+                return state
     return None
 
 
 def _is_cover_readiness(state: object) -> bool:
     attributes = _attributes(state)
-    return all(
-        key in attributes for key in ("cover_available", "current_position", "policy_context_ready")
+    return (
+        all(
+            key in attributes
+            for key in ("cover_available", "current_position", "policy_context_ready")
+        )
+        and _is_boolean_like(attributes["cover_available"])
+        and _is_boolean_like(attributes["policy_context_ready"])
+        and _is_number(attributes["current_position"])
     )
 
 
 def _is_lux_contract(state: object) -> bool:
     attributes = _attributes(state)
-    return attributes.get("variant") == "lux" and _is_number(getattr(state, "state", None))
+    return (attributes.get("variant") == "lux" and _is_number(getattr(state, "state", None))) or (
+        attributes.get("device_class") == "illuminance"
+        and _is_number(getattr(state, "state", None))
+    )
 
 
 def _is_sun_contract(state: object) -> bool:
@@ -311,32 +385,168 @@ def _is_sun_contract(state: object) -> bool:
 
 def _is_indoor_temperature_contract(state: object) -> bool:
     attributes = _attributes(state)
-    slug = str(attributes.get("slug", ""))
-    return (
-        attributes.get("kind") == "master"
-        and "climate" in slug
-        and _has_numeric_attribute(state, "temperature")
+    slug = _slug(attributes.get("slug"))
+    role = _slug(attributes.get("role"))
+    return _has_numeric_attribute(state, "temperature", "current_temperature") and (
+        _contains_contract_token(slug, "indoor_temperature", "room_temperature", "room")
+        or _contains_contract_token(role, "indoor_temperature", "room_temperature", "room")
+        or (
+            attributes.get("kind") == "master"
+            and _contains_contract_token(
+                slug,
+                "climate_indoor",
+                "climate_living",
+                "indoor_climate",
+                "room_climate",
+            )
+        )
+        or (
+            attributes.get("device_class") == "temperature"
+            and _contains_contract_token(str(attributes.get("measurement", "")), "indoor", "room")
+        )
     )
 
 
 def _weather_from_sources(
     sources: Mapping[object, object], by_id: Mapping[str, object]
 ) -> object | None:
-    return _state_for_suggestion(_source_entity(sources, "weather", "outdoor_temperature"), by_id)
+    for entity_id in _source_entities(sources, "weather", "outdoor_temperature"):
+        state = _state_for_suggestion(entity_id, by_id)
+        if state is not None and _is_weather_contract(state):
+            return state
+    return None
 
 
 def _is_weather_contract(state: object) -> bool:
     attributes = _attributes(state)
-    return _has_numeric_attribute(state, "outdoor_temperature") or (
-        attributes.get("atomic_class") == "environment"
-        and _is_number(getattr(state, "state", None))
-        and "temperature" in str(attributes.get("variant", ""))
+    domain = _entity_id(state).split(".", 1)[0]
+    return (
+        _has_numeric_attribute(state, "outdoor_temperature")
+        or (domain == "weather" and _has_numeric_attribute(state, "temperature"))
+        or (
+            attributes.get("atomic_class") == "environment"
+            and _is_number(getattr(state, "state", None))
+            and "temperature" in str(attributes.get("variant", ""))
+        )
     )
 
 
 def _has_numeric_attribute(state: object, *names: str) -> bool:
     attributes = _attributes(state)
     return any(name in attributes and _is_number(attributes[name]) for name in names)
+
+
+def _is_boolean_like(value: object) -> bool:
+    if isinstance(value, bool):
+        return True
+    return str(value).strip().lower() in {"on", "off", "true", "false", "yes", "no", "1", "0"}
+
+
+def _slug(value: object) -> str:
+    return "_".join(str(value or "").strip().lower().replace("-", "_").split())
+
+
+def _contains_contract_token(value: str, *tokens: str) -> bool:
+    normalized = _slug(value)
+    return any(normalized == _slug(token) or _slug(token) in normalized for token in tokens)
+
+
+def _rank_from_slug(state: object, *exact: str) -> int:
+    attributes = _attributes(state)
+    slug = _slug(attributes.get("slug"))
+    role = _slug(attributes.get("role"))
+    contract = _slug(attributes.get("contract"))
+    if slug in {_slug(value) for value in exact}:
+        return 1000
+    if role in {_slug(value) for value in exact}:
+        return 900
+    if contract in {_slug(value) for value in exact}:
+        return 800
+    return 0
+
+
+def _blind_master_rank(state: object) -> int:
+    return _rank_from_slug(state, "blind", "living_blind", "blind_master")
+
+
+def _bio_state_rank(state: object) -> int:
+    return _rank_from_slug(state, "bio_state", "bio")
+
+
+def _core_activity_rank(state: object) -> int:
+    return _rank_from_slug(state, "activity_state", "activity") + (
+        100 if "activity_decision" in _attributes(state) else 0
+    )
+
+
+def _presence_rank(state: object) -> int:
+    return _rank_from_slug(state, "presence", "presence_household", "presence_away") + (
+        100 if "away_gate" in _attributes(state) else 0
+    )
+
+
+def _private_time_rank(state: object) -> int:
+    return _rank_from_slug(state, "private_time", "private_time_candidate") + (
+        100 if "private_time" in _attributes(state) else 0
+    )
+
+
+def _privacy_rank(state: object) -> int:
+    return _rank_from_slug(state, "privacy", "privacy_candidate", "privacy_contract") + (
+        100 if "privacy_candidate" in _attributes(state) else 0
+    )
+
+
+def _day_state_rank(state: object) -> int:
+    return _rank_from_slug(state, "day_state", "day")
+
+
+def _day_context_rank(state: object) -> int:
+    return _rank_from_slug(state, "day_context", "calendar_context")
+
+
+def _opening_rank(state: object) -> int:
+    return _rank_from_slug(state, "opening", "opening_state", "opening_contract")
+
+
+def _opening_safety_rank(state: object) -> int:
+    return _rank_from_slug(state, "opening_unsafe_for_rollo", "opening_safe_for_blind")
+
+
+def _standard_cover_rank(state: object) -> int:
+    return _rank_from_slug(state, "cover", "cover_position", "blind")
+
+
+def _cover_readiness_rank(state: object) -> int:
+    return _rank_from_slug(state, "cover_ready", "technical_readiness", "readiness")
+
+
+def _lux_rank(state: object) -> int:
+    return _rank_from_slug(state, "outdoor_lux", "lux", "illuminance") + (
+        100 if _attributes(state).get("device_class") == "illuminance" else 0
+    )
+
+
+def _sun_rank(state: object) -> int:
+    return _rank_from_slug(state, "sun", "sun_geometry") + (
+        100 if _entity_id(state).split(".", 1)[0] == "sun" else 0
+    )
+
+
+def _indoor_temperature_rank(state: object) -> int:
+    return _rank_from_slug(state, "indoor_temperature", "room_temperature", "climate_indoor") + (
+        100 if _attributes(state).get("device_class") == "temperature" else 0
+    )
+
+
+def _weather_rank(state: object) -> int:
+    return _rank_from_slug(state, "outdoor_temperature", "weather_environment", "weather") + (
+        200 if _entity_id(state).split(".", 1)[0] == "weather" else 0
+    )
+
+
+def _legacy_rank(state: object) -> int:
+    return _rank_from_slug(state, "legacy_debug", "shadow_status")
 
 
 def _is_legacy_debug_contract(state: object) -> bool:

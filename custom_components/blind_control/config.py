@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from .open_meteo import normalize_open_meteo_url
 
-CONFIG_VERSION = 3
+CONFIG_VERSION = 4
 
 BINDING_INTENT_BOUND = "bound"
 BINDING_INTENT_EMPTY = "intentionally_empty"
@@ -363,6 +363,17 @@ def _bindings(
     return tuple(sorted(result))
 
 
+def _effective_max_age(key: str, max_age: float | None) -> float | None:
+    """Keep legacy persisted ages from weakening a field's safety floor."""
+
+    floor = _FIELD_FRESHNESS_FLOORS.get(key)
+    if floor is None:
+        return max_age
+    if max_age is None or max_age < floor:
+        return floor
+    return max_age
+
+
 def _binding_intents(value: object) -> tuple[tuple[str, str], ...]:
     if value is None:
         return ()
@@ -407,6 +418,7 @@ def _binding_freshness(
                 minimum=1,
                 maximum=86_400,
             )
+        max_age = _effective_max_age(key, max_age)
         require_timestamp = raw_policy.get("require_timestamp", default.require_timestamp)
         owner = raw_policy.get("owner", default.owner)
         result.append(
@@ -517,13 +529,20 @@ class BlindControlConfig:
         return self.profile(profile_name).target(self.axis_inverted)
 
     def binding_policy(self, key: str, *, legacy: bool = False) -> BindingFreshness:
-        """Resolve one explicit policy without applying a global age heuristic."""
+        """Resolve one policy while preserving the field's minimum age floor."""
 
         configured = dict(self.binding_freshness).get(key)
-        return configured or default_binding_freshness(
+        policy = configured or default_binding_freshness(
             key,
             self.observation_freshness_seconds,
             legacy=legacy,
+        )
+        if legacy:
+            return policy
+        return BindingFreshness(
+            _effective_max_age(key, policy.max_age_seconds),
+            policy.require_timestamp,
+            policy.owner,
         )
 
     def binding_freshness_mapping(self) -> dict[str, dict[str, object]]:
@@ -537,9 +556,13 @@ class BlindControlConfig:
     def freshness_timer_seconds(self) -> float:
         """Return a bounded cadence that observes the shortest age-limited field."""
 
+        configured_keys = set(dict(self.input_bindings)) | set(dict(self.legacy_bindings))
+        if not configured_keys:
+            return max(0.1, min(300.0, self.observation_freshness_seconds / 2))
         max_ages = [
             policy.max_age_seconds
             for key in (*INPUT_BINDING_KEYS, *LEGACY_BINDING_KEYS)
+            if key in configured_keys
             if (
                 policy := self.binding_policy(key, legacy=key in LEGACY_BINDING_KEYS)
             ).max_age_seconds
