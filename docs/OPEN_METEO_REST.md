@@ -30,6 +30,21 @@ fremde Hosts ab. Eine ungültige Änderung ersetzt die letzte gültige Option
 nicht. Erfolgreiches Speichern lädt nur diese ConfigEntry neu; ein vollständiger
 Home-Assistant-Neustart ist nicht erforderlich.
 
+Bestehende ConfigEntries aus einer Version ohne internes Provider-URL-Feld
+verwenden bis zur nächsten bestätigten OptionsFlow-Speicherung dieselbe
+Standort-Suggestion nur im Runtime-Kontext. Dadurch bleiben die beiden Sensoren
+bei einer erfolgreichen Antwort sofort verfügbar; die URL wird nicht still in
+öffentliche Daten oder Diagnosen übernommen. Ein fehlender HA-Standort oder ein
+fehlgeschlagener Erstabruf bleibt sichtbar `unavailable` und wird nicht durch
+einen erfundenen Strahlungswert ersetzt.
+
+Die native OptionsFlow-Erkennung untersucht die aktuell veröffentlichten
+Owner-Contracts und setzt belastbare Pflicht- und Conditional-Bindings als
+Formular-Defaults. Benutzerbindungen und bewusst leere optionale Felder haben
+Vorrang. Die beiden Strahlungsfelder werden wegen des internen Providers nicht
+als manuelle Entity-Auswahl vorausgefüllt; ein externes Binding bleibt ein
+ausdrücklicher Override.
+
 ## Native Sensoren
 
 Ein Request speist zwei normale read-only Sensoren am Blind-Control-Gerät:

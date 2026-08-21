@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant
 
 from .config import BlindControlConfig
 from .coordinator import ShadowCoordinator
+from .open_meteo import suggested_open_meteo_url
 from .radiation_provider import OpenMeteoRadiationCoordinator
 from .shadow import ShadowRuntime, ShadowSnapshot
 from .websocket_api import register_websocket_commands
@@ -47,9 +48,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: BlindControlConfigEntry) -> bool:
     """Load one non-actuating entry and start its owner-bound observer."""
 
-    config = BlindControlConfig.from_mapping(
-        {**getattr(entry, "data", {}), **getattr(entry, "options", {})}
-    )
+    config = BlindControlConfig.from_mapping(_runtime_config_mapping(hass, entry))
     radiation_provider = OpenMeteoRadiationCoordinator(
         hass,
         entry,
@@ -78,6 +77,39 @@ async def async_setup_entry(hass: HomeAssistant, entry: BlindControlConfigEntry)
         entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
+
+
+def _runtime_config_mapping(
+    hass: HomeAssistant, entry: BlindControlConfigEntry
+) -> dict[str, object]:
+    """Use HA's location as a non-persistent provider prefill for legacy entries.
+
+    Entries created before the internal provider existed have no URL yet.  The
+    generated value stays in runtime memory until the user confirms it in the
+    native ConfigFlow/OptionsFlow; no coordinate or URL is exposed by a public
+    contract.
+    """
+
+    raw = {
+        **getattr(entry, "data", {}),
+        **getattr(entry, "options", {}),
+    }
+    if raw.get("open_meteo_api_url"):
+        return raw
+    home_config = getattr(hass, "config", None)
+    latitude = getattr(home_config, "latitude", None)
+    longitude = getattr(home_config, "longitude", None)
+    if latitude is None or longitude is None:
+        return raw
+    try:
+        raw["open_meteo_api_url"] = suggested_open_meteo_url(
+            latitude,
+            longitude,
+            getattr(home_config, "time_zone", "UTC"),
+        )
+    except (TypeError, ValueError):
+        return raw
+    return raw
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: BlindControlConfigEntry) -> bool:

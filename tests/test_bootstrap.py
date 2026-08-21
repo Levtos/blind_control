@@ -631,6 +631,43 @@ class BootstrapTests(unittest.TestCase):
             self.assertTrue(provider.shutdown)
             self.assertEqual(provider.listeners, [])
 
+    def test_legacy_entry_location_prefill_makes_provider_sensors_available(self) -> None:
+        """Entries created before the URL field must not strand the sensors unavailable."""
+
+        with _home_assistant_imports():
+            module = importlib.import_module("custom_components.blind_control")
+            open_meteo = importlib.import_module("custom_components.blind_control.open_meteo")
+            hass = _FakeHomeAssistant()
+            hass.client_session = _FakeClientSession(
+                {
+                    "current": {
+                        "direct_normal_irradiance_instant": 280,
+                        "diffuse_radiation_instant": 65,
+                    }
+                }
+            )
+            entry = _FakeConfigEntry("entry-legacy")
+
+            asyncio.run(module.async_setup_entry(hass, entry))
+
+            expected_url = open_meteo.suggested_open_meteo_url(50, 8, "Europe/Berlin")
+            self.assertEqual(entry.runtime_data.config.open_meteo_api_url, expected_url)
+            self.assertNotIn("open_meteo_api_url", entry.data)
+            self.assertEqual(len(hass.client_session.requests), 1)
+            radiation_entities = [
+                entity
+                for entity in hass._entities_by_entry[entry.entry_id]
+                if entity._attr_unique_id.startswith("blind_control_")
+            ]
+            self.assertEqual(len(radiation_entities), 2)
+            self.assertTrue(all(entity.available for entity in radiation_entities))
+            self.assertEqual(
+                {entity.native_value for entity in radiation_entities},
+                {280.0, 65.0},
+            )
+
+            self.assertTrue(asyncio.run(module.async_unload_entry(hass, entry)))
+
     def test_provider_failure_retains_only_fresh_last_success_and_zero_is_valid(self) -> None:
         with _home_assistant_imports():
             provider_module = importlib.import_module(
@@ -1076,13 +1113,127 @@ class BootstrapTests(unittest.TestCase):
                 ],
                 "sensor.contract_bio",
             )
+            self.assertEqual(
+                _schema_key(suggested_core.schema, "bio_state").options["default"],
+                "sensor.contract_bio",
+            )
+            self.assertEqual(
+                _schema_key(suggested_schema, "core_state_bindings").options["default"][
+                    "bio_state"
+                ],
+                "sensor.contract_bio",
+            )
             suggested_opening = _schema_value(suggested_schema, "opening_safety_cover_bindings")
             self.assertEqual(
                 _schema_key(suggested_opening.schema, "opening_safety_polarity").options["default"],
                 "negative_unsafe",
             )
+            suggested_solar = _schema_value(suggested_schema, "solar_bindings")
+            self.assertNotIn(
+                "default",
+                _schema_key(suggested_solar.schema, "expected_direct_radiation").options,
+            )
 
             from custom_components.blind_control.config import BlindControlConfig
+
+            required_defaults = {
+                "bio_state": "sensor.contract_bio",
+                "activity_state": "sensor.contract_activity",
+                "day_state": "sensor.contract_day",
+                "day_context": "sensor.contract_day_context",
+                "away": "sensor.contract_presence",
+                "private_time": "sensor.contract_private_time",
+                "privacy": "sensor.contract_privacy",
+                "opening_state": "sensor.contract_opening",
+                "cover_available": "cover.contract_blind",
+                "cover_ready": "binary_sensor.contract_blind_ready",
+                "cover_position": "cover.contract_blind",
+                "outdoor_lux": "sensor.contract_lux",
+                "sun_elevation": "sun.contract_sun",
+                "sun_azimuth": "sun.contract_sun",
+                "indoor_temperature": "sensor.contract_indoor_temperature",
+                "outdoor_temperature": "sensor.contract_weather",
+                "opening_safe_for_blind": "binary_sensor.contract_opening_unsafe",
+            }
+            full_prefill_schema = loaded._config_schema(
+                suggestions=loaded.BindingSuggestions(required_defaults, {}, "negative_unsafe")
+            )
+            prefill_sections = {
+                "core_state_bindings": (
+                    "bio_state",
+                    "activity_state",
+                    "day_state",
+                    "day_context",
+                    "away",
+                    "private_time",
+                    "privacy",
+                ),
+                "opening_safety_cover_bindings": (
+                    "opening_state",
+                    "cover_available",
+                    "cover_ready",
+                    "cover_position",
+                    "opening_safe_for_blind",
+                ),
+                "solar_bindings": ("outdoor_lux", "sun_elevation", "sun_azimuth"),
+                "temperature_weather_bindings": (
+                    "indoor_temperature",
+                    "outdoor_temperature",
+                ),
+            }
+            for section, keys in prefill_sections.items():
+                section_schema = _schema_value(full_prefill_schema, section)
+                for key in keys:
+                    self.assertEqual(
+                        _schema_key(section_schema.schema, key).options["default"],
+                        required_defaults[key],
+                    )
+
+            preserved = loaded._config_schema(
+                config=BlindControlConfig.from_mapping(
+                    {
+                        "input_bindings": {"bio_state": "sensor.user_selected_bio"},
+                        "binding_intents": {"bio_state": "bound"},
+                    }
+                ),
+                suggestions=loaded.BindingSuggestions(
+                    {"bio_state": "sensor.discovered_bio"}, {}, None
+                ),
+            )
+            self.assertEqual(
+                _schema_key(
+                    _schema_value(preserved, "core_state_bindings").schema, "bio_state"
+                ).options["default"],
+                "sensor.user_selected_bio",
+            )
+            intentionally_empty = loaded._config_schema(
+                config=BlindControlConfig.from_mapping(
+                    {
+                        "input_bindings": {"bio_state": "sensor.user_selected_bio"},
+                        "binding_intents": {"bio_state": "intentionally_empty"},
+                    }
+                ),
+                suggestions=loaded.BindingSuggestions(
+                    {"bio_state": "sensor.discovered_bio"}, {}, None
+                ),
+            )
+            empty_core = _schema_value(intentionally_empty, "core_state_bindings")
+            empty_bio = _schema_key(empty_core.schema, "bio_state")
+            self.assertNotIn("default", empty_bio.options)
+            self.assertNotIn(
+                "bio_state",
+                _schema_key(intentionally_empty, "core_state_bindings").options["default"],
+            )
+            empty_mapping = loaded._mapping_from_form(
+                {"apply_enabled": False},
+                BlindControlConfig.from_mapping(
+                    {
+                        "input_bindings": {"bio_state": "sensor.user_selected_bio"},
+                        "binding_intents": {"bio_state": "intentionally_empty"},
+                    }
+                ),
+            )
+            self.assertNotIn("bio_state", empty_mapping["input_bindings"])
 
             config = BlindControlConfig.defaults()
             user_input = {

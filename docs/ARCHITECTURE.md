@@ -164,11 +164,12 @@ und die technische Ebene getrennt. Binding-Bearbeitung bleibt im nativen
 OptionsFlow mit Entity-Selectoren und den Gruppen Core State,
 Opening/Safety/Cover, Solar, Temperatur/Wetter und Legacy-Vergleich; die
 öffentliche Projektion enthält nur Status und Owner-/Freshness-Policy, nie
-Entity-IDs. Eine kleine installierte-State-Discovery liefert ausschließlich
-OptionsFlow-`suggested_value`s anhand publizierter Contractattribute und
-Source-Referenzen. Sie ist keine Registry: gespeicherte Nutzerwerte und
-bewusst leere Slots haben Vorrang, und die Engine konsumiert weiterhin nur die
-tatsächlich persistierten Bindings.
+Entity-IDs. Eine kleine installierte-State-Discovery liefert anhand
+publizierter Contractattribute und Source-Referenzen `suggested_value`s und
+setzt belastbare required/conditional Bindings als echte Formular-Defaults.
+Sie ist keine Registry: gespeicherte Nutzerwerte und bewusst leere Slots haben
+Vorrang, optionale Evidence wird nicht ungefragt gebunden, und die Engine
+konsumiert weiterhin nur die tatsächlich persistierten Bindings.
 
 `blind_control.automation_projection.v1` ist bewusst klein: Mastermodus,
 aktive Kategorie/-variante, Failure-Status/-Grund/-Blocker, fachliches und
@@ -223,7 +224,10 @@ bleibt die Solar-Engine providerneutral, sodass Core Contracts den Provider
 später übernehmen kann. Es gibt keine YAML-/Package-/Secret-Konfiguration,
 keinen API-Key-, PV-, Forecast- oder Weather-State-Pfad und keine Änderung an
 Core State. Unload und Options-Reload beenden Coordinator, Listener und Timer,
-bevor genau eine neue Runtime aufgebaut wird.
+bevor genau eine neue Runtime aufgebaut wird. Entries ohne gespeicherte URL
+verwenden die HA-Standort-Suggestion bis zur bestätigten OptionsFlow-Speicherung
+nur im Runtime-Kontext; ohne Standort oder bei Providerfehler bleibt die
+Strahlungsevidence unavailable/stale und wird nicht ersetzt.
 
 Die Panel-Draft-Grenze verwendet `$state.snapshot` und eine rekursive
 JSON-Entkopplung. Dadurch erreicht kein Svelte-5-Proxy `structuredClone`; Dirty

@@ -146,6 +146,20 @@ class BindingSuggestionTests(unittest.TestCase):
         self.assertEqual(suggestions.opening_safety_polarity, "negative_unsafe")
         self.assertEqual(set(suggestions.legacy_bindings), set(LEGACY_BINDING_KEYS))
         self.assertNotIn("lux_trend", suggestions.input_bindings)
+        self.assertNotIn("expected_direct_radiation", suggestions.input_bindings)
+        self.assertNotIn("expected_diffuse_radiation", suggestions.input_bindings)
+
+    def test_existing_empty_intent_removes_a_stale_binding_from_prefill(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {
+                "input_bindings": {"activity_state": "sensor.old_activity"},
+                "binding_intents": {"activity_state": "intentionally_empty"},
+            }
+        )
+
+        suggestions = discover_binding_suggestions(FakeHass(contract_states()), config)
+
+        self.assertNotIn("activity_state", suggestions.input_bindings)
 
     def test_existing_choices_and_intentionally_empty_slots_override_prefill(self) -> None:
         config = BlindControlConfig.from_mapping(
