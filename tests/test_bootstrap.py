@@ -189,6 +189,15 @@ class _FakeUpdateFailed(Exception):
     pass
 
 
+class _FakeClientError(Exception):
+    pass
+
+
+class _FakeClientTimeout:
+    def __init__(self, *, total):
+        self.total = total
+
+
 class _FakeResponse:
     def __init__(self, payload, *, error=None):
         self.payload = payload
@@ -436,6 +445,9 @@ def _schema_key(schema: _FakeSchema, key: str):
 @contextmanager
 def _home_assistant_imports():
     voluptuous = _FakeVoluptuous("voluptuous")
+    aiohttp = types.ModuleType("aiohttp")
+    aiohttp.ClientError = _FakeClientError
+    aiohttp.ClientTimeout = _FakeClientTimeout
     homeassistant = types.ModuleType("homeassistant")
     config_entries = types.ModuleType("homeassistant.config_entries")
     config_entries.ConfigEntry = _FakeConfigEntry
@@ -496,6 +508,7 @@ def _home_assistant_imports():
         sys.modules,
         {
             "voluptuous": voluptuous,
+            "aiohttp": aiohttp,
             "homeassistant": homeassistant,
             "homeassistant.config_entries": config_entries,
             "homeassistant.core": core,
