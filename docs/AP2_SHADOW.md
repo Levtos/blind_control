@@ -60,6 +60,21 @@ zulässiges Maximalalter und `require_timestamp`; einzelne Felder können diese
 Defaults explizit überschreiben. Der Beobachtungstimer läuft höchstens mit der
 Hälfte des kürzesten konfigurierten feldweisen Maximalalters.
 
+Die Nachbesserung ab v0.4.2 wendet die Feld-Floors auch auf migrierte
+ConfigEntry-Werte an: Solar/Lux mindestens 900 Sekunden, Temperatur/Wetter
+mindestens 1800 Sekunden. Ein stabiler Owner-Messwert mit explizit gesunder
+Owner-Quality bleibt verwendbar; sicherheitskritische Opening-, Readiness- und
+Cover-Positionsfelder benötigen weiterhin ihre eigene Zeit-Evidence.
+
+Die Binding-Prefill-Auswahl ist vollständig datengetrieben und deterministisch:
+exakte Slugs und Rollen, Contract-Datentyp, Device Class und Owner-Attribute
+werden vor der Entity-ID als Rangfolge verwendet. Ein generischer Blind- oder
+Climate-Master ist kein Ersatz für den dedizierten Privacy- beziehungsweise
+Indoor-Contract. Für `weather.*` wird das numerische Attribut `temperature`
+als Outdoor-Temperatur unterstützt. Bei Activity zählt die Quality des
+tatsächlichen Winners; stale Neben-Kandidaten bleiben Diagnose, solange der
+Winner fresh ist. Stale Private-Time-Evidence wird nie als `false` verwendet.
+
 `activity_state = none` ist ein gültiger kanonischer Inaktivitätswert. Nur die
 HA-Sentinels `unknown` und `unavailable` werden global verworfen.
 

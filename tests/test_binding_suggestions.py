@@ -149,6 +149,86 @@ class BindingSuggestionTests(unittest.TestCase):
         self.assertNotIn("expected_direct_radiation", suggestions.input_bindings)
         self.assertNotIn("expected_diffuse_radiation", suggestions.input_bindings)
 
+    def test_contract_prefill_is_deterministic_and_ignores_generic_master_distractors(self) -> None:
+        states = [
+            state for state in contract_states() if state.entity_id != "sensor.contract_weather"
+        ]
+        states[0].attributes["source_entities"].pop("source_weather", None)
+        states.extend(
+            [
+                FakeState(
+                    "sensor.generic_blind_master",
+                    "ready",
+                    {
+                        "kind": "master",
+                        "slug": "living_blind_secondary",
+                        "current_cover_position": 20,
+                        "cover_available": True,
+                        "opening_state": "closed",
+                        "privacy_candidate": True,
+                    },
+                ),
+                FakeState(
+                    "binary_sensor.privacy_owner",
+                    "off",
+                    {"role": "privacy", "quality_status": "fresh"},
+                ),
+                FakeState(
+                    "sensor.indoor_temperature_canonical",
+                    "23.5",
+                    {
+                        "slug": "indoor_temperature",
+                        "device_class": "temperature",
+                        "temperature": 23.5,
+                    },
+                ),
+                FakeState(
+                    "climate.unrelated",
+                    "heat",
+                    {"kind": "master", "slug": "climate_unrelated", "temperature": 19.0},
+                ),
+                FakeState(
+                    "weather.home",
+                    "sunny",
+                    {"temperature": 14.2, "device_class": "temperature"},
+                ),
+            ]
+        )
+
+        forward = discover_binding_suggestions(FakeHass(states), BlindControlConfig.defaults())
+        reverse = discover_binding_suggestions(
+            FakeHass(list(reversed(states))), BlindControlConfig.defaults()
+        )
+
+        self.assertEqual(forward.input_bindings, reverse.input_bindings)
+        self.assertEqual(forward.input_bindings["privacy"], "sensor.contract_privacy")
+        self.assertNotEqual(forward.input_bindings["privacy"], "sensor.generic_blind_master")
+        self.assertEqual(
+            forward.input_bindings["indoor_temperature"],
+            "sensor.indoor_temperature_canonical",
+        )
+        self.assertEqual(forward.input_bindings["outdoor_temperature"], "weather.home")
+
+    def test_generic_climate_master_is_not_an_indoor_temperature_contract(self) -> None:
+        suggestions = discover_binding_suggestions(
+            FakeHass(
+                [
+                    FakeState(
+                        "climate.generic",
+                        "heat",
+                        {
+                            "kind": "master",
+                            "slug": "climate_unrelated",
+                            "temperature": 19.0,
+                        },
+                    )
+                ]
+            ),
+            BlindControlConfig.defaults(),
+        )
+
+        self.assertNotIn("indoor_temperature", suggestions.input_bindings)
+
     def test_existing_empty_intent_removes_a_stale_binding_from_prefill(self) -> None:
         config = BlindControlConfig.from_mapping(
             {

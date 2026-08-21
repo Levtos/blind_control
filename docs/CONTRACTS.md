@@ -313,3 +313,34 @@ koordinatenfreie Vertrag steht in [OPEN_METEO_REST.md](OPEN_METEO_REST.md).
 Entries ohne gespeicherte Provider-URL dürfen die aus den lokalen HA-
 Standortdaten erzeugte URL bis zur bestätigten OptionsFlow-Speicherung nur im
 Runtime-Kontext verwenden; fehlender Standort bleibt `provider_unavailable`.
+
+### AP2 Quality-Gate-Nachbesserung v0.4.2
+
+Die effektive Binding-Policy ist migrationssicher: historische Werte von 120
+Sekunden dürfen die Mindestfenster nicht verkürzen. Außenlux, Sonnenhöhe und
+Sonnenazimut haben mindestens 900 Sekunden; Temperatur- und Wetterfelder haben
+mindestens 1800 Sekunden. Der Timer verwendet ausschließlich tatsächlich
+gebundene Felder und bleibt durch den technischen 300-Sekunden-Cap ein
+Refresh-Scheduler, kein abweichender Qualitätsvertrag.
+
+Eine belastbare Owner-Quality (`healthy`, `available`, `operational` oder
+`fresh`) darf einen stabilen Messwert nicht allein wegen unverändertem HA-
+Zeitstempel stale machen. Das gilt nicht für sicherheitskritische Opening-,
+Readiness- und Cover-Positionsfelder; dort bleibt die geforderte Zeit-Evidence
+maßgeblich. Ein explizit `stale`, `unknown`, `unavailable`, `degraded` oder
+`conflict` gemeldeter Owner bleibt blockierend.
+
+Die Discovery ist eine deterministische, installationslokale Suggestion und
+keine Registry. Sie bewertet alle Kandidaten und sortiert nach exakt
+veröffentlichtem Slug/Rolle, Contract-Datentyp, Device Class und Owner-
+Attributen; die Entity-ID ist nur der stabile Tie-Breaker. Privacy benötigt
+einen dedizierten booleschen Privacy-Contract, Indoor-Temperatur einen
+kanonischen numerischen Indoor-Contract und Outdoor-Temperatur entweder einen
+kanonischen numerischen Outdoor-Contract oder bei `weather.*` das numerische
+Attribut `temperature`. Die Reihenfolge der HA-State-Liste beeinflusst die
+Vorauswahl nicht.
+
+Activity bewertet die Quality der tatsächlich gewinnenden Evidence. Stale
+Kandidaten, die nicht zum Winner beitragen, entwerten keinen frischen Winner.
+Stale Private-Time-Evidence wird dagegen nicht als `false` weitergereicht;
+der Wert bleibt unbrauchbar und blockiert die automatische Entscheidung.

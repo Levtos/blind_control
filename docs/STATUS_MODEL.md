@@ -50,6 +50,10 @@ Entertainment werden `tv`, PC-Evidence wird `pc`, allgemeine Bildschirm-
 Evidence wird `screen`. `music` allein ist `none`, löscht aber ein positives
 `pc_active` oder `entertainment_active` nicht.
 
+Die Activity-Quality bezieht sich auf die Evidence des ausgewählten Winners,
+nicht auf irrelevante stale Kandidaten. Ein stale `private_time`-Contract wird
+nicht zu `false` normalisiert, sondern bleibt als blockierende Evidence sichtbar.
+
 ## Mandatory und optionale Evidence
 
 Zwingende automatische Owner-Wahrheiten sind Bio, Activity, Day State,
