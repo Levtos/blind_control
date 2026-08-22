@@ -1,0 +1,24 @@
+name: HACS stable release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Stable tag to release (for example v0.4.3)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    uses: Levtos/control/.github/workflows/hacs-stable-release.yml@main
+    with:
+      manifest_path: custom_components/blind_control/manifest.json
+      tag: ${{ inputs.tag || github.ref_name }}
