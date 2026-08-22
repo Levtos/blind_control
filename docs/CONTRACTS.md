@@ -344,3 +344,19 @@ Activity bewertet die Quality der tatsächlich gewinnenden Evidence. Stale
 Kandidaten, die nicht zum Winner beitragen, entwerten keinen frischen Winner.
 Stale Private-Time-Evidence wird dagegen nicht als `false` weitergereicht;
 der Wert bleibt unbrauchbar und blockiert die automatische Entscheidung.
+
+Für `private_time` ist die Quality feldspezifisch: `private_time_quality`,
+`private_quality`, `media_activity_feed_quality` beziehungsweise die
+entsprechende Feed-Freshness und explizite Private-Time-Evidence haben Vorrang.
+Eine frische Media-Feed-Evidence mit kanonischem `private`-Attribut bleibt
+fresh, auch wenn `activity_decision.quality_status` wegen fachfremder
+Homeoffice-/Haushaltsquellen `unknown` meldet. Stale, unavailable, degraded
+oder conflict der Media-/Private-Time-Evidence bleibt ein Quality-Blocker;
+die allgemeine Activity-Quality-Regel wird dadurch nicht abgeschwächt.
+
+Dedizierte Privacy-Contracts werden vor generischen Blind-Mastern gewählt.
+Zusätzlich zu den exakten Privacy-Slugs akzeptiert die Discovery einen
+veröffentlichten Contract mit Slug-Suffix `*_privacy_candidate`,
+`output_type=boolean`, booleschem `derived.privacy` und nicht degradiertem
+Contract. Die Entity-ID ist weiterhin nur ein Tie-Breaker und wird nicht
+produktseitig fest codiert.

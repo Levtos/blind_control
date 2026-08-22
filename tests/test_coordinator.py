@@ -302,6 +302,60 @@ class CoordinatorTests(unittest.TestCase):
         self.assertEqual(inputs.outdoor_temperature.value, 14.2)
         self.assertEqual(inputs.cloud_cover.value, 56.0)
 
+    def test_private_time_uses_fresh_media_feed_not_unrelated_activity_quality(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {"input_bindings": {"private_time": "sensor.core_activity"}}
+        )
+        observation = build_inputs_from_states(
+            {
+                "sensor.core_activity": FakeState(
+                    "music",
+                    attributes={
+                        "private": False,
+                        "media_activity_feed_quality": "fresh",
+                        "media_activity_feed_freshness": "fresh",
+                        "activity_decision": {
+                            "quality_status": "unknown",
+                            "unknown_inputs": ["homeoffice", "household"],
+                        },
+                    },
+                    updated_at=self.now,
+                )
+            },
+            config,
+            now=self.now,
+        ).private_time
+
+        self.assertTrue(observation.usable)
+        self.assertIs(observation.value, False)
+        self.assertEqual(observation.quality.value, "fresh")
+
+    def test_private_time_media_evidence_quality_remains_blocking(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {"input_bindings": {"private_time": "sensor.core_activity"}}
+        )
+        for quality in ("stale", "unavailable", "degraded", "conflict"):
+            with self.subTest(quality=quality):
+                observation = build_inputs_from_states(
+                    {
+                        "sensor.core_activity": FakeState(
+                            "music",
+                            attributes={
+                                "private": False,
+                                "media_activity_feed_quality": quality,
+                                "activity_decision": {"quality_status": "unknown"},
+                            },
+                            updated_at=self.now,
+                        )
+                    },
+                    config,
+                    now=self.now,
+                ).private_time
+
+                self.assertFalse(observation.usable)
+                self.assertIsNone(observation.value)
+                self.assertEqual(observation.quality.value, quality)
+
     def test_open_meteo_current_radiation_fields_remain_distinct_numeric_evidence(self) -> None:
         config = BlindControlConfig.from_mapping(
             {

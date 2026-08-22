@@ -53,6 +53,12 @@ Evidence wird `screen`. `music` allein ist `none`, löscht aber ein positives
 Die Activity-Quality bezieht sich auf die Evidence des ausgewählten Winners,
 nicht auf irrelevante stale Kandidaten. Ein stale `private_time`-Contract wird
 nicht zu `false` normalisiert, sondern bleibt als blockierende Evidence sichtbar.
+Beim Core-State-Activity-Contract wird `private_time` separat aus der
+Media-/Private-Time-Evidence bewertet. Ein frischer Media-Feed mit
+kanonischem `private`-Attribut ist deshalb nutzbar, auch wenn eine
+fachfremde Gesamtqualität in `activity_decision` unbekannt ist; stale,
+unavailable, degraded oder conflict der tatsächlich verwendeten
+Private-Time-Evidence bleibt blockierend.
 
 ## Mandatory und optionale Evidence
 

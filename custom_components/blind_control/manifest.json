@@ -1,7 +1,7 @@
 {
   "domain": "blind_control",
   "name": "Blind Control",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "documentation": "https://github.com/Levtos/blind_control",
   "issue_tracker": "https://github.com/Levtos/blind_control/issues/2",
   "codeowners": ["@Levtos"],

@@ -69,8 +69,12 @@ this AP2 follow-up is a Draft PR only.
 - deterministic contract discovery prefers exact owner slugs/roles, data types,
   device classes and owner attributes; migrated 120-second settings cannot
   lower the 900-second Solar/Lux or 1800-second Temperature/Weather floors;
-  healthy owner quality preserves stable measurements, while stale
-  Private-Time evidence remains blocking
+  healthy owner quality preserves stable measurements; Private-Time quality is
+  read from field-specific Media-Activity evidence, so unrelated unknown
+  Activity inputs do not block a fresh canonical `private` value, while stale
+  or degraded Private-Time evidence remains blocking; dedicated
+  `*_privacy_candidate` boolean contracts are preferred over generic blind
+  masters
 - HA 2026.8 `async_reload(entry_id)` lifecycle and Svelte-5-proxy-safe draft
   rebasing are contract-tested without a live reload or browser preview
 - setup starts the owner-bound read-only ShadowCoordinator and publishes a

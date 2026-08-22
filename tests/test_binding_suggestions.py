@@ -229,6 +229,40 @@ class BindingSuggestionTests(unittest.TestCase):
 
         self.assertNotIn("indoor_temperature", suggestions.input_bindings)
 
+    def test_live_derived_privacy_candidate_beats_generic_blind_master(self) -> None:
+        states = [
+            FakeState(
+                "sensor.generic_blind_master",
+                "ready",
+                {
+                    "kind": "master",
+                    "slug": "living_blind",
+                    "current_cover_position": 42,
+                    "cover_available": True,
+                    "opening_state": "closed",
+                    "privacy_candidate": True,
+                },
+            ),
+            FakeState(
+                "binary_sensor.living_privacy_signal",
+                "off",
+                {
+                    "slug": "living_rollo_privacy_candidate",
+                    "output_type": "boolean",
+                    "derived": {"privacy": False},
+                    "degraded": False,
+                },
+            ),
+        ]
+
+        forward = discover_binding_suggestions(FakeHass(states), BlindControlConfig.defaults())
+        reverse = discover_binding_suggestions(
+            FakeHass(list(reversed(states))), BlindControlConfig.defaults()
+        )
+
+        self.assertEqual(forward.input_bindings["privacy"], "binary_sensor.living_privacy_signal")
+        self.assertEqual(forward.input_bindings, reverse.input_bindings)
+
     def test_existing_empty_intent_removes_a_stale_binding_from_prefill(self) -> None:
         config = BlindControlConfig.from_mapping(
             {

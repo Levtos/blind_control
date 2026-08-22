@@ -751,6 +751,8 @@ def _optional_bool_attribute(attributes: Mapping[str, object], key: str) -> bool
 def _explicit_quality(
     attributes: Mapping[str, object], *, key: str | None = None, selected_value: object = None
 ) -> InputQuality | None:
+    if key == "private_time":
+        return _private_time_quality(attributes)
     if key == "activity_state":
         winner_quality = _activity_winner_quality(attributes, selected_value)
         if winner_quality is not None:
@@ -781,6 +783,82 @@ def _explicit_quality(
     if value is None:
         return None
     return _parse_quality(value)
+
+
+def _private_time_quality(attributes: Mapping[str, object]) -> InputQuality | None:
+    """Read only field-specific Media/Private-Time quality evidence.
+
+    Core State may publish an overall ``activity_decision.quality_status`` for
+    unrelated inputs.  That status must not invalidate the canonical private
+    attribute when the Media Activity feed itself is fresh.  Explicit
+    private-time evidence still has precedence and remains blocking when it is
+    stale, unavailable, degraded, or conflicting.
+    """
+
+    for name in (
+        "private_time_quality",
+        "private_quality",
+        "private_time_freshness",
+        "private_fresh",
+        "media_activity_feed_quality",
+        "media_activity_feed_freshness",
+        "media_feed_quality",
+        "media_feed_freshness",
+    ):
+        if name in attributes:
+            return _parse_quality(_quality_marker_value(attributes[name]))
+
+    for name in ("private_time_evidence", "private_evidence", "media_activity_feed"):
+        evidence = attributes.get(name)
+        if isinstance(evidence, Mapping):
+            for marker in ("quality_status", "quality", "freshness", "status"):
+                if marker in evidence:
+                    return _parse_quality(_quality_marker_value(evidence[marker]))
+
+    decision = attributes.get("activity_decision")
+    if isinstance(decision, Mapping):
+        candidates = decision.get("valid_candidates", decision.get("candidates"))
+        if isinstance(candidates, Mapping):
+            candidates = tuple(
+                {"key": candidate_key, **candidate_value}
+                for candidate_key, candidate_value in candidates.items()
+                if isinstance(candidate_value, Mapping)
+            )
+        if isinstance(candidates, (list, tuple)):
+            for candidate in candidates:
+                if not isinstance(candidate, Mapping):
+                    continue
+                candidate_key = (
+                    str(
+                        candidate.get("key")
+                        or candidate.get("candidate_key")
+                        or candidate.get("context")
+                        or ""
+                    )
+                    .strip()
+                    .lower()
+                )
+                if candidate_key not in {"private", "private_time", "private_attribute"}:
+                    continue
+                for marker in ("quality_status", "quality", "freshness"):
+                    if marker in candidate:
+                        return _parse_quality(_quality_marker_value(candidate[marker]))
+
+    # Backward-compatible direct owner markers remain field-local.  In
+    # particular, do not read decision["quality_status"] here.
+    for name in ("quality_status", "quality", "source_quality"):
+        if name in attributes:
+            return _parse_quality(_quality_marker_value(attributes[name]))
+    if _true_bool(attributes.get("degraded")):
+        return InputQuality.DEGRADED
+    if "fresh" in attributes:
+        try:
+            return (
+                InputQuality.FRESH if _canonical_bool(attributes["fresh"]) else InputQuality.STALE
+            )
+        except (TypeError, ValueError):
+            return InputQuality.DEGRADED
+    return None
 
 
 _MISSING = object()
