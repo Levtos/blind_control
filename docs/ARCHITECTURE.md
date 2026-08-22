@@ -250,3 +250,12 @@ gesunde Quality darf stabile Messwerte altersunabhängig tragen, aber nicht die
 strengeren Safety-Zeitverträge von Opening, Readiness und Coverposition
 umgehen. Core State bleibt Owner des Activity-Contracts; Blind Control bewertet
 nur die tatsächlich verwendete Winner-Evidence.
+
+Die Private-Time-Evidence wird innerhalb des Core-State-Activity-Contracts
+feldspezifisch aus dem Media-/Private-Time-Feed gelesen. Eine frische
+kanonische `private`-Aussage bleibt nutzbar, wenn nur fachfremde
+Activity-Quellen unbekannt sind; stale, unavailable, degraded oder conflict
+der verwendeten Private-Time-Evidence blockiert weiterhin. Die Discovery
+bevorzugt dedizierte boolesche Privacy-Contracts mit veröffentlichtem
+`*_privacy_candidate`-Slug, `derived.privacy` und explizitem `output_type`,
+ohne installationsspezifische Entity-IDs zu kennen.

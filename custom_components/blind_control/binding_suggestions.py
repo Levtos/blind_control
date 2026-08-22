@@ -289,6 +289,14 @@ def _is_privacy_contract(state: object) -> bool:
     attributes = _attributes(state)
     slug = _slug(attributes.get("slug"))
     role = _slug(attributes.get("role"))
+    derived = attributes.get("derived")
+    derived_privacy_contract = (
+        slug.endswith("_privacy_candidate")
+        and _slug(attributes.get("output_type")) == "boolean"
+        and isinstance(derived, Mapping)
+        and isinstance(derived.get("privacy"), bool)
+        and _explicitly_not_degraded(attributes)
+    )
     dedicated = slug in {"privacy", "privacy_candidate", "privacy_contract"} or role in {
         "privacy",
         "privacy_candidate",
@@ -298,9 +306,10 @@ def _is_privacy_contract(state: object) -> bool:
         attributes["privacy_candidate"]
     )
     if attributes.get("kind") == "master" and not dedicated:
-        return False
+        return derived_privacy_contract
     return (
         dedicated
+        or derived_privacy_contract
         or candidate_attribute
         or (_entity_id(state).split(".", 1)[0] == "binary_sensor" and dedicated)
     )
@@ -442,6 +451,13 @@ def _is_boolean_like(value: object) -> bool:
     return str(value).strip().lower() in {"on", "off", "true", "false", "yes", "no", "1", "0"}
 
 
+def _explicitly_not_degraded(attributes: Mapping[str, object]) -> bool:
+    value = attributes.get("degraded")
+    if value is None:
+        return True
+    return str(value).strip().lower() in {"false", "off", "no", "0"}
+
+
 def _slug(value: object) -> str:
     return "_".join(str(value or "").strip().lower().replace("-", "_").split())
 
@@ -492,6 +508,17 @@ def _private_time_rank(state: object) -> int:
 
 
 def _privacy_rank(state: object) -> int:
+    attributes = _attributes(state)
+    slug = _slug(attributes.get("slug"))
+    derived = attributes.get("derived")
+    if (
+        slug.endswith("_privacy_candidate")
+        and _slug(attributes.get("output_type")) == "boolean"
+        and isinstance(derived, Mapping)
+        and isinstance(derived.get("privacy"), bool)
+        and _explicitly_not_degraded(attributes)
+    ):
+        return 1400
     return _rank_from_slug(state, "privacy", "privacy_candidate", "privacy_contract") + (
         100 if "privacy_candidate" in _attributes(state) else 0
     )

@@ -407,3 +407,20 @@ eine Opening-Safety-Polarität. 55 bestehende Defaultfelder plus das neue
 Providerfeld sind keine Entity-Zuordnungsaufgaben. Die zwei Strahlungsbindings
 sind bei gesundem internen Provider `internal_provider_active`; ein explizites
 Entity-Binding wird `external_override_active`.
+
+## 13. v0.4.3 Live-Contract-Korrekturen
+
+Der Core-State-Activity-Contract veröffentlicht die Quality für `private_time`
+über die tatsächlich verwendete Media-/Private-Time-Evidence. Ein frischer
+Media-Feed mit kanonischem `private`-Attribut bleibt `fresh`, auch wenn
+`activity_decision.quality_status` wegen fachfremder unbekannter
+Homeoffice-/Haushaltsquellen `unknown` ist. Stale, unavailable, degraded oder
+conflict der Media-/Private-Time-Evidence bleibt unverändert ein blockierender
+Quality-Zustand; das allgemeine Quality-Gate wird nicht abgeschwächt.
+
+Die Binding-Discovery erkennt dedizierte Privacy-Contracts zusätzlich über den
+veröffentlichten Slug-Suffix `*_privacy_candidate` zusammen mit
+`output_type=boolean`, booleschem `derived.privacy` und nicht degradiertem
+Contract. Diese Contractklasse wird vor generischen Blind-Mastern priorisiert;
+installationsspezifische Entity-IDs bleiben unbekannt und werden nicht im
+Produktcode hinterlegt.
