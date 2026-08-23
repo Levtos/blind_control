@@ -1,4 +1,4 @@
-"""Read-only native Home Assistant status projection for AP2 Shadow mode."""
+"""Read-only native Home Assistant status projection."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ async def async_setup_entry(
     entry: BlindControlConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Add one stable, read-only status sensor for an AP2 Shadow entry."""
+    """Add stable, read-only status and radiation sensors."""
 
     provider = entry.runtime_data.radiation_provider
     entities: list[SensorEntity] = [BlindControlStatusSensor(entry)]
@@ -57,7 +57,7 @@ def _device_info(entry: BlindControlConfigEntry) -> DeviceInfo:
         identifiers={(DOMAIN, entry.entry_id)},
         name="Blind Control",
         manufacturer="Levtos",
-        model="Shadow",
+        model="Runtime",
     )
 
 
@@ -103,7 +103,7 @@ class BlindControlStatusSensor(SensorEntity):
         }
 
     async def async_added_to_hass(self) -> None:
-        """Write state only when the in-memory Shadow snapshot changes."""
+        """Write state only when the in-memory runtime snapshot changes."""
 
         await super().async_added_to_hass()
         runtime_data = getattr(self._entry, "runtime_data", None)

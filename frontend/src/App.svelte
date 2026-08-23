@@ -87,6 +87,12 @@
     safe_position: 'Safety-Position',
     safety_ready: 'Safety bereit',
     shadow_ready: 'Shadow bereit',
+    live_ready: 'Live-Ziel bereit',
+    applied: 'Ziel übergeben',
+    stable: 'Ziel stabil',
+    cooldown: 'Cooldown aktiv',
+    manual_hold: 'Manuell gehalten',
+    error: 'Fehler',
     required_resolved: 'Pflicht aufgelöst',
     required_unresolved: 'Pflicht nicht aufgelöst',
     conditional_resolved: 'Bedingt aufgelöst',
@@ -129,9 +135,9 @@
     .join(', ');
 
   const statusTone = (value: string | null | undefined): string => {
-    if (value === 'ready' || value === 'safe_position' || value === 'safety_ready' || value === 'shadow_ready') return 'ready';
+    if (value === 'ready' || value === 'safe_position' || value === 'safety_ready' || value === 'shadow_ready' || value === 'live_ready' || value === 'applied' || value === 'stable') return 'ready';
     if (value === 'failure' || value === 'error' || value === 'unavailable') return 'error';
-    if (value === 'blocked' || value === 'manual' || value === 'holding_safe_position') return 'warning';
+    if (value === 'blocked' || value === 'manual' || value === 'manual_hold' || value === 'cooldown' || value === 'holding_safe_position') return 'warning';
     return 'warning';
   };
 
@@ -212,7 +218,7 @@
   }
 
   function updateBoolean(
-    key: 'axis_inverted' | 'automation_enabled' | 'apply_enabled',
+    key: 'axis_inverted' | 'automation_enabled',
     event: Event,
   ): void {
     if (draftSettings) draftSettings[key] = (event.currentTarget as HTMLInputElement).checked;
@@ -226,19 +232,19 @@
 </script>
 
 <svelte:head>
-  <title>Blind Control · Shadow</title>
+  <title>Blind Control · {snapshot.settings.runtime_mode === 'shadow' ? 'Shadow' : 'Live vorbereitet'}</title>
 </svelte:head>
 
 <div class="panel-root">
   <header class="app-header">
     <div>
-      <p class="eyebrow">BLIND CONTROL · SHADOW · NOT LIVE</p>
+      <p class="eyebrow">BLIND CONTROL · {snapshot.settings.runtime_mode.toUpperCase()} · {snapshot.settings.apply_owner === 'blind_control' ? 'OWNER ARMED' : 'LEGACY OWNER'}</p>
       <h1>Wohnzimmer-Rollo</h1>
       <p class="subtitle">Versionierter Entscheidungs-, Safety- und Shadow-Vertrag</p>
     </div>
     <div class="header-status">
       <span class={`status-dot ${statusTone(snapshot.overview.apply_status)}`}></span>
-      <span>Shadow · {statusLabel(snapshot.overview.apply_status)}</span>
+      <span>{snapshot.settings.runtime_mode === 'shadow' ? 'Shadow' : 'Live vorbereitet'} · {statusLabel(snapshot.overview.apply_status)}</span>
     </div>
   </header>
 
@@ -305,6 +311,8 @@
           <div><dt>Coverposition</dt><dd>{positionLabel(snapshot.overview.cover_position)}</dd></div>
           <div><dt>Cover bereit</dt><dd>{householdLabel(snapshot.overview.technical.cover_ready)}</dd></div>
           <div><dt>Manual Override</dt><dd>{snapshot.overview.override.active ? 'aktiv' : 'inaktiv'}</dd></div>
+          <div><dt>Betriebsmodus</dt><dd>{snapshot.settings.runtime_mode}</dd></div>
+          <div><dt>Apply-Owner</dt><dd>{snapshot.settings.apply_owner}</dd></div>
         </dl>
         <p class="eyebrow">HAUSHALT & KONTEXT</p>
         <dl class="facts">
@@ -418,13 +426,13 @@
           <label>Neigung (°)<input type="number" min="0" max="180" value={editableSettings.window_tilt} onchange={(event) => updateNumber('window_tilt', event)} /></label>
           <label class="toggle"><input type="checkbox" checked={editableSettings.axis_inverted} onchange={(event) => updateBoolean('axis_inverted', event)} /> Achse invertiert</label>
           <label class="toggle"><input type="checkbox" checked={editableSettings.automation_enabled} onchange={(event) => updateBoolean('automation_enabled', event)} /> Automatik aktiv</label>
-          <label class="toggle"><input type="checkbox" checked={editableSettings.apply_enabled} onchange={(event) => updateBoolean('apply_enabled', event)} /> Apply-Gate aktiv</label>
+          <label class="toggle"><input type="checkbox" checked={editableSettings.apply_enabled} disabled /> Apply-Gate aktiv (OptionsFlow)</label>
         </div>
-        <p class="hint">Die Werte stammen aus der laufenden Shadow-Projektion. Speicherung erreicht niemals einen Cover-Service.</p>
+        <p class="hint">Betriebsmodus, Apply-Owner und Apply-Gate sind sicherheitskritisch und ausschließlich im nativen OptionsFlow änderbar.</p>
       </article>
 
       <article class="card span-2">
-        <div class="card-heading"><div><p class="eyebrow">PROFILE</p><h2>Normal / Invertiert</h2></div><div class="button-row"><span class="muted">{draftDirty ? 'Ungespeicherter Entwurf' : 'Serverstand bestätigt'}</span><button class="quiet-button" type="button" onclick={resetDraft}>Entwurf zurücksetzen</button><button class="primary-button" type="button" disabled={saving || !onSaveSettings} onclick={() => void saveDraft()}>{saving ? 'Speichere …' : 'Shadow-Konfiguration speichern'}</button></div></div>
+        <div class="card-heading"><div><p class="eyebrow">PROFILE</p><h2>Normal / Invertiert</h2></div><div class="button-row"><span class="muted">{draftDirty ? 'Ungespeicherter Entwurf' : 'Serverstand bestätigt'}</span><button class="quiet-button" type="button" onclick={resetDraft}>Entwurf zurücksetzen</button><button class="primary-button" type="button" disabled={saving || !onSaveSettings} onclick={() => void saveDraft()}>{saving ? 'Speichere …' : 'Konfiguration speichern'}</button></div></div>
         {#if saveError}
           <p class="callout failure-callout">{saveError}</p>
         {/if}

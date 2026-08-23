@@ -360,3 +360,43 @@ veröffentlichten Contract mit Slug-Suffix `*_privacy_candidate`,
 `output_type=boolean`, booleschem `derived.privacy` und nicht degradiertem
 Contract. Die Entity-ID ist weiterhin nur ein Tie-Breaker und wird nicht
 produktseitig fest codiert.
+
+## 8. AP3 Decision-, Runtime- und Apply-Contract
+
+| Contract | Inhalt | Schreibgrenze |
+| --- | --- | --- |
+| `blind_control.decision.v3` | v2-Hierarchie plus `runtime_mode`, `apply_owner`, freigegebenes Ziel und Ausführungsstatus | pure Entscheidung |
+| `blind_control.runtime.v2` | Shadow-/Live-Snapshot, Actuation- und Reachability-Evidence | unveränderlicher Snapshot |
+| `blind_control.ux.v3` | redigierte technische Modus-/Owner-Projektion | kein Command-Pfad |
+| `blind_control.automation_projection.v2` | stabile read-only Statusattribute inklusive Modus und Owner | keine steuernde Entity |
+
+`runtime_mode` ist `shadow|live`; `apply_owner` ist
+`legacy|blind_control`. Die beiden AP3-Felder erscheinen ausschließlich nach der Installation im
+OptionsFlow. Der initiale ConfigFlow bleibt bei den 89 AP2-Feldern und erzwingt
+`shadow + legacy`; der AP3-OptionsFlow umfasst damit 91 sichtbare Felder.
+
+Ein ausführbarer automatischer Zielwert benötigt gleichzeitig:
+
+1. belastbare Inputs und keinen Failure;
+2. Safety-Freigabe oder positiv belegtes Safety-Ziel;
+3. etablierte Restart-Baseline;
+4. keinen aktiven manuellen Override, außer Safety überstimmt ihn;
+5. `automation_enabled=true` und `apply_enabled=true`;
+6. `runtime_mode=live` und `apply_owner=blind_control`;
+7. Cooldown-Freigabe beziehungsweise Safety-Bypass;
+8. ein tatsächliches Cover-Binding als Actuatorgrenze.
+
+`ApplyDecision.status` unterscheidet mindestens `blocked`, `manual_hold`,
+`cooldown`, `stable`, `shadow_ready`, `live_ready`, `safety_ready`, `applied`
+und `error`. Nur `live_ready|safety_ready` erreichen den isolierten Adapter;
+der Adapter prüft die drei Konfigurationsgates erneut. Identische Ziele werden
+nicht erneut gesendet. Im Cooldown bleibt ausschließlich das neueste Ziel
+vorgemerkt. Ein fehlgeschlagener Aufruf schließt den Writing Guard und macht
+das aktuelle Ziel kontrolliert erneut prüfbar.
+
+Die öffentliche Projektion enthält weder Actuator-Binding noch Service-Daten.
+Die kritischen Felder `runtime_mode`, `apply_owner` und `apply_enabled` sind
+nicht über den Panel-WebSocket änderbar, sondern nur über den nativen
+OptionsFlow. `apply_owner=blind_control` ist eine operative Bestätigung, dass
+der Legacy-Writer zuvor pausiert wurde; Blind Control verändert den fremden
+Owner nicht selbst.

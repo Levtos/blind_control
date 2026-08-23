@@ -544,13 +544,15 @@ class SafetyDecision:
 
 @dataclass(frozen=True, slots=True)
 class ApplyDecision:
-    """Shadow-only apply intent; it deliberately has no executable callback."""
+    """Pure apply decision; execution remains in the guarded HA adapter."""
 
     status: str
     reason: str
     requested_target: float | None
     approved_target: float | None
     cooldown_pending_target: float | None
+    runtime_mode: str = "shadow"
+    apply_owner: str = "legacy"
     executed: bool = False
     write_path_reachable: bool = False
 
@@ -561,6 +563,8 @@ class ApplyDecision:
             "requested_target": self.requested_target,
             "approved_target": self.approved_target,
             "cooldown_pending_target": self.cooldown_pending_target,
+            "runtime_mode": self.runtime_mode,
+            "apply_owner": self.apply_owner,
             "executed": self.executed,
             "write_path_reachable": self.write_path_reachable,
         }

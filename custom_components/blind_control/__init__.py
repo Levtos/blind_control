@@ -21,7 +21,7 @@ PLATFORMS: tuple[Platform, ...] = (Platform.SENSOR,)
 
 @dataclass(slots=True)
 class BlindControlRuntimeData:
-    """Shadow state owned by one loaded Blind Control ConfigEntry."""
+    """Runtime state owned by one loaded Blind Control ConfigEntry."""
 
     phase: str = "shadow"
     config: BlindControlConfig = field(default_factory=BlindControlConfig.defaults)
@@ -36,7 +36,7 @@ type BlindControlConfigEntry = ConfigEntry[BlindControlRuntimeData]
 
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
-    """Prepare the read-only transport and install the Shadow sidebar panel."""
+    """Prepare the diagnostic transport and install the sidebar panel."""
 
     register_websocket_commands(hass)
     from .panel import async_register_panel
@@ -46,7 +46,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: BlindControlConfigEntry) -> bool:
-    """Load one non-actuating entry and start its owner-bound observer."""
+    """Load one entry; Shadow remains the migration-safe default."""
 
     config = BlindControlConfig.from_mapping(_runtime_config_mapping(hass, entry))
     radiation_provider = OpenMeteoRadiationCoordinator(
@@ -65,6 +65,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: BlindControlConfigEntry)
         radiation_provider=radiation_provider,
     )
     entry.runtime_data = BlindControlRuntimeData(
+        phase=config.runtime_mode,
         config=config,
         shadow=shadow,
         coordinator=coordinator,
@@ -113,7 +114,7 @@ def _runtime_config_mapping(
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: BlindControlConfigEntry) -> bool:
-    """Unload one entry and remove only observation listeners."""
+    """Unload one entry and remove runtime listeners and provider tasks."""
 
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if not unloaded:
@@ -129,6 +130,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: BlindControlConfigEntry
 
 
 async def _async_options_updated(hass: HomeAssistant, entry: BlindControlConfigEntry) -> None:
-    """Recreate the read-only snapshot after an OptionsFlow change."""
+    """Recreate the guarded runtime after an OptionsFlow change."""
 
     await hass.config_entries.async_reload(entry.entry_id)

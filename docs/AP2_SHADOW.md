@@ -1,8 +1,14 @@
 # AP2 Shadow-Vertical-Slice
 
 **Stand:** 15. August 2026
-**Status:** `Installed / Shadow / Not Live`; AP2-Nachbesserung im Draft-PR
+**Status:** `Accepted / Installed / Shadow / Not Live`
 **Scope:** `blind_control#2` / AP2, kein Cutover
+
+Dieses Dokument beschreibt den abgeschlossenen AP2-Shadow-Contract. Der in
+AP3 ergänzte, weiterhin standardmäßig unerreichbare Apply-Adapter ist in
+[AP3_CUTOVER.md](AP3_CUTOVER.md) und [ARCHITECTURE.md](ARCHITECTURE.md)
+normativ beschrieben. Alle AP2-Aussagen „kein Schreibpfad“ gelten weiterhin
+für `runtime_mode=shadow`.
 
 ## 1. Umgesetzter Pfad
 

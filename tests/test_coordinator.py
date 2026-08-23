@@ -809,7 +809,7 @@ class CoordinatorTests(unittest.TestCase):
             registry.time_callbacks[0](None)
             await hass.tasks[-1]
             self.assertIs(entry.runtime_data.snapshot, coordinator.snapshot)
-            self.assertEqual(entry.runtime_data.ux_snapshot["version"], "blind_control.ux.v2")
+            self.assertEqual(entry.runtime_data.ux_snapshot["version"], "blind_control.ux.v3")
             self.assertEqual(len(published), 2)
             self.assertFalse(coordinator.snapshot.actuation_executed)
             self.assertFalse(coordinator.snapshot.write_path_reachable)
@@ -840,6 +840,41 @@ class CoordinatorTests(unittest.TestCase):
 
         with fake_home_assistant_event_modules():
             asyncio.run(exercise())
+
+    def test_event_during_refresh_is_coalesced_into_one_follow_up(self) -> None:
+        async def exercise() -> None:
+            hass = FakeHass(self.states)
+            coordinator = ShadowCoordinator(
+                hass, FakeEntry(), self.config, ShadowRuntime(self.config)
+            )
+            release_first = asyncio.Event()
+            calls = 0
+
+            async def controlled_refresh():
+                nonlocal calls
+                calls += 1
+                if calls == 1:
+                    await release_first.wait()
+                return object()
+
+            coordinator.async_refresh = controlled_refresh
+            coordinator._schedule_refresh()
+            await asyncio.sleep(0)
+            coordinator._schedule_refresh()
+
+            self.assertEqual(calls, 1)
+            self.assertTrue(coordinator._refresh_requested)
+
+            release_first.set()
+            await hass.tasks[0]
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
+            await hass.tasks[-1]
+
+            self.assertEqual(calls, 2)
+            self.assertFalse(coordinator._refresh_requested)
+
+        asyncio.run(exercise())
 
     def test_coordinator_timer_uses_shortest_field_freshness(self) -> None:
         config = BlindControlConfig.from_mapping(

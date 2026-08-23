@@ -1015,8 +1015,23 @@ class BootstrapTests(unittest.TestCase):
                     },
                 )
             )
+            self.assertEqual(len(hass.config_entries.updates), 0)
+            self.assertEqual(allowed.errors[0][1], "invalid_options")
+
+            allowed_safe = _FakeConnection(is_admin=True)
+            asyncio.run(
+                update_handler(
+                    hass,
+                    allowed_safe,
+                    {
+                        "id": 4,
+                        "entry_id": "entry-1",
+                        "options": {"axis_inverted": True},
+                    },
+                )
+            )
             self.assertEqual(len(hass.config_entries.updates), 1)
-            self.assertFalse(hass.config_entries.updates[0][1]["apply_enabled"])
+            self.assertTrue(hass.config_entries.updates[0][1]["axis_inverted"])
             binding_write = _FakeConnection(is_admin=True)
             asyncio.run(
                 update_handler(
@@ -1050,7 +1065,7 @@ class BootstrapTests(unittest.TestCase):
             asyncio.run(get_handler(hass, read_only, {"id": 6, "entry_id": "entry-1"}))
             self.assertEqual(read_only.results[0][0], 6)
             projection = read_only.results[0][1]
-            self.assertEqual(projection["version"], "blind_control.ux.v2")
+            self.assertEqual(projection["version"], "blind_control.ux.v3")
             serialized = json.dumps(projection)
             self.assertNotIn("sensor.fixture_bio", serialized)
             self.assertNotIn("sensor.fixture_legacy", serialized)
@@ -1098,6 +1113,13 @@ class BootstrapTests(unittest.TestCase):
                 for value in form["data_schema"].schema.values()
             )
             self.assertEqual(visible_fields, 89)
+            self.assertNotIn("runtime_mode", form["data_schema"].schema)
+            self.assertNotIn("apply_owner", form["data_schema"].schema)
+            unsafe_result = asyncio.run(
+                flow.async_step_user({"runtime_mode": "live", "apply_owner": "blind_control"})
+            )
+            self.assertEqual(unsafe_result["type"], "form")
+            self.assertEqual(unsafe_result["errors"]["base"], "invalid_configuration")
 
             suggested_schema = loaded._config_schema(
                 suggestions=loaded.BindingSuggestions(
@@ -1274,7 +1296,7 @@ class BootstrapTests(unittest.TestCase):
             result = asyncio.run(flow.async_step_user(user_input))
             self.assertEqual(result["type"], "create_entry")
             self.assertEqual(result["title"], "Blind Control")
-            self.assertEqual(result["data"]["config_version"], 4)
+            self.assertEqual(result["data"]["config_version"], 5)
             self.assertEqual(
                 result["data"]["open_meteo_api_url"],
                 provider_url.options["default"],
@@ -1291,6 +1313,8 @@ class BootstrapTests(unittest.TestCase):
                 _FakeConfigEntry("entry-1", data=result["data"])
             )
             options_form = asyncio.run(options_flow.async_step_init())
+            self.assertIn("runtime_mode", options_form["data_schema"].schema)
+            self.assertIn("apply_owner", options_form["data_schema"].schema)
             self.assertIsInstance(
                 _schema_value(options_form["data_schema"], "solar_bindings"), _FakeSection
             )

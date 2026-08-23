@@ -1,8 +1,7 @@
-"""Running Home Assistant observation coordinator for Shadow mode.
+"""Running Home Assistant observation and guarded apply coordinator.
 
-The coordinator reads only owner-selected state entities, evaluates the pure
-engine, and publishes an in-memory/read-only projection.  It contains no
-service call, actuator callback, or cover command.
+The coordinator reads owner-selected state entities and evaluates the pure
+engine. The isolated apply adapter remains unreachable in Shadow mode.
 """
 
 from __future__ import annotations
@@ -25,6 +24,7 @@ except ImportError:  # pragma: no cover - enables the HA-independent contract te
         return func
 
 
+from .apply import CoverApplyExecutor
 from .config import (
     INPUT_BINDING_KEYS,
     LEGACY_BINDING_KEYS,
@@ -154,17 +154,20 @@ class ShadowCoordinator:
         config: BlindControlConfig,
         shadow: ShadowRuntime,
         radiation_provider: object | None = None,
+        apply_executor: CoverApplyExecutor | None = None,
     ) -> None:
         self.hass = hass
         self.entry = entry
         self.config = config
         self.shadow = shadow
         self.radiation_provider = radiation_provider
+        self.apply_executor = apply_executor or CoverApplyExecutor(hass, config, shadow)
         self.snapshot: ShadowSnapshot | None = None
         self.ux_snapshot: dict[str, object] | None = None
         self._unsubscribers: list[object] = []
         self._snapshot_listeners: list[Callable[[], None]] = []
         self._refresh_task: asyncio.Task[object] | None = None
+        self._refresh_requested = False
         self._restart_baseline_established = False
         self._previous_lux_sample: tuple[float, datetime] | None = None
         self._derived_lux_trend: InputObservation[float] | None = None
@@ -218,6 +221,7 @@ class ShadowCoordinator:
         if self._refresh_task is not None and not self._refresh_task.done():
             self._refresh_task.cancel()
         self._refresh_task = None
+        self._refresh_requested = False
 
     async def async_refresh(self) -> ShadowSnapshot:
         now = datetime.now(UTC)
@@ -239,7 +243,8 @@ class ShadowCoordinator:
         )
         legacy = build_legacy_evidence_from_states(states, self.config, now=now)
         position = _number_value(inputs.cover_position)
-        if not self._restart_baseline_established:
+        runtime_ready = self._restart_baseline_established
+        if not runtime_ready:
             self.shadow.on_restart(position)
             self._restart_baseline_established = True
         elif inputs.cover_position.usable:
@@ -254,7 +259,9 @@ class ShadowCoordinator:
             evaluated_at=now,
             now=time.monotonic(),
             legacy_snapshot=legacy,
+            runtime_ready=runtime_ready,
         )
+        snapshot = await self.apply_executor.async_apply(snapshot)
         self.snapshot = snapshot
         self.ux_snapshot = build_ux_snapshot(
             snapshot,
@@ -365,12 +372,23 @@ class ShadowCoordinator:
         """Create the coroutine only after the scheduler reached HA's event loop."""
 
         if self._refresh_task is not None and not self._refresh_task.done():
+            self._refresh_requested = True
             return
         create_task = getattr(self.hass, "async_create_task", None)
         if callable(create_task):
             self._refresh_task = create_task(self.async_refresh())
         else:
             self._refresh_task = asyncio.create_task(self.async_refresh())
+        self._refresh_task.add_done_callback(self._refresh_finished)
+
+    @callback
+    def _refresh_finished(self, _task: asyncio.Task[object]) -> None:
+        """Run one coalesced follow-up when an event arrived during refresh."""
+
+        if not self._refresh_requested:
+            return
+        self._refresh_requested = False
+        self._schedule_refresh()
 
 
 def _radiation_provider_status(provider: object | None, *, now: datetime) -> str:

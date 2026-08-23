@@ -8,7 +8,10 @@ from dataclasses import dataclass
 
 from .open_meteo import normalize_open_meteo_url
 
-CONFIG_VERSION = 4
+CONFIG_VERSION = 5
+
+RUNTIME_MODES = ("shadow", "live")
+APPLY_OWNERS = ("legacy", "blind_control")
 
 BINDING_INTENT_BOUND = "bound"
 BINDING_INTENT_EMPTY = "intentionally_empty"
@@ -444,6 +447,8 @@ class BlindControlConfig:
     axis_inverted: bool = False
     automation_enabled: bool = True
     apply_enabled: bool = True
+    runtime_mode: str = "shadow"
+    apply_owner: str = "legacy"
     open_meteo_api_url: str = ""
     opening_safety_polarity: str = "unspecified"
     input_bindings: tuple[tuple[str, str], ...] = ()
@@ -507,6 +512,10 @@ class BlindControlConfig:
             raise ValueError("storm_required_signals must be between 1 and 5")
         if self.opening_safety_polarity not in OPENING_SAFETY_POLARITIES:
             raise ValueError("opening_safety_polarity is not supported")
+        if self.runtime_mode not in RUNTIME_MODES:
+            raise ValueError("runtime_mode is not supported")
+        if self.apply_owner not in APPLY_OWNERS:
+            raise ValueError("apply_owner is not supported")
         allowed = set(INPUT_BINDING_KEYS) | set(LEGACY_BINDING_KEYS)
         for key, intent in self.binding_intents:
             if key not in allowed or intent not in BINDING_INTENTS:
@@ -600,6 +609,8 @@ class BlindControlConfig:
             axis_inverted=_bool(raw.get("axis_inverted", False), "axis_inverted"),
             automation_enabled=_bool(raw.get("automation_enabled", True), "automation_enabled"),
             apply_enabled=_bool(raw.get("apply_enabled", True), "apply_enabled"),
+            runtime_mode=str(raw.get("runtime_mode", "shadow")),
+            apply_owner=str(raw.get("apply_owner", "legacy")),
             open_meteo_api_url=(
                 normalize_open_meteo_url(raw["open_meteo_api_url"])
                 if raw.get("open_meteo_api_url")
@@ -651,6 +662,8 @@ class BlindControlConfig:
             "axis_inverted": self.axis_inverted,
             "automation_enabled": self.automation_enabled,
             "apply_enabled": self.apply_enabled,
+            "runtime_mode": self.runtime_mode,
+            "apply_owner": self.apply_owner,
             "open_meteo_api_url": self.open_meteo_api_url,
             "opening_safety_polarity": self.opening_safety_polarity,
             "input_bindings": dict(self.input_bindings),

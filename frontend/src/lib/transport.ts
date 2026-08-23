@@ -21,6 +21,9 @@ export async function updateOptions(hass: HassContext, settings: UxSettings): Pr
   delete options.calibration_defaults;
   delete options.binding_groups;
   delete options.binding_freshness;
+  delete options.runtime_mode;
+  delete options.apply_owner;
+  delete options.apply_enabled;
 
   await hass.connection.sendMessagePromise({
     type: 'blind_control/update_options',

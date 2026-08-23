@@ -10,6 +10,8 @@
           "axis_inverted": "Invert position axis",
           "automation_enabled": "Automation enabled",
           "apply_enabled": "Apply gate enabled",
+          "runtime_mode": "Runtime mode",
+          "apply_owner": "Apply owner",
           "open_meteo_api_url": "Open-Meteo API URL",
           "observation_freshness_seconds": "Default observation freshness",
           "heat_outdoor_threshold": "Outdoor heat threshold",
@@ -67,7 +69,9 @@
           "window_tilt": "Tilt of the configured window surface in degrees.",
           "axis_inverted": "Use the explicitly configured inverted profile values.",
           "automation_enabled": "Disables automatic Shadow intent when switched off.",
-          "apply_enabled": "Absolute gate for the non-actuating apply intent.",
+          "apply_enabled": "Absolute gate for guarded cover execution. Keep disabled until the atomic owner handover.",
+          "runtime_mode": "Shadow is non-actuating. Live only becomes writable together with the Blind Control apply-owner gate.",
+          "apply_owner": "Exclusive writer ownership. Keep Legacy selected until the atomic cutover gate.",
           "open_meteo_api_url": "Validated HTTPS forecast URL for the internal read-only radiation provider. No API key, YAML, coordinates form, or restart is required.",
           "observation_freshness_seconds": "Default maximum age for time-critical owner observations.",
           "heat_outdoor_threshold": "Outdoor temperature at which thermal protection may become relevant.",
@@ -214,6 +218,8 @@
           "axis_inverted": "Invert position axis",
           "automation_enabled": "Automation enabled",
           "apply_enabled": "Apply gate enabled",
+          "runtime_mode": "Runtime mode",
+          "apply_owner": "Apply owner",
           "open_meteo_api_url": "Open-Meteo API URL",
           "observation_freshness_seconds": "Default observation freshness",
           "heat_outdoor_threshold": "Outdoor heat threshold",
@@ -271,7 +277,9 @@
           "window_tilt": "Tilt of the configured window surface in degrees.",
           "axis_inverted": "Use the explicitly configured inverted profile values.",
           "automation_enabled": "Disables automatic Shadow intent when switched off.",
-          "apply_enabled": "Absolute gate for the non-actuating apply intent.",
+          "apply_enabled": "Absolute gate for guarded cover execution. Keep disabled until the atomic owner handover.",
+          "runtime_mode": "Shadow is non-actuating. Live only becomes writable together with the Blind Control apply-owner gate.",
+          "apply_owner": "Exclusive writer ownership. Keep Legacy selected until the atomic cutover gate.",
           "open_meteo_api_url": "Validated HTTPS forecast URL for the internal read-only radiation provider. Saving reloads only this Config Entry; no Home Assistant restart is required.",
           "observation_freshness_seconds": "Default maximum age for time-critical owner observations.",
           "heat_outdoor_threshold": "Outdoor temperature at which thermal protection may become relevant.",
@@ -401,6 +409,18 @@
     }
   },
   "selector": {
+    "runtime_mode": {
+      "options": {
+        "shadow": "Shadow (no write path)",
+        "live": "Live (requires exclusive owner)"
+      }
+    },
+    "apply_owner": {
+      "options": {
+        "legacy": "Legacy policy",
+        "blind_control": "Blind Control"
+      }
+    },
     "opening_safety_polarity": {
       "options": {
         "unspecified": "Not configured (blocks tilted opening)",
@@ -457,6 +477,12 @@
           },
           "apply_status": {
             "name": "Apply status"
+          },
+          "runtime_mode": {
+            "name": "Runtime mode"
+          },
+          "apply_owner": {
+            "name": "Apply owner"
           },
           "safety_blocked": {
             "name": "Safety blocked"

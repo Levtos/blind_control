@@ -91,6 +91,8 @@ export type UxSettings = {
   window_tilt: number;
   automation_enabled: boolean;
   apply_enabled: boolean;
+  runtime_mode: 'shadow' | 'live';
+  apply_owner: 'legacy' | 'blind_control';
   opening_safety_polarity: 'unspecified' | 'positive_safe' | 'negative_unsafe';
   binding_groups: BindingGroup[];
   observation_freshness_seconds: number;
@@ -100,7 +102,7 @@ export type UxSettings = {
 };
 
 export type UxSnapshot = {
-  version: 'blind_control.ux.v2';
+  version: 'blind_control.ux.v3';
   evaluated_at: string;
   overview: {
     master_mode: MasterMode;
@@ -142,6 +144,8 @@ export type UxSnapshot = {
       shadow_only: boolean;
       actuation_executed: boolean;
       write_path_reachable: boolean;
+      runtime_mode: 'shadow' | 'live';
+      apply_owner: 'legacy' | 'blind_control';
     };
     shadow_only: boolean;
     actuation_executed: boolean;
@@ -188,7 +192,7 @@ export type UxSnapshot = {
   };
   settings: UxSettings;
   automation_projection: {
-    version: 'blind_control.automation_projection.v1';
+    version: 'blind_control.automation_projection.v2';
     master_mode: MasterMode;
     winner_category: string | null;
     winner_variant: string | null;
@@ -206,6 +210,8 @@ export type UxSnapshot = {
     shadow_only: boolean;
     actuation_executed: boolean;
     write_path_reachable: boolean;
+    runtime_mode: 'shadow' | 'live';
+    apply_owner: 'legacy' | 'blind_control';
   };
   debug_payload: Record<string, unknown>;
 };

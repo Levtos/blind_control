@@ -1,4 +1,4 @@
-"""Shadow runtime and snapshot contract; no executable write path is exposed."""
+"""Decision runtime and snapshot contract shared by Shadow and guarded Live mode."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from .engine import DecisionEngine
 from .override import OverrideTracker
 from .shadow_diff import ShadowDiff, compare_legacy_snapshot
 
-SHADOW_CONTRACT_VERSION = "blind_control.shadow.v1"
+SHADOW_CONTRACT_VERSION = "blind_control.runtime.v2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +95,7 @@ class ShadowRuntime:
         evaluated_at: datetime | None = None,
         now: float = 0.0,
         legacy_snapshot: Mapping[str, object] | LegacyEvidence | None = None,
+        runtime_ready: bool = True,
     ) -> ShadowSnapshot:
         self._apply_override_context_lifecycle(OverrideContextKey.from_inputs(inputs))
         current_safe_position = _safe_hold_position(inputs)
@@ -107,6 +108,7 @@ class ShadowRuntime:
             now=now,
             cooldown=self.cooldown_tracker,
             failure_hold_target=failure_hold_target,
+            runtime_ready=runtime_ready,
         )
         if current_safe_position is not None:
             self._last_safe_position = current_safe_position
@@ -124,6 +126,8 @@ class ShadowRuntime:
             trace=trace,
             diffs=compare_legacy_snapshot(legacy_evidence, trace),
             legacy_evidence=legacy_evidence,
+            shadow_only=self.config.runtime_mode == "shadow",
+            write_path_reachable=trace.apply.write_path_reachable,
         )
 
     def update_config(
@@ -179,6 +183,11 @@ class ShadowRuntime:
     def clear_override(self) -> ManualOverride:
         self._override_context_key = None
         return self.override_tracker.clear()
+
+    def abort_own_write(self) -> None:
+        """Close a failed command guard without changing the quiet baseline."""
+
+        self.override_tracker.abort_own_write()
 
     def _apply_override_context_lifecycle(self, context_key: OverrideContextKey) -> None:
         """End a foreign override only at an explicit, reproducible context boundary."""

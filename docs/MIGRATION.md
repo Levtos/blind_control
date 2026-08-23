@@ -97,3 +97,22 @@ macht die kalibrierbaren Temperatur-, Lux-, Strahlungs-, Confidence-, Trend-,
 Cooldown- und Toleranzwerte explizit konfigurierbar. Die fachliche
 Interpretation, Owner-/Freshness-Grenzen und bekannte offene Bindings sind in
 [AP2_SHADOW.md](AP2_SHADOW.md) festgehalten.
+
+## 7. AP3 technischer Stand
+
+AP2 ist mit unblocked Live-Shadow-Evidence abgeschlossen. AP3 liefert den
+guarded Apply-Adapter und die native Modus-/Owner-Konfiguration als
+installierbares Artefakt. Die Installationsdefaults bleiben `shadow` und
+`legacy`; dadurch sind Installation, Reload und Restart nicht aktuierend.
+
+Der produktive Wechsel ist keine automatische Config-Migration. Er besteht aus
+einem separat freizugebenden atomaren Ablauf: alten Writer pausieren, Null-
+Writer-Zustand bestätigen, Registry-/Consumer-Rename ausführen, Readiness im
+Shadow prüfen und erst danach Blind Control als einzigen Owner arming. Rollback
+setzt zuerst Blind Control Apply aus und stellt anschließend Referenzen und
+Legacy-Owner wieder her.
+
+Das vollständige redigierte Consumer-Inventar sowie die Cutover- und Rollback-
+Checklisten stehen in [AP3_CUTOVER.md](AP3_CUTOVER.md). Bis Benni diese Gates
+ausführt und separat `Live` setzt, bleibt der Status
+`Installed / Shadow / Not Live`.

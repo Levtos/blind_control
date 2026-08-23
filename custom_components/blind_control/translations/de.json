@@ -10,6 +10,8 @@
           "axis_inverted": "Positionsachse invertieren",
           "automation_enabled": "Automatik aktiv",
           "apply_enabled": "Apply-Gate aktiv",
+          "runtime_mode": "Betriebsmodus",
+          "apply_owner": "Apply-Owner",
           "open_meteo_api_url": "Open-Meteo API-URL",
           "observation_freshness_seconds": "Standard-Freshness der Beobachtungen",
           "heat_outdoor_threshold": "Außentemperatur-Schwelle für Hitzeschutz",
@@ -67,7 +69,9 @@
           "window_tilt": "Neigung der konfigurierten Fensterfläche in Grad.",
           "axis_inverted": "Verwendet die ausdrücklich konfigurierten Werte der invertierten Achse.",
           "automation_enabled": "Deaktiviert automatische Shadow-Intents, wenn ausgeschaltet.",
-          "apply_enabled": "Absolutes Gate für den nicht-aktuierenden Apply-Intent.",
+          "apply_enabled": "Absolutes Gate für die abgesicherte Cover-Ausführung. Bis zur atomaren Owner-Übergabe deaktiviert lassen.",
+          "runtime_mode": "Shadow bleibt nicht aktuierend. Live wird nur zusammen mit dem Blind-Control-Apply-Owner schreibfähig.",
+          "apply_owner": "Exklusiver Writer-Owner. Bis zum atomaren Cutover-Gate muss die alte Policy ausgewählt bleiben.",
           "open_meteo_api_url": "Validierte HTTPS-Forecast-URL für den internen read-only Strahlungsprovider. Kein API-Key, YAML, Koordinatenformular oder Neustart erforderlich.",
           "observation_freshness_seconds": "Standard-Maximalalter für zeitkritische Owner-Beobachtungen.",
           "heat_outdoor_threshold": "Außentemperatur, ab der thermischer Schutz relevant werden kann.",
@@ -214,6 +218,8 @@
           "axis_inverted": "Positionsachse invertieren",
           "automation_enabled": "Automatik aktiv",
           "apply_enabled": "Apply-Gate aktiv",
+          "runtime_mode": "Betriebsmodus",
+          "apply_owner": "Apply-Owner",
           "open_meteo_api_url": "Open-Meteo API-URL",
           "observation_freshness_seconds": "Standard-Freshness der Beobachtungen",
           "heat_outdoor_threshold": "Außentemperatur-Schwelle für Hitzeschutz",
@@ -271,7 +277,9 @@
           "window_tilt": "Neigung der konfigurierten Fensterfläche in Grad.",
           "axis_inverted": "Verwendet die ausdrücklich konfigurierten Werte der invertierten Achse.",
           "automation_enabled": "Deaktiviert automatische Shadow-Intents, wenn ausgeschaltet.",
-          "apply_enabled": "Absolutes Gate für den nicht-aktuierenden Apply-Intent.",
+          "apply_enabled": "Absolutes Gate für die abgesicherte Cover-Ausführung. Bis zur atomaren Owner-Übergabe deaktiviert lassen.",
+          "runtime_mode": "Shadow bleibt nicht aktuierend. Live wird nur zusammen mit dem Blind-Control-Apply-Owner schreibfähig.",
+          "apply_owner": "Exklusiver Writer-Owner. Bis zum atomaren Cutover-Gate muss die alte Policy ausgewählt bleiben.",
           "open_meteo_api_url": "Validierte HTTPS-Forecast-URL für den internen read-only Strahlungsprovider. Speichern lädt nur diesen Config Entry neu; kein Home-Assistant-Neustart erforderlich.",
           "observation_freshness_seconds": "Standard-Maximalalter für zeitkritische Owner-Beobachtungen.",
           "heat_outdoor_threshold": "Außentemperatur, ab der thermischer Schutz relevant werden kann.",
@@ -401,6 +409,18 @@
     }
   },
   "selector": {
+    "runtime_mode": {
+      "options": {
+        "shadow": "Shadow (kein Schreibpfad)",
+        "live": "Live (exklusiver Owner erforderlich)"
+      }
+    },
+    "apply_owner": {
+      "options": {
+        "legacy": "Alte Policy",
+        "blind_control": "Blind Control"
+      }
+    },
     "opening_safety_polarity": {
       "options": {
         "unspecified": "Nicht konfiguriert (Kippstellung blockiert)",
@@ -457,6 +477,12 @@
           },
           "apply_status": {
             "name": "Apply-Status"
+          },
+          "runtime_mode": {
+            "name": "Betriebsmodus"
+          },
+          "apply_owner": {
+            "name": "Apply-Owner"
           },
           "safety_blocked": {
             "name": "Safety blockiert"

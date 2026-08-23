@@ -1,16 +1,12 @@
 # Blind Control
 
-`blind_control` is the new native Home Assistant integration target for the
-Blind Control rebuild. This AP2 branch contains an installable, configurable
-Shadow runtime: owner-bound input contracts flow through a deterministic
-decision engine into a versioned trace and Shadow snapshot for Issue
-[Levtos/blind_control#2](https://github.com/Levtos/blind_control/issues/2).
+`blind_control` is the native Home Assistant integration for the Blind Control
+rebuild. AP2 is live-verified in Shadow. AP3 adds an installable, guarded Apply
+adapter while retaining Shadow as the migration-safe default.
 
-The old `benni_blind_policy` integration remains the sole rollbackable
-productive Apply owner. AP2 does not install, reload, disable, migrate, rename,
-or drive a cover. Shadow configuration/options and read-only observation
-listeners are allowed; no cover platform, service-call, or actuator path exists
-here.
+The old `benni_blind_policy` integration remains the sole productive Apply
+owner until Benni performs the separately gated atomic cutover. Installing this
+release does not disable the old owner, rename an entity, or drive a cover.
 
 Read the documents in this order:
 
@@ -20,6 +16,7 @@ Read the documents in this order:
 4. [Contracts](docs/CONTRACTS.md)
 5. [Migration and gates](docs/MIGRATION.md)
 6. [AP2 Shadow implementation](docs/AP2_SHADOW.md)
+7. [AP3 cutover and rollback runbook](docs/AP3_CUTOVER.md)
 
 ## Installation through HACS
 
@@ -27,14 +24,16 @@ Add `https://github.com/Levtos/blind_control` as a custom HACS integration
 repository and install the latest published release. Restart Home Assistant,
 then add **Blind Control** from **Settings → Devices & services**.
 
-The AP2 installation runs exclusively in Shadow mode. It observes configured
-inputs and publishes decisions and diagnostics, but it cannot send a cover
-command or replace the productive `benni_blind_policy` Apply owner.
+Fresh and upgraded entries default to `runtime_mode=shadow` and
+`apply_owner=legacy`. The isolated writer is reachable only when Benni has
+paused the old writer and deliberately combines `live`, `blind_control`, and
+the Apply gate in the native OptionsFlow. Safety, restart readiness, manual
+override, target stability and cooldown remain additional mandatory gates.
 
-## AP2 boundary
+## AP2 and AP3 boundary
 
-**Current status:** `Installed / Shadow / Not Live`. Issue #2 remains open;
-this AP2 follow-up is a Draft PR only.
+**Current status:** `Installed / Shadow / Not Live`. AP2 is accepted. AP3 is a
+technical release and runbook; it is not a live cutover.
 
 - product/domain name: `Blind Control` / `blind_control`
 - configurable normal/inverted profiles, axis inversion, geometry, and
@@ -55,8 +54,9 @@ this AP2 follow-up is a Draft PR only.
   contract-based installation-local prefill sets only resolved required or
   conditional owner bindings, while user choices and intentionally empty
   optional slots remain untouched; the panel shows only redacted readiness
-  states for the exact 89-field contract (the additional field is the private
-  Open-Meteo API URL)
+  states for the AP2 89-field contract (including the private Open-Meteo API
+  URL); AP3 adds two OptionsFlow-only runtime/owner controls, for 91 fields in
+  OptionsFlow while initial setup remains forced to safe Shadow defaults
 - an isolated internal Open-Meteo coordinator performs one read-only request
   for current DNI and diffuse radiation every 900 seconds; it is configured
   entirely in ConfigFlow/OptionsFlow without YAML, secrets file, API key,
@@ -77,14 +77,16 @@ this AP2 follow-up is a Draft PR only.
   masters
 - HA 2026.8 `async_reload(entry_id)` lifecycle and Svelte-5-proxy-safe draft
   rebasing are contract-tested without a live reload or browser preview
-- setup starts the owner-bound read-only ShadowCoordinator and publishes a
+- setup starts the owner-bound runtime coordinator and publishes a
   snapshot through a read-only WebSocket projection, one native diagnostic
   status sensor and two read-only radiation sensors on the same device; URL and
-  coordinates are never projected and no actuator service or device command
-  path exists; legacy entries without a saved provider URL use the local HA
+  coordinates are never projected; legacy entries without a saved provider URL use the local HA
   location only as a non-persistent runtime prefill
-- no entity flood, frontend device-command surface, Apply, cover movement,
-  productive migration, Cutover, Rename, or live activation
+- guarded AP3 Apply boundary with explicit runtime mode, exclusive owner,
+  Apply gate, restart baseline, Safety, Override and latest-target cooldown;
+  Shadow remains physically non-actuating
+- no entity flood, frontend device-command surface, cover movement, productive
+  migration, Cutover, Rename, or live activation during development/release
 - no hardcoded productive entity IDs in product Python code
 
 `Live`, `Live Verified`, Cutover, Rename, Release, and Merge are separate
