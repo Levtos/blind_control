@@ -11,8 +11,8 @@ from .open_meteo import (
 )
 from .shadow import ShadowSnapshot
 
-UX_CONTRACT_VERSION = "blind_control.ux.v2"
-AUTOMATION_PROJECTION_VERSION = "blind_control.automation_projection.v1"
+UX_CONTRACT_VERSION = "blind_control.ux.v3"
+AUTOMATION_PROJECTION_VERSION = "blind_control.automation_projection.v2"
 
 
 def build_ux_snapshot(
@@ -54,6 +54,8 @@ def build_ux_snapshot(
         "shadow_only": snapshot.shadow_only,
         "actuation_executed": snapshot.actuation_executed,
         "write_path_reachable": snapshot.write_path_reachable,
+        "runtime_mode": config.runtime_mode,
+        "apply_owner": config.apply_owner,
     }
     automation_projection = build_automation_projection(snapshot)
     return {
@@ -121,6 +123,8 @@ def build_ux_snapshot(
             "window_tilt": config.window_tilt,
             "automation_enabled": config.automation_enabled,
             "apply_enabled": config.apply_enabled,
+            "runtime_mode": config.runtime_mode,
+            "apply_owner": config.apply_owner,
             "opening_safety_polarity": config.opening_safety_polarity,
             "binding_groups": _binding_groups(config, provider_status=provider_status),
             "observation_freshness_seconds": config.observation_freshness_seconds,
@@ -183,6 +187,8 @@ def build_automation_projection(snapshot: ShadowSnapshot) -> dict[str, object]:
         "shadow_only": snapshot.shadow_only,
         "actuation_executed": snapshot.actuation_executed,
         "write_path_reachable": snapshot.write_path_reachable,
+        "runtime_mode": trace.apply.runtime_mode,
+        "apply_owner": trace.apply.apply_owner,
     }
     redacted = redact_diagnostic_value(projection)
     return redacted if isinstance(redacted, dict) else {}

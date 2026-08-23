@@ -259,3 +259,44 @@ der verwendeten Private-Time-Evidence blockiert weiterhin. Die Discovery
 bevorzugt dedizierte boolesche Privacy-Contracts mit veröffentlichtem
 `*_privacy_candidate`-Slug, `derived.privacy` und explizitem `output_type`,
 ohne installationsspezifische Entity-IDs zu kennen.
+
+## 10. AP3 Apply-Grenze
+
+AP3 ersetzt keine Owner-Wahrheit und verändert die fachliche Engine nicht.
+`DecisionEngine` erzeugt weiterhin nur einen versionierten Apply-Entscheid.
+`CoverApplyExecutor` ist der einzige Adapter, der einen bereits freigegebenen
+Zielwert an Home Assistant übergeben kann.
+
+```text
+Decision v3
+  -> Safety / Failure / Override / Restart / Cooldown
+  -> runtime_mode == live
+  -> apply_owner == blind_control
+  -> apply_enabled == true
+  -> CoverApplyExecutor (one writer adapter)
+```
+
+Jedes Gate failt geschlossen. Shadow erzeugt einen vollständigen Trace, aber
+`write_path_reachable=false`. Ein Live-Modus mit Legacy-Owner bleibt ebenfalls
+blockiert. Die Owner-Auswahl ist die explizite Handover-Bestätigung: Sie darf
+erst gespeichert werden, nachdem der alte Writer im separaten Cutover-Fenster
+pausiert und dessen Stillstand geprüft wurde.
+
+Der Coordinator etabliert nach jedem Setup zunächst ausschließlich die
+Coverpositions-Baseline. Die erste Auswertung kann deshalb nie fahren. Der
+Writing Guard beginnt unmittelbar vor dem einzigen blockierenden HA-Service-
+Aufruf, übernimmt Zwischenpositionen als eigene Bewegung und endet beim
+beobachteten Ziel. Eine Änderung außerhalb dieses Guards wird als fremder
+Override behandelt. Safety darf Override und Cooldown überstimmen; Failure,
+fehlende Readiness und das absolute Apply-Gate bleiben blockierend.
+
+Die Vertragsstände sind `blind_control.decision.v3`,
+`blind_control.runtime.v2`, `blind_control.ux.v3` und
+`blind_control.automation_projection.v2`. Modus und Apply-Owner sind in der
+redigierten Diagnose sichtbar, jedoch ausschließlich im nativen OptionsFlow
+änderbar. Das Panel besitzt weiterhin keinen Command-Pfad.
+
+Rename und Consumer-Migration sind keine Startup-Migration. Die pure
+Migrationshilfe ersetzt nur exakte Entity-Referenzen und kann dieselbe Änderung
+deterministisch umkehren. Die ausführbare Reihenfolge und das redigierte
+Consumer-Inventar stehen in [AP3_CUTOVER.md](AP3_CUTOVER.md).

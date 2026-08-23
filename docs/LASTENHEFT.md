@@ -818,7 +818,7 @@ Panel zeigt nur Binding-Status und verweist für die Bearbeitung auf den
 OptionsFlow. Entity-IDs gehören weder in Debug-Payloads noch in die öffentliche
 UX-Projektion.
 
-Für Automationen und Diagnose ist `blind_control.automation_projection.v1`
+Für Automationen und Diagnose ist `blind_control.automation_projection.v2`
 eine kleine stabile, redigierte read-only Contractprojektion mit Mastermodus,
 aktiver Kategorie/Variante, Failure-Status/-Grund/-Blockern, fachlichem und
 effektivem Ziel sowie Safety-/Apply-/Shadow-Status. AP2 veröffentlicht sie über
@@ -826,7 +826,9 @@ genau eine diagnostische Statusentität aus der Entity Registry: ihr Zustand ist
 der Mastermodus, die genannten Werte sind stabile Attribute. Die
 Integrationsinstanz bestimmt die Entity-ID selbst; weder Produktcode noch
 Dokumentation tragen eine installationsspezifische ID vor. Es gibt keine
-Services, keine Steuerung und keine Entity-Flut.
+Services, keine Steuerung und keine Entity-Flut. AP3 ergänzt ausschließlich
+die technischen Attribute `runtime_mode` und `apply_owner`; die Entity bleibt
+read-only.
 
 Der AP2-OptionsFlow umfasst exakt 89 sichtbare Felder: 55 bereits mit Defaults
 versehene allgemeine/Positionswerte, eine private interne Open-Meteo-URL, 28

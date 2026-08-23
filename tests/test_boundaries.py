@@ -18,7 +18,7 @@ class BoundaryTests(unittest.TestCase):
             self.assertNotIn("192.168.", source, path.as_posix())
             self.assertNotIn("SUPERVISOR_TOKEN", source, path.as_posix())
 
-    def test_product_code_has_no_actuation_or_active_apply_surface(self) -> None:
+    def test_only_guarded_apply_adapter_contains_actuation_surface(self) -> None:
         forbidden = (
             "async_call",
             "async_register_service",
@@ -26,9 +26,17 @@ class BoundaryTests(unittest.TestCase):
             "set_cover_position",
         )
         for path in PACKAGE.rglob("*.py"):
+            if path.name == "apply.py":
+                continue
             source = path.read_text(encoding="utf-8")
             for token in forbidden:
                 self.assertNotIn(token, source, f"{token} in {path}")
+        adapter = (PACKAGE / "apply.py").read_text(encoding="utf-8")
+        self.assertEqual(adapter.count("async_call("), 1)
+        self.assertIn('self.config.runtime_mode == "live"', adapter)
+        self.assertIn('self.config.apply_owner == "blind_control"', adapter)
+        self.assertIn("self.config.apply_enabled", adapter)
+        self.assertIn("decision.status not in _READY_STATUSES", adapter)
 
     def test_internal_provider_has_no_api_key_pv_or_actuation_contract(self) -> None:
         product_source = "\n".join(

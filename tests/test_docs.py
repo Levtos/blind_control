@@ -30,6 +30,7 @@ class DocumentationTests(unittest.TestCase):
             "AP2_SHADOW.md",
             "STATUS_MODEL.md",
             "OPEN_METEO_REST.md",
+            "AP3_CUTOVER.md",
         ):
             self.assertTrue((DOCS / filename).is_file(), filename)
 
@@ -92,6 +93,8 @@ class DocumentationTests(unittest.TestCase):
             "async_reload(entry_id)",
             "$state.snapshot",
             "Installed / Shadow / Not Live",
+            "blind_control.decision.v3",
+            "blind_control.automation_projection.v2",
         ):
             self.assertIn(term, status_model)
 
@@ -115,6 +118,11 @@ class DocumentationTests(unittest.TestCase):
             'selector({"entity": {}})',
             "failure.quality_blockers[]",
             "Status-Sensorentität",
+            "blind_control.decision.v3",
+            "blind_control.runtime.v2",
+            "blind_control.ux.v3",
+            "blind_control.automation_projection.v2",
+            "manual_hold",
         ):
             self.assertIn(term, source)
 
@@ -241,10 +249,28 @@ class DocumentationTests(unittest.TestCase):
             DOCS / "MIGRATION.md",
             DOCS / "AP2_SHADOW.md",
             DOCS / "STATUS_MODEL.md",
+            DOCS / "AP3_CUTOVER.md",
         ):
             source = path.read_text(encoding="utf-8")
             for target in link_pattern.findall(source):
                 self.assertTrue((path.parent / target).exists(), f"{path}: {target}")
+
+    def test_ap3_runbook_is_redacted_reversible_and_separates_live_gate(self) -> None:
+        source = (DOCS / "AP3_CUTOVER.md").read_text(encoding="utf-8")
+        for term in (
+            "Redigiertes Consumer-Inventar",
+            "HomeKit-Konfiguration",
+            "Core-Devices-Import",
+            "Core-Contracts Source-Evidence",
+            "System-Readiness",
+            "Bedtime-Skript",
+            "cover.living_thermal_blind",
+            "Atomarer Live-Cutover",
+            "Rollback",
+            "unabhängige Sol-High-Prüfung",
+            "Installed / Shadow / Not Live",
+        ):
+            self.assertIn(term, source)
 
     def test_frontend_is_contract_driven_and_has_no_secret_surface(self) -> None:
         package = json.loads((FRONTEND / "package.json").read_text(encoding="utf-8"))
@@ -270,6 +296,9 @@ class DocumentationTests(unittest.TestCase):
         self.assertNotIn("lastSnapshot", source)
         self.assertNotIn("editableSettings.input_bindings", source)
         self.assertNotIn("editableSettings.legacy_bindings", source)
+        transport = (FRONTEND / "src" / "lib" / "transport.ts").read_text(encoding="utf-8")
+        for critical in ("runtime_mode", "apply_owner", "apply_enabled"):
+            self.assertIn(f"delete options.{critical}", transport)
 
     def test_frontend_is_an_installable_ha_panel_with_official_context(self) -> None:
         main = (FRONTEND / "src" / "main.ts").read_text(encoding="utf-8")

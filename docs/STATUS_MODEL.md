@@ -1,6 +1,6 @@
 # Blind Control Statusmodell und Live-Shadow-Contracts
 
-**Contract:** `blind_control.decision.v2`
+**Contract:** `blind_control.decision.v3`
 **Status:** `Installed / Shadow / Not Live`
 
 ## Mastermodus und Hierarchie
@@ -106,7 +106,7 @@ degradiert. Fehlende frische Positions-Evidence blockiert Apply.
 
 Safety, Cover-Readiness, Apply und Shadow/Live überschreiben den fachlichen
 Mastermodus nicht. Die einzige native Statusentität bleibt read-only und
-redigiert. Es existiert kein Cover-Service und kein erreichbarer Write-Pfad.
+redigiert. Im Shadow ist der Apply-Adapter technisch unerreichbar.
 
 ## Runtime und UX
 
@@ -125,4 +125,26 @@ WebSocket, Sensorattribute oder Debug kopiert. Speichern lädt nur die
 Blind-Control-ConfigEntry neu. Der alte Provider wird beendet; genau ein neuer
 Coordinator-, Listener- und Timer-Satz übernimmt die URL. Zwei read-only
 Irradiance-Sensoren und die bestehende Statusentität teilen sich das
-Blind-Control-Gerät. Es gibt keinen Cover-, Apply-, Service- oder Command-Pfad.
+Blind-Control-Gerät. Beide Sensorflächen bleiben read-only und besitzen keinen
+Command-Pfad.
+
+## AP3 Runtime- und Apply-Status
+
+Der Mastermodus bleibt unverändert `normal|manual|failure`; technische Gates
+dürfen ihn nicht überschreiben. `runtime_mode=shadow|live` und
+`apply_owner=legacy|blind_control` sind getrennte technische Zustände.
+
+Nur die Kombination `live + blind_control + apply_enabled` kann nach
+erfolgreicher Safety-, Readiness-, Restart-, Override- und Cooldown-Prüfung
+`write_path_reachable=true` erzeugen. Shadow und Legacy-Owner bleiben
+fail-closed. `manual_hold` blockiert Automatik, während eine positiv belegte
+Safety-Position Override und Cooldown überstimmen darf. Failure hält die
+belegte Position ohne neuen Befehl und bleibt blockiert.
+
+Der Apply-Lifecycle ist `blocked|manual_hold|cooldown|stable|shadow_ready|
+live_ready|safety_ready|applied|error`. `applied` bedeutet, dass der isolierte
+Adapter den freigegebenen HA-Aufruf angenommen hat; es ist keine Aussage über
+`Live Verified`. Modus, Owner, Ausführungsstatus und Reachability werden über
+`blind_control.automation_projection.v2` und `blind_control.ux.v3` redigiert
+projiziert. Änderungen der drei kritischen Gates bleiben dem nativen
+OptionsFlow vorbehalten.

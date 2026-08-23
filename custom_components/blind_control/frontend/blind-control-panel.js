@@ -320,33 +320,33 @@ function queue_micro_task(fn) {
   micro_tasks.push(fn);
 }
 function handle_error(error) {
-  var effect2 = active_effect;
-  if (effect2 === null) {
+  var effect = active_effect;
+  if (effect === null) {
     active_reaction.f |= ERROR_VALUE;
     return error;
   }
-  if ((effect2.f & REACTION_RAN) === 0 && (effect2.f & EFFECT) === 0) {
+  if ((effect.f & REACTION_RAN) === 0 && (effect.f & EFFECT) === 0) {
     throw error;
   }
-  invoke_error_boundary(error, effect2);
+  invoke_error_boundary(error, effect);
 }
-function invoke_error_boundary(error, effect2) {
-  if (effect2 !== null && (effect2.f & DESTROYED) !== 0) {
+function invoke_error_boundary(error, effect) {
+  if (effect !== null && (effect.f & DESTROYED) !== 0) {
     return;
   }
-  while (effect2 !== null) {
-    if ((effect2.f & BOUNDARY_EFFECT) !== 0) {
-      if ((effect2.f & REACTION_RAN) === 0) {
+  while (effect !== null) {
+    if ((effect.f & BOUNDARY_EFFECT) !== 0) {
+      if ((effect.f & REACTION_RAN) === 0) {
         throw error;
       }
       try {
-        effect2.b.error(error);
+        effect.b.error(error);
         return;
       } catch (e) {
         error = e;
       }
     }
-    effect2 = effect2.parent;
+    effect = effect.parent;
   }
   throw error;
 }
@@ -374,14 +374,14 @@ function clear_marked(deps) {
     );
   }
 }
-function defer_effect(effect2, dirty_effects, maybe_dirty_effects) {
-  if ((effect2.f & DIRTY) !== 0) {
-    dirty_effects.add(effect2);
-  } else if ((effect2.f & MAYBE_DIRTY) !== 0) {
-    maybe_dirty_effects.add(effect2);
+function defer_effect(effect, dirty_effects, maybe_dirty_effects) {
+  if ((effect.f & DIRTY) !== 0) {
+    dirty_effects.add(effect);
+  } else if ((effect.f & MAYBE_DIRTY) !== 0) {
+    maybe_dirty_effects.add(effect);
   }
-  clear_marked(effect2.deps);
-  set_signal_status(effect2, CLEAN);
+  clear_marked(effect.deps);
+  set_signal_status(effect, CLEAN);
 }
 function without_reactive_context(fn) {
   var previous_reaction = active_reaction;
@@ -486,12 +486,12 @@ class Boundary {
     __privateSet(this, _anchor, node);
     __privateSet(this, _props, props);
     __privateSet(this, _children, (anchor) => {
-      var effect2 = (
+      var effect = (
         /** @type {Effect} */
         active_effect
       );
-      effect2.b = this;
-      effect2.f |= BOUNDARY_EFFECT;
+      effect.b = this;
+      effect.f |= BOUNDARY_EFFECT;
       children(anchor);
     });
     this.parent = /** @type {Effect} */
@@ -507,8 +507,8 @@ class Boundary {
    * Defer an effect inside a pending boundary until the boundary resolves
    * @param {Effect} effect
    */
-  defer_effect(effect2) {
-    defer_effect(effect2, __privateGet(this, _dirty_effects), __privateGet(this, _maybe_dirty_effects));
+  defer_effect(effect) {
+    defer_effect(effect, __privateGet(this, _dirty_effects), __privateGet(this, _maybe_dirty_effects));
   }
   /**
    * Returns `false` if the effect exists inside a boundary whose pending snippet is shown
@@ -781,12 +781,12 @@ handle_error_fn = function(error) {
       __privateSet(this, _failed_effect, __privateMethod(this, _Boundary_instances, run_fn).call(this, () => {
         try {
           return branch(() => {
-            var effect2 = (
+            var effect = (
               /** @type {Effect} */
               active_effect
             );
-            effect2.b = this;
-            effect2.f |= BOUNDARY_EFFECT;
+            effect.b = this;
+            effect.f |= BOUNDARY_EFFECT;
             failed(
               __privateGet(this, _anchor),
               () => transformed_error,
@@ -896,21 +896,21 @@ function unset_context(deactivate_batch = true) {
   if (deactivate_batch) current_batch == null ? void 0 : current_batch.deactivate();
 }
 function increment_pending() {
-  var effect2 = (
+  var effect = (
     /** @type {Effect} */
     active_effect
   );
-  var boundary2 = effect2.b;
+  var boundary2 = effect.b;
   var batch = (
     /** @type {Batch} */
     current_batch
   );
   var blocking = !!(boundary2 == null ? void 0 : boundary2.is_rendered());
   boundary2 == null ? void 0 : boundary2.update_pending_count(1, batch);
-  batch.increment(blocking, effect2);
+  batch.increment(blocking, effect);
   return () => {
     boundary2 == null ? void 0 : boundary2.update_pending_count(-1, batch);
-    batch.decrement(blocking, effect2);
+    batch.decrement(blocking, effect);
   };
 }
 // @__NO_SIDE_EFFECTS__
@@ -961,7 +961,7 @@ function async_derived(fn, label, location) {
   var deferreds = /* @__PURE__ */ new Set();
   async_effect(() => {
     var _a2, _b2;
-    var effect2 = (
+    var effect = (
       /** @type {Effect} */
       active_effect
     );
@@ -980,21 +980,21 @@ function async_derived(fn, label, location) {
       current_batch
     );
     if (should_suspend) {
-      if ((effect2.f & REACTION_RAN) !== 0) {
+      if ((effect.f & REACTION_RAN) !== 0) {
         var decrement_pending = increment_pending();
       }
       if (
         // boundary can be null if the async derived is inside an $effect.root not connected to the component render tree
         (_a2 = parent.b) == null ? void 0 : _a2.is_rendered()
       ) {
-        (_b2 = batch.async_deriveds.get(effect2)) == null ? void 0 : _b2.reject(OBSOLETE);
+        (_b2 = batch.async_deriveds.get(effect)) == null ? void 0 : _b2.reject(OBSOLETE);
       } else {
         for (const d2 of deferreds.values()) {
           d2.reject(OBSOLETE);
         }
       }
       deferreds.add(d);
-      batch.async_deriveds.set(effect2, d);
+      batch.async_deriveds.set(effect, d);
     }
     const handler = (value, error = void 0) => {
       decrement_pending == null ? void 0 : decrement_pending();
@@ -1243,11 +1243,11 @@ const _Batch = class _Batch {
    * Add an effect to the #skipped_branches map and reset its children
    * @param {Effect} effect
    */
-  skip_effect(effect2) {
-    if (!__privateGet(this, _skipped_branches).has(effect2)) {
-      __privateGet(this, _skipped_branches).set(effect2, { d: [], m: [] });
+  skip_effect(effect) {
+    if (!__privateGet(this, _skipped_branches).has(effect)) {
+      __privateGet(this, _skipped_branches).set(effect, { d: [], m: [] });
     }
-    __privateGet(this, _unskipped_branches).delete(effect2);
+    __privateGet(this, _unskipped_branches).delete(effect);
   }
   /**
    * Remove an effect from the #skipped_branches map and reschedule
@@ -1255,10 +1255,10 @@ const _Batch = class _Batch {
    * @param {Effect} effect
    * @param {(e: Effect) => void} callback
    */
-  unskip_effect(effect2, callback = (e) => this.schedule(e)) {
-    var tracked = __privateGet(this, _skipped_branches).get(effect2);
+  unskip_effect(effect, callback = (e) => this.schedule(e)) {
+    var tracked = __privateGet(this, _skipped_branches).get(effect);
     if (tracked) {
-      __privateGet(this, _skipped_branches).delete(effect2);
+      __privateGet(this, _skipped_branches).delete(effect);
       for (var e of tracked.d) {
         set_signal_status(e, DIRTY);
         callback(e);
@@ -1268,7 +1268,7 @@ const _Batch = class _Batch {
         callback(e);
       }
     }
-    __privateGet(this, _unskipped_branches).add(effect2);
+    __privateGet(this, _unskipped_branches).add(effect);
   }
   /**
    * Associate a change to a given source with the current
@@ -1326,32 +1326,32 @@ const _Batch = class _Batch {
   /**
    * @param {Effect} effect
    */
-  register_created_effect(effect2) {
-    __privateGet(this, _new_effects).push(effect2);
+  register_created_effect(effect) {
+    __privateGet(this, _new_effects).push(effect);
   }
   /**
    * @param {boolean} blocking
    * @param {Effect} effect
    */
-  increment(blocking, effect2) {
+  increment(blocking, effect) {
     __privateSet(this, _pending, __privateGet(this, _pending) + 1);
     if (blocking) {
-      let blocking_pending_count = __privateGet(this, _blocking_pending).get(effect2) ?? 0;
-      __privateGet(this, _blocking_pending).set(effect2, blocking_pending_count + 1);
+      let blocking_pending_count = __privateGet(this, _blocking_pending).get(effect) ?? 0;
+      __privateGet(this, _blocking_pending).set(effect, blocking_pending_count + 1);
     }
   }
   /**
    * @param {boolean} blocking
    * @param {Effect} effect
    */
-  decrement(blocking, effect2) {
+  decrement(blocking, effect) {
     __privateSet(this, _pending, __privateGet(this, _pending) - 1);
     if (blocking) {
-      let blocking_pending_count = __privateGet(this, _blocking_pending).get(effect2) ?? 0;
+      let blocking_pending_count = __privateGet(this, _blocking_pending).get(effect) ?? 0;
       if (blocking_pending_count === 1) {
-        __privateGet(this, _blocking_pending).delete(effect2);
+        __privateGet(this, _blocking_pending).delete(effect);
       } else {
-        __privateGet(this, _blocking_pending).set(effect2, blocking_pending_count - 1);
+        __privateGet(this, _blocking_pending).set(effect, blocking_pending_count - 1);
       }
     }
     if (__privateGet(this, _decrement_queued)) return;
@@ -1411,14 +1411,14 @@ const _Batch = class _Batch {
    *
    * @param {Effect} effect
    */
-  schedule(effect2) {
+  schedule(effect) {
     var _a2;
-    last_scheduled_effect = effect2;
-    if (((_a2 = effect2.b) == null ? void 0 : _a2.is_pending) && (effect2.f & (EFFECT | RENDER_EFFECT | MANAGED_EFFECT)) !== 0 && (effect2.f & REACTION_RAN) === 0) {
-      effect2.b.defer_effect(effect2);
+    last_scheduled_effect = effect;
+    if (((_a2 = effect.b) == null ? void 0 : _a2.is_pending) && (effect.f & (EFFECT | RENDER_EFFECT | MANAGED_EFFECT)) !== 0 && (effect.f & REACTION_RAN) === 0) {
+      effect.b.defer_effect(effect);
       return;
     }
-    var e = effect2;
+    var e = effect;
     while (e.parent !== null) {
       e = e.parent;
       var flags2 = e.f;
@@ -1455,8 +1455,8 @@ _decrement_queued = new WeakMap();
 _Batch_instances = new WeakSet();
 is_deferred_fn = function() {
   if (this.is_fork) return true;
-  for (const effect2 of __privateGet(this, _blocking_pending).keys()) {
-    var e = effect2;
+  for (const effect of __privateGet(this, _blocking_pending).keys()) {
+    var e = effect;
     var skipped = false;
     while (e.parent !== null) {
       if (__privateGet(this, _skipped_branches).has(e)) {
@@ -1568,34 +1568,34 @@ process_fn = function() {
  */
 traverse_fn = function(root2, effects, render_effects) {
   root2.f ^= CLEAN;
-  var effect2 = root2.first;
-  while (effect2 !== null) {
-    var flags2 = effect2.f;
+  var effect = root2.first;
+  while (effect !== null) {
+    var flags2 = effect.f;
     var is_branch = (flags2 & (BRANCH_EFFECT | ROOT_EFFECT)) !== 0;
     var is_skippable_branch = is_branch && (flags2 & CLEAN) !== 0;
-    var skip = is_skippable_branch || (flags2 & INERT) !== 0 || __privateGet(this, _skipped_branches).has(effect2);
-    if (!skip && effect2.fn !== null) {
+    var skip = is_skippable_branch || (flags2 & INERT) !== 0 || __privateGet(this, _skipped_branches).has(effect);
+    if (!skip && effect.fn !== null) {
       if (is_branch) {
-        effect2.f ^= CLEAN;
+        effect.f ^= CLEAN;
       } else if ((flags2 & EFFECT) !== 0) {
-        effects.push(effect2);
-      } else if (is_dirty(effect2)) {
-        if ((flags2 & BLOCK_EFFECT) !== 0) __privateGet(this, _maybe_dirty_effects2).add(effect2);
-        update_effect(effect2);
+        effects.push(effect);
+      } else if (is_dirty(effect)) {
+        if ((flags2 & BLOCK_EFFECT) !== 0) __privateGet(this, _maybe_dirty_effects2).add(effect);
+        update_effect(effect);
       }
-      var child2 = effect2.first;
+      var child2 = effect.first;
       if (child2 !== null) {
-        effect2 = child2;
+        effect = child2;
         continue;
       }
     }
-    while (effect2 !== null) {
-      var next = effect2.next;
+    while (effect !== null) {
+      var next = effect.next;
       if (next !== null) {
-        effect2 = next;
+        effect = next;
         break;
       }
-      effect2 = effect2.parent;
+      effect = effect.parent;
     }
   }
 };
@@ -1624,8 +1624,8 @@ merge_fn = function(batch) {
     }
     this.current.set(source2, value);
   }
-  for (const [effect2, deferred2] of batch.async_deriveds) {
-    const d = this.async_deriveds.get(effect2);
+  for (const [effect, deferred2] of batch.async_deriveds) {
+    const d = this.async_deriveds.get(effect);
     if (d) deferred2.promise.then(d.resolve).catch(d.reject);
   }
   batch.async_deriveds.clear();
@@ -1644,14 +1644,14 @@ merge_fn = function(batch) {
           reaction
         );
       } else {
-        var effect2 = (
+        var effect = (
           /** @type {Effect} */
           reaction
         );
-        if (flags2 & (ASYNC | BLOCK_EFFECT) && !this.async_deriveds.has(effect2)) {
-          __privateGet(this, _maybe_dirty_effects2).delete(effect2);
-          set_signal_status(effect2, DIRTY);
-          this.schedule(effect2);
+        if (flags2 & (ASYNC | BLOCK_EFFECT) && !this.async_deriveds.has(effect)) {
+          __privateGet(this, _maybe_dirty_effects2).delete(effect);
+          set_signal_status(effect, DIRTY);
+          this.schedule(effect);
         }
       }
     }
@@ -1692,8 +1692,8 @@ commit_fn = function() {
       sources.push(source3);
     }
     if (is_earlier) {
-      for (const [effect2, deferred2] of this.async_deriveds) {
-        const d = batch.async_deriveds.get(effect2);
+      for (const [effect, deferred2] of this.async_deriveds) {
+        const d = batch.async_deriveds.get(effect);
         if (d) deferred2.promise.then(d.resolve).catch(d.reject);
       }
     }
@@ -1733,13 +1733,13 @@ commit_fn = function() {
         return v2[0] !== v1[0] || v2[1] !== v1[1];
       }).map(([c]) => c);
       if (current_unequal.length > 0) {
-        for (const effect2 of __privateGet(this, _new_effects)) {
-          if ((effect2.f & (DESTROYED | INERT | EAGER_EFFECT)) === 0 && depends_on(effect2, current_unequal, checked)) {
-            if ((effect2.f & (ASYNC | BLOCK_EFFECT)) !== 0) {
-              set_signal_status(effect2, DIRTY);
-              batch.schedule(effect2);
+        for (const effect of __privateGet(this, _new_effects)) {
+          if ((effect.f & (DESTROYED | INERT | EAGER_EFFECT)) === 0 && depends_on(effect, current_unequal, checked)) {
+            if ((effect.f & (ASYNC | BLOCK_EFFECT)) !== 0) {
+              set_signal_status(effect, DIRTY);
+              batch.schedule(effect);
             } else {
-              __privateGet(batch, _dirty_effects2).add(effect2);
+              __privateGet(batch, _dirty_effects2).add(effect);
             }
           }
         }
@@ -1785,12 +1785,12 @@ function flush_queued_effects(effects) {
   if (length === 0) return;
   var i = 0;
   while (i < length) {
-    var effect2 = effects[i++];
-    if ((effect2.f & (DESTROYED | INERT)) === 0 && is_dirty(effect2)) {
+    var effect = effects[i++];
+    if ((effect.f & (DESTROYED | INERT)) === 0 && is_dirty(effect)) {
       eager_block_effects = /* @__PURE__ */ new Set();
-      update_effect(effect2);
-      if (effect2.deps === null && effect2.first === null && effect2.nodes === null && effect2.teardown === null && effect2.ac === null) {
-        unlink_effect(effect2);
+      update_effect(effect);
+      if (effect.deps === null && effect.first === null && effect.nodes === null && effect.teardown === null && effect.ac === null) {
+        unlink_effect(effect);
       }
       if ((eager_block_effects == null ? void 0 : eager_block_effects.size) > 0) {
         old_values.clear();
@@ -1867,28 +1867,28 @@ function depends_on(reaction, sources, checked) {
   checked.set(reaction, false);
   return false;
 }
-function schedule_effect(effect2) {
-  current_batch.schedule(effect2);
+function schedule_effect(effect) {
+  current_batch.schedule(effect);
 }
-function reset_branch(effect2, tracked) {
-  if ((effect2.f & BRANCH_EFFECT) !== 0 && (effect2.f & CLEAN) !== 0) {
+function reset_branch(effect, tracked) {
+  if ((effect.f & BRANCH_EFFECT) !== 0 && (effect.f & CLEAN) !== 0) {
     return;
   }
-  if ((effect2.f & DIRTY) !== 0) {
-    tracked.d.push(effect2);
-  } else if ((effect2.f & MAYBE_DIRTY) !== 0) {
-    tracked.m.push(effect2);
+  if ((effect.f & DIRTY) !== 0) {
+    tracked.d.push(effect);
+  } else if ((effect.f & MAYBE_DIRTY) !== 0) {
+    tracked.m.push(effect);
   }
-  set_signal_status(effect2, CLEAN);
-  var e = effect2.first;
+  set_signal_status(effect, CLEAN);
+  var e = effect.first;
   while (e !== null) {
     reset_branch(e, tracked);
     e = e.next;
   }
 }
-function reset_all(effect2) {
-  set_signal_status(effect2, CLEAN);
-  var e = effect2.first;
+function reset_all(effect) {
+  set_signal_status(effect, CLEAN);
+  var e = effect.first;
   while (e !== null) {
     reset_all(e);
     e = e.next;
@@ -1966,18 +1966,18 @@ function internal_set(source2, value, updated_during_traversal = null) {
 }
 function flush_eager_effects() {
   eager_effects_deferred = false;
-  for (const effect2 of eager_effects) {
-    if ((effect2.f & CLEAN) !== 0) {
-      set_signal_status(effect2, MAYBE_DIRTY);
+  for (const effect of eager_effects) {
+    if ((effect.f & CLEAN) !== 0) {
+      set_signal_status(effect, MAYBE_DIRTY);
     }
     let dirty;
     try {
-      dirty = is_dirty(effect2);
+      dirty = is_dirty(effect);
     } catch {
       dirty = true;
     }
     if (dirty) {
-      update_effect(effect2);
+      update_effect(effect);
     }
   }
   eager_effects.clear();
@@ -2014,17 +2014,17 @@ function mark_reactions(signal, status, updated_during_traversal) {
         mark_reactions(derived2, MAYBE_DIRTY, updated_during_traversal);
       }
     } else if (not_dirty) {
-      var effect2 = (
+      var effect = (
         /** @type {Effect} */
         reaction
       );
       if ((flags2 & BLOCK_EFFECT) !== 0 && eager_block_effects !== null) {
-        eager_block_effects.add(effect2);
+        eager_block_effects.add(effect);
       }
       if (updated_during_traversal !== null) {
-        updated_during_traversal.push(effect2);
+        updated_during_traversal.push(effect);
       } else {
-        schedule_effect(effect2);
+        schedule_effect(effect);
       }
     }
   }
@@ -2313,14 +2313,14 @@ function validate_effect(rune) {
     effect_in_teardown();
   }
 }
-function push_effect(effect2, parent_effect) {
+function push_effect(effect, parent_effect) {
   var parent_last = parent_effect.last;
   if (parent_last === null) {
-    parent_effect.last = parent_effect.first = effect2;
+    parent_effect.last = parent_effect.first = effect;
   } else {
-    parent_last.next = effect2;
-    effect2.prev = parent_last;
-    parent_effect.last = effect2;
+    parent_last.next = effect;
+    effect.prev = parent_last;
+    parent_effect.last = effect;
   }
 }
 function create_effect(type, fn) {
@@ -2328,7 +2328,7 @@ function create_effect(type, fn) {
   if (parent !== null && (parent.f & INERT) !== 0) {
     type |= INERT;
   }
-  var effect2 = {
+  var effect = {
     ctx: component_context,
     deps: null,
     nodes: null,
@@ -2344,19 +2344,19 @@ function create_effect(type, fn) {
     wv: 0,
     ac: null
   };
-  current_batch == null ? void 0 : current_batch.register_created_effect(effect2);
-  var e = effect2;
+  current_batch == null ? void 0 : current_batch.register_created_effect(effect);
+  var e = effect;
   if ((type & EFFECT) !== 0) {
     if (collected_effects !== null) {
-      collected_effects.push(effect2);
+      collected_effects.push(effect);
     } else {
-      Batch.ensure().schedule(effect2);
+      Batch.ensure().schedule(effect);
     }
   } else if (fn !== null) {
     try {
-      update_effect(effect2);
+      update_effect(effect);
     } catch (e2) {
-      destroy_effect(effect2);
+      destroy_effect(effect);
       throw e2;
     }
     if (e.deps === null && e.teardown === null && e.nodes === null && e.first === e.last && // either `null`, or a singular child
@@ -2380,16 +2380,16 @@ function create_effect(type, fn) {
       (derived2.effects ?? (derived2.effects = [])).push(e);
     }
   }
-  return effect2;
+  return effect;
 }
 function effect_tracking() {
   return active_reaction !== null && !untracking;
 }
 function teardown(fn) {
-  const effect2 = create_effect(RENDER_EFFECT, null);
-  set_signal_status(effect2, CLEAN);
-  effect2.teardown = fn;
-  return effect2;
+  const effect = create_effect(RENDER_EFFECT, null);
+  set_signal_status(effect, CLEAN);
+  effect.teardown = fn;
+  return effect;
 }
 function user_effect(fn) {
   validate_effect();
@@ -2413,23 +2413,20 @@ function create_user_effect(fn) {
 }
 function component_root(fn) {
   Batch.ensure();
-  const effect2 = create_effect(ROOT_EFFECT | EFFECT_PRESERVED, fn);
+  const effect = create_effect(ROOT_EFFECT | EFFECT_PRESERVED, fn);
   return (options = {}) => {
     return new Promise((fulfil) => {
       if (options.outro) {
-        pause_effect(effect2, () => {
-          destroy_effect(effect2);
+        pause_effect(effect, () => {
+          destroy_effect(effect);
           fulfil(void 0);
         });
       } else {
-        destroy_effect(effect2);
+        destroy_effect(effect);
         fulfil(void 0);
       }
     });
   };
-}
-function effect(fn) {
-  return create_effect(EFFECT, fn);
 }
 function async_effect(fn) {
   return create_effect(ASYNC | EFFECT_PRESERVED, fn);
@@ -2444,15 +2441,20 @@ function template_effect(fn, sync = [], async = [], blockers = []) {
     });
   });
 }
+function deferred_template_effect(fn, sync = [], async = [], blockers = []) {
+  flatten(blockers, sync, async, (values) => {
+    create_effect(EFFECT, () => fn(...values.map(get)));
+  });
+}
 function block(fn, flags2 = 0) {
-  var effect2 = create_effect(BLOCK_EFFECT | flags2, fn);
-  return effect2;
+  var effect = create_effect(BLOCK_EFFECT | flags2, fn);
+  return effect;
 }
 function branch(fn) {
   return create_effect(BRANCH_EFFECT | EFFECT_PRESERVED, fn);
 }
-function execute_effect_teardown(effect2) {
-  var teardown2 = effect2.teardown;
+function execute_effect_teardown(effect) {
+  var teardown2 = effect.teardown;
   if (teardown2 !== null) {
     const previously_destroying_effect = is_destroying_effect;
     const previous_reaction = active_reaction;
@@ -2467,61 +2469,61 @@ function execute_effect_teardown(effect2) {
   }
 }
 function destroy_effect_children(signal, remove_dom = false) {
-  var effect2 = signal.first;
+  var effect = signal.first;
   signal.first = signal.last = null;
-  while (effect2 !== null) {
-    const controller = effect2.ac;
+  while (effect !== null) {
+    const controller = effect.ac;
     if (controller !== null) {
       without_reactive_context(() => {
         controller.abort(STALE_REACTION);
       });
     }
-    var next = effect2.next;
-    if ((effect2.f & ROOT_EFFECT) !== 0) {
-      effect2.parent = null;
+    var next = effect.next;
+    if ((effect.f & ROOT_EFFECT) !== 0) {
+      effect.parent = null;
     } else {
-      destroy_effect(effect2, remove_dom);
+      destroy_effect(effect, remove_dom);
     }
-    effect2 = next;
+    effect = next;
   }
 }
 function destroy_block_effect_children(signal) {
-  var effect2 = signal.first;
-  while (effect2 !== null) {
-    var next = effect2.next;
-    if ((effect2.f & BRANCH_EFFECT) === 0) {
-      destroy_effect(effect2);
+  var effect = signal.first;
+  while (effect !== null) {
+    var next = effect.next;
+    if ((effect.f & BRANCH_EFFECT) === 0) {
+      destroy_effect(effect);
     }
-    effect2 = next;
+    effect = next;
   }
 }
-function destroy_effect(effect2, remove_dom = true) {
+function destroy_effect(effect, remove_dom = true) {
   var removed = false;
-  if ((remove_dom || (effect2.f & HEAD_EFFECT) !== 0) && effect2.nodes !== null && effect2.nodes.end !== null) {
+  if ((remove_dom || (effect.f & HEAD_EFFECT) !== 0) && effect.nodes !== null && effect.nodes.end !== null) {
     remove_effect_dom(
-      effect2.nodes.start,
+      effect.nodes.start,
       /** @type {TemplateNode} */
-      effect2.nodes.end
+      effect.nodes.end
     );
     removed = true;
   }
-  effect2.f |= DESTROYING;
-  destroy_effect_children(effect2, remove_dom && !removed);
-  remove_reactions(effect2, 0);
-  var transitions = effect2.nodes && effect2.nodes.t;
+  effect.f |= DESTROYING;
+  destroy_effect_children(effect, remove_dom && !removed);
+  remove_reactions(effect, 0);
+  var transitions = effect.nodes && effect.nodes.t;
   if (transitions !== null) {
     for (const transition of transitions) {
       transition.stop();
     }
   }
-  execute_effect_teardown(effect2);
-  effect2.f ^= DESTROYING;
-  effect2.f |= DESTROYED;
-  var parent = effect2.parent;
+  execute_effect_teardown(effect);
+  effect.f ^= DESTROYING;
+  effect.f |= DESTROYED;
+  var parent = effect.parent;
   if (parent !== null && parent.first !== null) {
-    unlink_effect(effect2);
+    unlink_effect(effect);
   }
-  effect2.next = effect2.prev = effect2.teardown = effect2.ctx = effect2.deps = effect2.fn = effect2.nodes = effect2.ac = effect2.b = null;
+  effect.next = effect.prev = effect.teardown = effect.ctx = effect.deps = effect.fn = effect.nodes = effect.ac = effect.b = null;
 }
 function remove_effect_dom(node, end) {
   while (node !== null) {
@@ -2530,22 +2532,22 @@ function remove_effect_dom(node, end) {
     node = next;
   }
 }
-function unlink_effect(effect2) {
-  var parent = effect2.parent;
-  var prev = effect2.prev;
-  var next = effect2.next;
+function unlink_effect(effect) {
+  var parent = effect.parent;
+  var prev = effect.prev;
+  var next = effect.next;
   if (prev !== null) prev.next = next;
   if (next !== null) next.prev = prev;
   if (parent !== null) {
-    if (parent.first === effect2) parent.first = next;
-    if (parent.last === effect2) parent.last = prev;
+    if (parent.first === effect) parent.first = next;
+    if (parent.last === effect) parent.last = prev;
   }
 }
-function pause_effect(effect2, callback, destroy = true) {
+function pause_effect(effect, callback, destroy = true) {
   var transitions = [];
-  pause_children(effect2, transitions, true);
+  pause_children(effect, transitions, true);
   var fn = () => {
-    if (destroy) destroy_effect(effect2);
+    if (destroy) destroy_effect(effect);
     if (callback) callback();
   };
   var remaining = transitions.length;
@@ -2558,10 +2560,10 @@ function pause_effect(effect2, callback, destroy = true) {
     fn();
   }
 }
-function pause_children(effect2, transitions, local) {
-  if ((effect2.f & INERT) !== 0) return;
-  effect2.f ^= INERT;
-  var t = effect2.nodes && effect2.nodes.t;
+function pause_children(effect, transitions, local) {
+  if ((effect.f & INERT) !== 0) return;
+  effect.f ^= INERT;
+  var t = effect.nodes && effect.nodes.t;
   if (t !== null) {
     for (const transition of t) {
       if (transition.is_global || local) {
@@ -2569,37 +2571,37 @@ function pause_children(effect2, transitions, local) {
       }
     }
   }
-  var child2 = effect2.first;
+  var child2 = effect.first;
   while (child2 !== null) {
     var sibling2 = child2.next;
     if ((child2.f & ROOT_EFFECT) === 0) {
       var transparent = (child2.f & EFFECT_TRANSPARENT) !== 0 || // If this is a branch effect without a block effect parent,
       // it means the parent block effect was pruned. In that case,
       // transparency information was transferred to the branch effect.
-      (child2.f & BRANCH_EFFECT) !== 0 && (effect2.f & BLOCK_EFFECT) !== 0;
+      (child2.f & BRANCH_EFFECT) !== 0 && (effect.f & BLOCK_EFFECT) !== 0;
       pause_children(child2, transitions, transparent ? local : false);
     }
     child2 = sibling2;
   }
 }
-function resume_effect(effect2) {
-  resume_children(effect2, true);
+function resume_effect(effect) {
+  resume_children(effect, true);
 }
-function resume_children(effect2, local) {
-  if ((effect2.f & INERT) === 0) return;
-  effect2.f ^= INERT;
-  if ((effect2.f & CLEAN) === 0) {
-    set_signal_status(effect2, DIRTY);
-    Batch.ensure().schedule(effect2);
+function resume_children(effect, local) {
+  if ((effect.f & INERT) === 0) return;
+  effect.f ^= INERT;
+  if ((effect.f & CLEAN) === 0) {
+    set_signal_status(effect, DIRTY);
+    Batch.ensure().schedule(effect);
   }
-  var child2 = effect2.first;
+  var child2 = effect.first;
   while (child2 !== null) {
     var sibling2 = child2.next;
     var transparent = (child2.f & EFFECT_TRANSPARENT) !== 0 || (child2.f & BRANCH_EFFECT) !== 0;
     resume_children(child2, transparent ? local : false);
     child2 = sibling2;
   }
-  var t = effect2.nodes && effect2.nodes.t;
+  var t = effect.nodes && effect.nodes.t;
   if (t !== null) {
     for (const transition of t) {
       if (transition.is_global || local) {
@@ -2608,10 +2610,10 @@ function resume_children(effect2, local) {
     }
   }
 }
-function move_effect(effect2, fragment) {
-  if (!effect2.nodes) return;
-  var node = effect2.nodes.start;
-  var end = effect2.nodes.end;
+function move_effect(effect, fragment) {
+  if (!effect.nodes) return;
+  var node = effect.nodes.start;
+  var end = effect.nodes.end;
   while (node !== null) {
     var next = node === end ? null : /* @__PURE__ */ get_next_sibling(node);
     fragment.append(node);
@@ -2629,8 +2631,8 @@ function set_active_reaction(reaction) {
   active_reaction = reaction;
 }
 let active_effect = null;
-function set_active_effect(effect2) {
-  active_effect = effect2;
+function set_active_effect(effect) {
+  active_effect = effect;
 }
 let current_sources = null;
 function push_reaction_value(value) {
@@ -2690,7 +2692,7 @@ function is_dirty(reaction) {
   }
   return false;
 }
-function schedule_possible_effect_self_invalidation(signal, effect2, root2 = true) {
+function schedule_possible_effect_self_invalidation(signal, effect, root2 = true) {
   var reactions = signal.reactions;
   if (reactions === null) return;
   if (current_sources !== null && current_sources.has(signal)) {
@@ -2702,10 +2704,10 @@ function schedule_possible_effect_self_invalidation(signal, effect2, root2 = tru
       schedule_possible_effect_self_invalidation(
         /** @type {Derived} */
         reaction,
-        effect2,
+        effect,
         false
       );
-    } else if (effect2 === reaction) {
+    } else if (effect === reaction) {
       if (root2) {
         set_signal_status(reaction, DIRTY);
       } else if ((reaction.f & CLEAN) !== 0) {
@@ -2872,28 +2874,28 @@ function remove_reactions(signal, start_index) {
     remove_reaction(signal, dependencies[i]);
   }
 }
-function update_effect(effect2) {
-  var flags2 = effect2.f;
+function update_effect(effect) {
+  var flags2 = effect.f;
   if ((flags2 & DESTROYED) !== 0) {
     return;
   }
-  set_signal_status(effect2, CLEAN);
+  set_signal_status(effect, CLEAN);
   var previous_effect = active_effect;
   var was_updating_effect = is_updating_effect;
-  active_effect = effect2;
+  active_effect = effect;
   is_updating_effect = (flags2 & (BRANCH_EFFECT | ROOT_EFFECT)) === 0;
   try {
     if ((flags2 & (BLOCK_EFFECT | MANAGED_EFFECT)) !== 0) {
-      destroy_block_effect_children(effect2);
+      destroy_block_effect_children(effect);
     } else {
-      destroy_effect_children(effect2);
+      destroy_effect_children(effect);
     }
-    execute_effect_teardown(effect2);
-    var teardown2 = update_reaction(effect2);
-    effect2.teardown = typeof teardown2 === "function" ? teardown2 : null;
-    effect2.wv = write_version;
+    execute_effect_teardown(effect);
+    var teardown2 = update_reaction(effect);
+    effect.teardown = typeof teardown2 === "function" ? teardown2 : null;
+    effect.wv = write_version;
     var dep;
-    if (DEV && tracing_mode_flag && (effect2.f & DIRTY) !== 0 && effect2.deps !== null) ;
+    if (DEV && tracing_mode_flag && (effect.f & DIRTY) !== 0 && effect.deps !== null) ;
   } finally {
     is_updating_effect = was_updating_effect;
     active_effect = previous_effect;
@@ -3136,12 +3138,12 @@ function create_fragment_from_html(html) {
   return elem.content;
 }
 function assign_nodes(start, end) {
-  var effect2 = (
+  var effect = (
     /** @type {Effect} */
     active_effect
   );
-  if (effect2.nodes === null) {
-    effect2.nodes = { start, end, a: null, t: null };
+  if (effect.nodes === null) {
+    effect.nodes = { start, end, a: null, t: null };
   }
 }
 // @__NO_SIDE_EFFECTS__
@@ -3381,24 +3383,24 @@ class BranchManager {
           __privateGet(this, _offscreen).delete(k);
         }
       }
-      for (const [k, effect2] of __privateGet(this, _onscreen)) {
+      for (const [k, effect] of __privateGet(this, _onscreen)) {
         if (k === key || __privateGet(this, _outroing).has(k)) continue;
         const on_destroy = () => {
           const keys = Array.from(__privateGet(this, _batches).values());
           if (keys.includes(k)) {
             var fragment = document.createDocumentFragment();
-            move_effect(effect2, fragment);
+            move_effect(effect, fragment);
             fragment.append(create_text());
-            __privateGet(this, _offscreen).set(k, { effect: effect2, fragment });
+            __privateGet(this, _offscreen).set(k, { effect, fragment });
           } else {
-            destroy_effect(effect2);
+            destroy_effect(effect);
           }
           __privateGet(this, _outroing).delete(k);
           __privateGet(this, _onscreen).delete(k);
         };
         if (__privateGet(this, _transition) || !onscreen) {
           __privateGet(this, _outroing).add(k);
-          pause_effect(effect2, on_destroy, false);
+          pause_effect(effect, on_destroy, false);
         } else {
           on_destroy();
         }
@@ -3449,11 +3451,11 @@ class BranchManager {
     }
     __privateGet(this, _batches).set(batch, key);
     if (defer) {
-      for (const [k, effect2] of __privateGet(this, _onscreen)) {
+      for (const [k, effect] of __privateGet(this, _onscreen)) {
         if (k === key) {
-          batch.unskip_effect(effect2);
+          batch.unskip_effect(effect);
         } else {
-          batch.skip_effect(effect2);
+          batch.skip_effect(effect);
         }
       }
       for (const [k, branch2] of __privateGet(this, _offscreen)) {
@@ -3503,13 +3505,13 @@ function pause_effects(state2, to_destroy, controlled_anchor) {
   var group;
   var remaining = to_destroy.length;
   for (var i = 0; i < length; i++) {
-    let effect2 = to_destroy[i];
+    let effect = to_destroy[i];
     pause_effect(
-      effect2,
+      effect,
       () => {
         if (group) {
-          group.pending.delete(effect2);
-          group.done.add(effect2);
+          group.pending.delete(effect);
+          group.done.add(effect);
           if (group.pending.size === 0) {
             var groups = (
               /** @type {Set<EachOutroGroup>} */
@@ -3624,7 +3626,7 @@ function each(node, flags2, get_collection, get_key, render_fn2, fallback_fn = n
   function discard(batch) {
     state2.pending.delete(batch);
   }
-  var effect2 = block(() => {
+  var effect = block(() => {
     array = /** @type {V[]} */
     get(each_array);
     var length = array.length;
@@ -3691,14 +3693,14 @@ function each(node, flags2, get_collection, get_key, render_fn2, fallback_fn = n
     }
     get(each_array);
   });
-  var state2 = { effect: effect2, items, pending, outrogroups: null, fallback };
+  var state2 = { effect, items, pending, outrogroups: null, fallback };
   first_run = false;
 }
-function skip_to_branch(effect2) {
-  while (effect2 !== null && (effect2.f & BRANCH_EFFECT) === 0) {
-    effect2 = effect2.next;
+function skip_to_branch(effect) {
+  while (effect !== null && (effect.f & BRANCH_EFFECT) === 0) {
+    effect = effect.next;
   }
-  return effect2;
+  return effect;
 }
 function reconcile(state2, array, anchor, flags2, get_key) {
   var _a2, _b2, _c2, _d, _e, _f, _g, _h, _i;
@@ -3713,61 +3715,61 @@ function reconcile(state2, array, anchor, flags2, get_key) {
   var stashed = [];
   var value;
   var key;
-  var effect2;
+  var effect;
   var i;
   if (is_animated) {
     for (i = 0; i < length; i += 1) {
       value = array[i];
       key = get_key(value, i);
-      effect2 = /** @type {EachItem} */
+      effect = /** @type {EachItem} */
       items.get(key).e;
-      if ((effect2.f & EFFECT_OFFSCREEN) === 0) {
-        (_b2 = (_a2 = effect2.nodes) == null ? void 0 : _a2.a) == null ? void 0 : _b2.measure();
-        (to_animate ?? (to_animate = /* @__PURE__ */ new Set())).add(effect2);
+      if ((effect.f & EFFECT_OFFSCREEN) === 0) {
+        (_b2 = (_a2 = effect.nodes) == null ? void 0 : _a2.a) == null ? void 0 : _b2.measure();
+        (to_animate ?? (to_animate = /* @__PURE__ */ new Set())).add(effect);
       }
     }
   }
   for (i = 0; i < length; i += 1) {
     value = array[i];
     key = get_key(value, i);
-    effect2 = /** @type {EachItem} */
+    effect = /** @type {EachItem} */
     items.get(key).e;
     if (state2.outrogroups !== null) {
       for (const group of state2.outrogroups) {
-        group.pending.delete(effect2);
-        group.done.delete(effect2);
+        group.pending.delete(effect);
+        group.done.delete(effect);
       }
     }
-    if ((effect2.f & INERT) !== 0) {
-      resume_effect(effect2);
+    if ((effect.f & INERT) !== 0) {
+      resume_effect(effect);
       if (is_animated) {
-        (_d = (_c2 = effect2.nodes) == null ? void 0 : _c2.a) == null ? void 0 : _d.unfix();
-        (to_animate ?? (to_animate = /* @__PURE__ */ new Set())).delete(effect2);
+        (_d = (_c2 = effect.nodes) == null ? void 0 : _c2.a) == null ? void 0 : _d.unfix();
+        (to_animate ?? (to_animate = /* @__PURE__ */ new Set())).delete(effect);
       }
     }
-    if ((effect2.f & EFFECT_OFFSCREEN) !== 0) {
-      effect2.f ^= EFFECT_OFFSCREEN;
-      if (effect2 === current) {
-        move(effect2, null, anchor);
+    if ((effect.f & EFFECT_OFFSCREEN) !== 0) {
+      effect.f ^= EFFECT_OFFSCREEN;
+      if (effect === current) {
+        move(effect, null, anchor);
       } else {
         var next = prev ? prev.next : current;
-        if (effect2 === state2.effect.last) {
-          state2.effect.last = effect2.prev;
+        if (effect === state2.effect.last) {
+          state2.effect.last = effect.prev;
         }
-        if (effect2.prev) effect2.prev.next = effect2.next;
-        if (effect2.next) effect2.next.prev = effect2.prev;
-        link(state2, prev, effect2);
-        link(state2, effect2, next);
-        move(effect2, next, anchor);
-        prev = effect2;
+        if (effect.prev) effect.prev.next = effect.next;
+        if (effect.next) effect.next.prev = effect.prev;
+        link(state2, prev, effect);
+        link(state2, effect, next);
+        move(effect, next, anchor);
+        prev = effect;
         matched = [];
         stashed = [];
         current = skip_to_branch(prev.next);
         continue;
       }
     }
-    if (effect2 !== current) {
-      if (seen !== void 0 && seen.has(effect2)) {
+    if (effect !== current) {
+      if (seen !== void 0 && seen.has(effect)) {
         if (matched.length < stashed.length) {
           var start = stashed[0];
           var j;
@@ -3789,18 +3791,18 @@ function reconcile(state2, array, anchor, flags2, get_key) {
           matched = [];
           stashed = [];
         } else {
-          seen.delete(effect2);
-          move(effect2, current, anchor);
-          link(state2, effect2.prev, effect2.next);
-          link(state2, effect2, prev === null ? state2.effect.first : prev.next);
-          link(state2, prev, effect2);
-          prev = effect2;
+          seen.delete(effect);
+          move(effect, current, anchor);
+          link(state2, effect.prev, effect.next);
+          link(state2, effect, prev === null ? state2.effect.first : prev.next);
+          link(state2, prev, effect);
+          prev = effect;
         }
         continue;
       }
       matched = [];
       stashed = [];
-      while (current !== null && current !== effect2) {
+      while (current !== null && current !== effect) {
         (seen ?? (seen = /* @__PURE__ */ new Set())).add(current);
         stashed.push(current);
         current = skip_to_branch(current.next);
@@ -3809,11 +3811,11 @@ function reconcile(state2, array, anchor, flags2, get_key) {
         continue;
       }
     }
-    if ((effect2.f & EFFECT_OFFSCREEN) === 0) {
-      matched.push(effect2);
+    if ((effect.f & EFFECT_OFFSCREEN) === 0) {
+      matched.push(effect);
     }
-    prev = effect2;
-    current = skip_to_branch(effect2.next);
+    prev = effect;
+    current = skip_to_branch(effect.next);
   }
   if (state2.outrogroups !== null) {
     for (const group of state2.outrogroups) {
@@ -3829,9 +3831,9 @@ function reconcile(state2, array, anchor, flags2, get_key) {
   if (current !== null || seen !== void 0) {
     var to_destroy = [];
     if (seen !== void 0) {
-      for (effect2 of seen) {
-        if ((effect2.f & INERT) === 0) {
-          to_destroy.push(effect2);
+      for (effect of seen) {
+        if ((effect.f & INERT) === 0) {
+          to_destroy.push(effect);
         }
       }
     }
@@ -3859,8 +3861,8 @@ function reconcile(state2, array, anchor, flags2, get_key) {
     queue_micro_task(() => {
       var _a3, _b3;
       if (to_animate === void 0) return;
-      for (effect2 of to_animate) {
-        (_b3 = (_a3 = effect2.nodes) == null ? void 0 : _a3.a) == null ? void 0 : _b3.apply();
+      for (effect of to_animate) {
+        (_b3 = (_a3 = effect.nodes) == null ? void 0 : _a3.a) == null ? void 0 : _b3.apply();
       }
     });
   }
@@ -3879,10 +3881,10 @@ function create_item(items, anchor, value, key, index2, render_fn2, flags2, get_
     })
   };
 }
-function move(effect2, next, anchor) {
-  if (!effect2.nodes) return;
-  var node = effect2.nodes.start;
-  var end = effect2.nodes.end;
+function move(effect, next, anchor) {
+  if (!effect.nodes) return;
+  var node = effect.nodes.start;
+  var end = effect.nodes.end;
   var dest = next && (next.f & EFFECT_OFFSCREEN) === 0 ? (
     /** @type {EffectNodes} */
     next.nodes.start
@@ -4189,7 +4191,7 @@ var root_3 = /* @__PURE__ */ from_html(`<div class="winner-tree"><span>Gewinner<
 var root_4 = /* @__PURE__ */ from_html(`<p class="empty-state">Keine fachlich belastbare Gewinneranforderung vorhanden.</p>`);
 var root_5 = /* @__PURE__ */ from_html(`<div><div class="candidate-top"><strong> </strong><span> </span></div> <p> </p> <small> </small></div>`);
 var root_6 = /* @__PURE__ */ from_html(`<div><div class="candidate-top"><strong> </strong><span>pausiert</span></div> <p> </p> <small> </small></div>`);
-var root_7 = /* @__PURE__ */ from_html(`<section class="content-grid" aria-label="Übersicht"><article class="hero-card card"><div class="card-heading"><div><p class="eyebrow">MASTERMODUS</p> <h2> </h2></div> <span> </span></div> <div class="target-row"><span class="target-value"> </span> <span class="muted">effektives beziehungsweise gehaltenes Ziel</span></div> <div class="metric-strip"><div><span>Gewinner</span><strong> </strong></div> <div><span>Fachliches Ziel</span><strong> </strong></div> <div><span>Safety</span><strong> </strong></div></div> <!></article> <article class="card status-card"><div class="card-heading"><div><p class="eyebrow">TECHNISCHE EBENE</p><h2>Safety & Apply</h2></div> <span> </span></div> <dl class="facts"><div><dt>Opening</dt><dd> </dd></div> <div><dt>Safety</dt><dd> </dd></div> <div><dt>Apply</dt><dd> </dd></div> <div><dt>Coverposition</dt><dd> </dd></div> <div><dt>Cover bereit</dt><dd> </dd></div> <div><dt>Manual Override</dt><dd> </dd></div></dl> <p class="eyebrow">HAUSHALT & KONTEXT</p> <dl class="facts"></dl> <p class="callout">Safety und Apply sind technisch getrennt; der Mastermodus bleibt fachlich lesbar.</p></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">FACHLICHER ENTSCHEIDUNGSBAUM</p><h2>Kategorie → Variante → Nebenäste</h2></div> <span class="muted"> </span></div> <!> <div class="candidate-grid"><!> <!></div></article></section>`);
+var root_7 = /* @__PURE__ */ from_html(`<section class="content-grid" aria-label="Übersicht"><article class="hero-card card"><div class="card-heading"><div><p class="eyebrow">MASTERMODUS</p> <h2> </h2></div> <span> </span></div> <div class="target-row"><span class="target-value"> </span> <span class="muted">effektives beziehungsweise gehaltenes Ziel</span></div> <div class="metric-strip"><div><span>Gewinner</span><strong> </strong></div> <div><span>Fachliches Ziel</span><strong> </strong></div> <div><span>Safety</span><strong> </strong></div></div> <!></article> <article class="card status-card"><div class="card-heading"><div><p class="eyebrow">TECHNISCHE EBENE</p><h2>Safety & Apply</h2></div> <span> </span></div> <dl class="facts"><div><dt>Opening</dt><dd> </dd></div> <div><dt>Safety</dt><dd> </dd></div> <div><dt>Apply</dt><dd> </dd></div> <div><dt>Coverposition</dt><dd> </dd></div> <div><dt>Cover bereit</dt><dd> </dd></div> <div><dt>Manual Override</dt><dd> </dd></div> <div><dt>Betriebsmodus</dt><dd> </dd></div> <div><dt>Apply-Owner</dt><dd> </dd></div></dl> <p class="eyebrow">HAUSHALT & KONTEXT</p> <dl class="facts"></dl> <p class="callout">Safety und Apply sind technisch getrennt; der Mastermodus bleibt fachlich lesbar.</p></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">FACHLICHER ENTSCHEIDUNGSBAUM</p><h2>Kategorie → Variante → Nebenäste</h2></div> <span class="muted"> </span></div> <!> <div class="candidate-grid"><!> <!></div></article></section>`);
 var root_8 = /* @__PURE__ */ from_html(`<li><strong> </strong><span> </span></li>`);
 var root_9 = /* @__PURE__ */ from_html(`<h3>Pausiert / unterdrückt</h3> <ul class="plain-list"></ul>`, 1);
 var root_10 = /* @__PURE__ */ from_html(`<div><span> </span><code> </code></div>`);
@@ -4201,8 +4203,8 @@ var root_15 = /* @__PURE__ */ from_html(`<label> <input type="number" min="0"/><
 var root_16 = /* @__PURE__ */ from_html(`<div class="binding-row"><strong> </strong> <span> </span> <small> </small></div>`);
 var root_17 = /* @__PURE__ */ from_html(`<p class="hint"> </p>`);
 var root_18 = /* @__PURE__ */ from_html(`<section class="binding-group"><h3> </h3> <!> <!></section>`);
-var root_19 = /* @__PURE__ */ from_html(`<section class="settings-layout" aria-label="Einstellungen"><article class="card"><div class="card-heading"><div><p class="eyebrow">GEOMETRIE & STATUS</p><h2>Fensterfläche</h2></div><span> </span></div> <div class="form-grid"><label>Azimut (°)<input type="number" min="0" max="360"/></label> <label>Neigung (°)<input type="number" min="0" max="180"/></label> <label class="toggle"><input type="checkbox"/> Achse invertiert</label> <label class="toggle"><input type="checkbox"/> Automatik aktiv</label> <label class="toggle"><input type="checkbox"/> Apply-Gate aktiv</label></div> <p class="hint">Die Werte stammen aus der laufenden Shadow-Projektion. Speicherung erreicht niemals einen Cover-Service.</p></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">PROFILE</p><h2>Normal / Invertiert</h2></div><div class="button-row"><span class="muted"> </span><button class="quiet-button" type="button">Entwurf zurücksetzen</button><button class="primary-button" type="button"> </button></div></div> <!> <div class="profile-table" role="table" aria-label="Positionsprofile"><div class="profile-row profile-header" role="row"><span>Profil</span><span>Normal</span><span>Invertiert</span></div> <!></div></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">KALIBRIERUNG</p><h2>Shadow-Defaults</h2></div><span class="muted">später trace-basiert kalibrieren</span></div> <div class="calibration-grid"></div></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">OWNER-BINDINGS</p><h2>Native Entity-Selectoren</h2></div><span class="muted">OptionsFlow</span></div> <p class="hint">Bearbeitung erfolgt ausschließlich über Blind Control → Konfigurieren im nativen Home-Assistant-OptionsFlow. Entity-IDs werden im Panel nicht angezeigt oder entgegengenommen.</p> <div class="binding-grid"></div></article></section>`);
-var root_20 = /* @__PURE__ */ from_html(`<div class="panel-root"><header class="app-header"><div><p class="eyebrow">BLIND CONTROL · SHADOW · NOT LIVE</p> <h1>Wohnzimmer-Rollo</h1> <p class="subtitle">Versionierter Entscheidungs-, Safety- und Shadow-Vertrag</p></div> <div class="header-status"><span></span> <span> </span></div></header> <div class="tabs" aria-label="Blind Control Bereiche" role="tablist"></div> <!></div>`);
+var root_19 = /* @__PURE__ */ from_html(`<section class="settings-layout" aria-label="Einstellungen"><article class="card"><div class="card-heading"><div><p class="eyebrow">GEOMETRIE & STATUS</p><h2>Fensterfläche</h2></div><span> </span></div> <div class="form-grid"><label>Azimut (°)<input type="number" min="0" max="360"/></label> <label>Neigung (°)<input type="number" min="0" max="180"/></label> <label class="toggle"><input type="checkbox"/> Achse invertiert</label> <label class="toggle"><input type="checkbox"/> Automatik aktiv</label> <label class="toggle"><input type="checkbox" disabled=""/> Apply-Gate aktiv (OptionsFlow)</label></div> <p class="hint">Betriebsmodus, Apply-Owner und Apply-Gate sind sicherheitskritisch und ausschließlich im nativen OptionsFlow änderbar.</p></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">PROFILE</p><h2>Normal / Invertiert</h2></div><div class="button-row"><span class="muted"> </span><button class="quiet-button" type="button">Entwurf zurücksetzen</button><button class="primary-button" type="button"> </button></div></div> <!> <div class="profile-table" role="table" aria-label="Positionsprofile"><div class="profile-row profile-header" role="row"><span>Profil</span><span>Normal</span><span>Invertiert</span></div> <!></div></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">KALIBRIERUNG</p><h2>Shadow-Defaults</h2></div><span class="muted">später trace-basiert kalibrieren</span></div> <div class="calibration-grid"></div></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">OWNER-BINDINGS</p><h2>Native Entity-Selectoren</h2></div><span class="muted">OptionsFlow</span></div> <p class="hint">Bearbeitung erfolgt ausschließlich über Blind Control → Konfigurieren im nativen Home-Assistant-OptionsFlow. Entity-IDs werden im Panel nicht angezeigt oder entgegengenommen.</p> <div class="binding-grid"></div></article></section>`);
+var root_20 = /* @__PURE__ */ from_html(`<div class="panel-root"><header class="app-header"><div><p class="eyebrow"> </p> <h1>Wohnzimmer-Rollo</h1> <p class="subtitle">Versionierter Entscheidungs-, Safety- und Shadow-Vertrag</p></div> <div class="header-status"><span></span> <span> </span></div></header> <div class="tabs" aria-label="Blind Control Bereiche" role="tablist"></div> <!></div>`);
 function App($$anchor, $$props) {
   push($$props, true);
   let saving = prop($$props, "saving", 3, false);
@@ -4255,6 +4257,12 @@ function App($$anchor, $$props) {
     safe_position: "Safety-Position",
     safety_ready: "Safety bereit",
     shadow_ready: "Shadow bereit",
+    live_ready: "Live-Ziel bereit",
+    applied: "Ziel übergeben",
+    stable: "Ziel stabil",
+    cooldown: "Cooldown aktiv",
+    manual_hold: "Manuell gehalten",
+    error: "Fehler",
     required_resolved: "Pflicht aufgelöst",
     required_unresolved: "Pflicht nicht aufgelöst",
     conditional_resolved: "Bedingt aufgelöst",
@@ -4282,9 +4290,9 @@ function App($$anchor, $$props) {
   const statusLabel = (value) => labelFor(value);
   const failureBlockersLabel = (blockers) => blockers.map((blocker) => `${labelFor(blocker.key)} (${labelFor(blocker.quality)})`).join(", ");
   const statusTone = (value) => {
-    if (value === "ready" || value === "safe_position" || value === "safety_ready" || value === "shadow_ready") return "ready";
+    if (value === "ready" || value === "safe_position" || value === "safety_ready" || value === "shadow_ready" || value === "live_ready" || value === "applied" || value === "stable") return "ready";
     if (value === "failure" || value === "error" || value === "unavailable") return "error";
-    if (value === "blocked" || value === "manual" || value === "holding_safe_position") return "warning";
+    if (value === "blocked" || value === "manual" || value === "manual_hold" || value === "cooldown" || value === "holding_safe_position") return "warning";
     return "warning";
   };
   const bindingStatusTone = (value) => {
@@ -4356,18 +4364,21 @@ function App($$anchor, $$props) {
   }
   var div = root_20();
   head("1n46o8q", ($$anchor2) => {
-    effect(() => {
-      $document.title = "Blind Control · Shadow";
+    deferred_template_effect(() => {
+      $document.title = `Blind Control · ${$$props.snapshot.settings.runtime_mode === "shadow" ? "Shadow" : "Live vorbereitet"}`;
     });
   });
   var header = child(div);
-  var div_1 = sibling(child(header), 2);
-  var span = child(div_1);
+  var div_1 = child(header);
+  var p = child(div_1);
+  var text$1 = child(p);
+  var div_2 = sibling(div_1, 2);
+  var span = child(div_2);
   var span_1 = sibling(span, 2);
-  var text$1 = child(span_1);
-  var div_2 = sibling(header, 2);
+  var text_1 = child(span_1);
+  var div_3 = sibling(header, 2);
   each(
-    div_2,
+    div_3,
     20,
     () => [
       ["overview", "Übersicht"],
@@ -4381,60 +4392,60 @@ function App($$anchor, $$props) {
       let label = () => get($$array)[1];
       var button = root$1();
       let classes;
-      var text_1 = child(button);
+      var text_2 = child(button);
       template_effect(() => {
         classes = set_class(button, 1, "tab", null, classes, { active: get(activeTab) === tab() });
         set_attribute(button, "aria-selected", get(activeTab) === tab());
-        set_text(text_1, label());
+        set_text(text_2, label());
       });
       delegated("click", button, () => set(activeTab, tab(), true));
       append($$anchor2, button);
     }
   );
-  var node = sibling(div_2, 2);
+  var node = sibling(div_3, 2);
   {
     var consequent_3 = ($$anchor2) => {
       var section = root_7();
       var article = child(section);
-      var div_3 = child(article);
-      var div_4 = child(div_3);
-      var h2 = sibling(child(div_4), 2);
-      var text_2 = child(h2);
-      var span_2 = sibling(div_4, 2);
-      var text_3 = child(span_2);
-      var div_5 = sibling(div_3, 2);
-      var span_3 = child(div_5);
-      var text_4 = child(span_3);
-      var div_6 = sibling(div_5, 2);
-      var div_7 = child(div_6);
-      var strong = sibling(child(div_7));
-      var text_5 = child(strong);
-      var div_8 = sibling(div_7, 2);
-      var strong_1 = sibling(child(div_8));
-      var text_6 = child(strong_1);
+      var div_4 = child(article);
+      var div_5 = child(div_4);
+      var h2 = sibling(child(div_5), 2);
+      var text_3 = child(h2);
+      var span_2 = sibling(div_5, 2);
+      var text_4 = child(span_2);
+      var div_6 = sibling(div_4, 2);
+      var span_3 = child(div_6);
+      var text_5 = child(span_3);
+      var div_7 = sibling(div_6, 2);
+      var div_8 = child(div_7);
+      var strong = sibling(child(div_8));
+      var text_6 = child(strong);
       var div_9 = sibling(div_8, 2);
-      var strong_2 = sibling(child(div_9));
-      var text_7 = child(strong_2);
-      var node_1 = sibling(div_6, 2);
+      var strong_1 = sibling(child(div_9));
+      var text_7 = child(strong_1);
+      var div_10 = sibling(div_9, 2);
+      var strong_2 = sibling(child(div_10));
+      var text_8 = child(strong_2);
+      var node_1 = sibling(div_7, 2);
       {
         var consequent_1 = ($$anchor3) => {
-          var p = root_1$1();
-          var text_8 = child(p);
-          var node_2 = sibling(text_8);
+          var p_1 = root_1$1();
+          var text_9 = child(p_1);
+          var node_2 = sibling(text_9);
           {
             var consequent = ($$anchor4) => {
-              var text_9 = text();
-              template_effect(($0) => set_text(text_9, `· Fehlende belastbare Evidence: ${$0 ?? ""}`), [
+              var text_10 = text();
+              template_effect(($0) => set_text(text_10, `· Fehlende belastbare Evidence: ${$0 ?? ""}`), [
                 () => failureBlockersLabel($$props.snapshot.overview.failure.quality_blockers)
               ]);
-              append($$anchor4, text_9);
+              append($$anchor4, text_10);
             };
             if_block(node_2, ($$render) => {
               if ($$props.snapshot.overview.failure.quality_blockers.length) $$render(consequent);
             });
           }
           template_effect(
-            ($0, $1) => set_text(text_8, `Failure · ${$0 ?? ""} ·
+            ($0, $1) => set_text(text_9, `Failure · ${$0 ?? ""} ·
             ${$1 ?? ""} `),
             [
               () => {
@@ -4444,70 +4455,76 @@ function App($$anchor, $$props) {
               () => $$props.snapshot.overview.failure.hold_target === null ? "Apply blockiert" : `Position halten: ${positionLabel($$props.snapshot.overview.failure.hold_target)}`
             ]
           );
-          append($$anchor3, p);
+          append($$anchor3, p_1);
         };
         if_block(node_1, ($$render) => {
           if ($$props.snapshot.overview.failure.status !== "none") $$render(consequent_1);
         });
       }
       var article_1 = sibling(article, 2);
-      var div_10 = child(article_1);
-      var span_4 = sibling(child(div_10), 2);
-      var text_10 = child(span_4);
-      var dl = sibling(div_10, 2);
-      var div_11 = child(dl);
-      var dd = sibling(child(div_11));
-      var text_11 = child(dd);
-      var div_12 = sibling(div_11, 2);
-      var dd_1 = sibling(child(div_12));
-      var text_12 = child(dd_1);
+      var div_11 = child(article_1);
+      var span_4 = sibling(child(div_11), 2);
+      var text_11 = child(span_4);
+      var dl = sibling(div_11, 2);
+      var div_12 = child(dl);
+      var dd = sibling(child(div_12));
+      var text_12 = child(dd);
       var div_13 = sibling(div_12, 2);
-      var dd_2 = sibling(child(div_13));
-      var text_13 = child(dd_2);
+      var dd_1 = sibling(child(div_13));
+      var text_13 = child(dd_1);
       var div_14 = sibling(div_13, 2);
-      var dd_3 = sibling(child(div_14));
-      var text_14 = child(dd_3);
+      var dd_2 = sibling(child(div_14));
+      var text_14 = child(dd_2);
       var div_15 = sibling(div_14, 2);
-      var dd_4 = sibling(child(div_15));
-      var text_15 = child(dd_4);
+      var dd_3 = sibling(child(div_15));
+      var text_15 = child(dd_3);
       var div_16 = sibling(div_15, 2);
-      var dd_5 = sibling(child(div_16));
-      var text_16 = child(dd_5);
+      var dd_4 = sibling(child(div_16));
+      var text_16 = child(dd_4);
+      var div_17 = sibling(div_16, 2);
+      var dd_5 = sibling(child(div_17));
+      var text_17 = child(dd_5);
+      var div_18 = sibling(div_17, 2);
+      var dd_6 = sibling(child(div_18));
+      var text_18 = child(dd_6);
+      var div_19 = sibling(div_18, 2);
+      var dd_7 = sibling(child(div_19));
+      var text_19 = child(dd_7);
       var dl_1 = sibling(dl, 4);
       each(dl_1, 21, () => Object.entries($$props.snapshot.overview.household), index, ($$anchor3, $$item) => {
         var $$array_1 = /* @__PURE__ */ user_derived(() => to_array(get($$item), 2));
         let key = () => get($$array_1)[0];
         let value = () => get($$array_1)[1];
-        var div_17 = root_2();
-        var dt = child(div_17);
-        var text_17 = child(dt);
-        var dd_6 = sibling(dt);
-        var text_18 = child(dd_6);
+        var div_20 = root_2();
+        var dt = child(div_20);
+        var text_20 = child(dt);
+        var dd_8 = sibling(dt);
+        var text_21 = child(dd_8);
         template_effect(
           ($0, $1) => {
-            set_text(text_17, $0);
-            set_text(text_18, $1);
+            set_text(text_20, $0);
+            set_text(text_21, $1);
           },
           [() => labelFor(key()), () => contextValue(value())]
         );
-        append($$anchor3, div_17);
+        append($$anchor3, div_20);
       });
       var article_2 = sibling(article_1, 2);
-      var div_18 = child(article_2);
-      var span_5 = sibling(child(div_18), 2);
-      var text_19 = child(span_5);
-      var node_3 = sibling(div_18, 2);
+      var div_21 = child(article_2);
+      var span_5 = sibling(child(div_21), 2);
+      var text_22 = child(span_5);
+      var node_3 = sibling(div_21, 2);
       {
         var consequent_2 = ($$anchor3) => {
-          var div_19 = root_3();
-          var strong_3 = sibling(child(div_19), 2);
-          var text_20 = child(strong_3);
+          var div_22 = root_3();
+          var strong_3 = sibling(child(div_22), 2);
+          var text_23 = child(strong_3);
           var span_6 = sibling(strong_3, 2);
-          var text_21 = child(span_6);
+          var text_24 = child(span_6);
           template_effect(
             ($0, $1, $2) => {
-              set_text(text_20, `${$0 ?? ""} → ${$1 ?? ""}`);
-              set_text(text_21, $2);
+              set_text(text_23, `${$0 ?? ""} → ${$1 ?? ""}`);
+              set_text(text_24, $2);
             },
             [
               () => labelFor($$props.snapshot.overview.master_mode),
@@ -4515,37 +4532,37 @@ function App($$anchor, $$props) {
               () => positionLabel($$props.snapshot.overview.winner.target_position)
             ]
           );
-          append($$anchor3, div_19);
+          append($$anchor3, div_22);
         };
         var alternate = ($$anchor3) => {
-          var p_1 = root_4();
-          append($$anchor3, p_1);
+          var p_2 = root_4();
+          append($$anchor3, p_2);
         };
         if_block(node_3, ($$render) => {
           if ($$props.snapshot.overview.winner) $$render(consequent_2);
           else $$render(alternate, -1);
         });
       }
-      var div_20 = sibling(node_3, 2);
-      var node_4 = child(div_20);
+      var div_23 = sibling(node_3, 2);
+      var node_4 = child(div_23);
       each(node_4, 17, () => get(supportingBranches), index, ($$anchor3, branch2) => {
-        var div_21 = root_5();
-        var div_22 = child(div_21);
-        var strong_4 = child(div_22);
-        var text_22 = child(strong_4);
+        var div_24 = root_5();
+        var div_25 = child(div_24);
+        var strong_4 = child(div_25);
+        var text_25 = child(strong_4);
         var span_7 = sibling(strong_4);
-        var text_23 = child(span_7);
-        var p_2 = sibling(div_22, 2);
-        var text_24 = child(p_2);
-        var small = sibling(p_2, 2);
-        var text_25 = child(small);
+        var text_26 = child(span_7);
+        var p_3 = sibling(div_25, 2);
+        var text_27 = child(p_3);
+        var small = sibling(p_3, 2);
+        var text_28 = child(small);
         template_effect(
           ($0, $1, $2, $3) => {
-            set_class(div_21, 1, $0);
-            set_text(text_22, $1);
-            set_text(text_23, $2);
-            set_text(text_24, `Aktiver Nebenast · ${$3 ?? ""}`);
-            set_text(text_25, `${get(branch2).quality ?? ""} · ${get(branch2).source ?? ""}`);
+            set_class(div_24, 1, $0);
+            set_text(text_25, $1);
+            set_text(text_26, $2);
+            set_text(text_27, `Aktiver Nebenast · ${$3 ?? ""}`);
+            set_text(text_28, `${get(branch2).quality ?? ""} · ${get(branch2).source ?? ""}`);
           },
           [
             () => clsx(candidateClass(get(branch2))),
@@ -4554,24 +4571,24 @@ function App($$anchor, $$props) {
             () => get(branch2).reason.replaceAll("_", " ")
           ]
         );
-        append($$anchor3, div_21);
+        append($$anchor3, div_24);
       });
       var node_5 = sibling(node_4, 2);
       each(node_5, 17, () => get(pausedBranches), index, ($$anchor3, branch2) => {
-        var div_23 = root_6();
-        var div_24 = child(div_23);
-        var strong_5 = child(div_24);
-        var text_26 = child(strong_5);
-        var p_3 = sibling(div_24, 2);
-        var text_27 = child(p_3);
-        var small_1 = sibling(p_3, 2);
-        var text_28 = child(small_1);
+        var div_26 = root_6();
+        var div_27 = child(div_26);
+        var strong_5 = child(div_27);
+        var text_29 = child(strong_5);
+        var p_4 = sibling(div_27, 2);
+        var text_30 = child(p_4);
+        var small_1 = sibling(p_4, 2);
+        var text_31 = child(small_1);
         template_effect(
           ($0, $1, $2) => {
-            set_class(div_23, 1, $0);
-            set_text(text_26, $1);
-            set_text(text_27, $2);
-            set_text(text_28, `${get(branch2).quality ?? ""} · ${get(branch2).source ?? ""}`);
+            set_class(div_26, 1, $0);
+            set_text(text_29, $1);
+            set_text(text_30, $2);
+            set_text(text_31, `${get(branch2).quality ?? ""} · ${get(branch2).source ?? ""}`);
           },
           [
             () => clsx(candidateClass(get(branch2))),
@@ -4579,28 +4596,30 @@ function App($$anchor, $$props) {
             () => get(branch2).suppressed_by ? `unterdrückt durch ${labelFor(get(branch2).suppressed_by)}` : get(branch2).reason.replaceAll("_", " ")
           ]
         );
-        append($$anchor3, div_23);
+        append($$anchor3, div_26);
       });
       template_effect(
         ($0, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) => {
-          set_text(text_2, $0);
+          set_text(text_3, $0);
           set_class(span_2, 1, $1);
-          set_text(text_3, $2);
-          set_text(text_4, $3);
-          set_text(text_5, $4);
-          set_text(text_6, $5);
-          set_text(text_7, $6);
+          set_text(text_4, $2);
+          set_text(text_5, $3);
+          set_text(text_6, $4);
+          set_text(text_7, $5);
+          set_text(text_8, $6);
           set_class(span_4, 1, $7);
-          set_text(text_10, $8);
-          set_text(text_11, $9);
+          set_text(text_11, $8);
+          set_text(text_12, $9);
           set_class(dd_1, 1, $10);
-          set_text(text_12, $11);
+          set_text(text_13, $11);
           set_class(dd_2, 1, $12);
-          set_text(text_13, $13);
-          set_text(text_14, $14);
-          set_text(text_15, $15);
-          set_text(text_16, $$props.snapshot.overview.override.active ? "aktiv" : "inaktiv");
-          set_text(text_19, `${get(activeBranches).length ?? ""} aktiv oder pausiert`);
+          set_text(text_14, $13);
+          set_text(text_15, $14);
+          set_text(text_16, $15);
+          set_text(text_17, $$props.snapshot.overview.override.active ? "aktiv" : "inaktiv");
+          set_text(text_18, $$props.snapshot.settings.runtime_mode);
+          set_text(text_19, $$props.snapshot.settings.apply_owner);
+          set_text(text_22, `${get(activeBranches).length ?? ""} aktiv oder pausiert`);
         },
         [
           () => labelFor($$props.snapshot.overview.master_mode),
@@ -4626,33 +4645,33 @@ function App($$anchor, $$props) {
     var consequent_5 = ($$anchor2) => {
       var section_1 = root_12();
       var article_3 = child(section_1);
-      var div_25 = child(article_3);
-      var span_8 = sibling(child(div_25));
-      var text_29 = child(span_8);
-      var div_26 = sibling(div_25, 2);
-      var strong_6 = sibling(child(div_26), 2);
-      var text_30 = child(strong_6);
+      var div_28 = child(article_3);
+      var span_8 = sibling(child(div_28));
+      var text_32 = child(span_8);
+      var div_29 = sibling(div_28, 2);
+      var strong_6 = sibling(child(div_29), 2);
+      var text_33 = child(strong_6);
       var span_9 = sibling(strong_6, 2);
-      var text_31 = child(span_9);
-      var div_27 = sibling(div_26, 4);
-      each(div_27, 21, () => $$props.snapshot.diagnosis.candidates, index, ($$anchor3, candidate) => {
-        var div_28 = root_5();
-        var div_29 = child(div_28);
-        var strong_7 = child(div_29);
-        var text_32 = child(strong_7);
+      var text_34 = child(span_9);
+      var div_30 = sibling(div_29, 4);
+      each(div_30, 21, () => $$props.snapshot.diagnosis.candidates, index, ($$anchor3, candidate) => {
+        var div_31 = root_5();
+        var div_32 = child(div_31);
+        var strong_7 = child(div_32);
+        var text_35 = child(strong_7);
         var span_10 = sibling(strong_7);
-        var text_33 = child(span_10);
-        var p_4 = sibling(div_29, 2);
-        var text_34 = child(p_4);
-        var small_2 = sibling(p_4, 2);
-        var text_35 = child(small_2);
+        var text_36 = child(span_10);
+        var p_5 = sibling(div_32, 2);
+        var text_37 = child(p_5);
+        var small_2 = sibling(p_5, 2);
+        var text_38 = child(small_2);
         template_effect(
           ($0, $1, $2, $3) => {
-            set_class(div_28, 1, $0);
-            set_text(text_32, $1);
-            set_text(text_33, $2);
-            set_text(text_34, $3);
-            set_text(text_35, `${(get(candidate).paused ? `pausiert durch ${get(candidate).suppressed_by}` : get(candidate).quality) ?? ""} · ${get(candidate).source ?? ""}`);
+            set_class(div_31, 1, $0);
+            set_text(text_35, $1);
+            set_text(text_36, $2);
+            set_text(text_37, $3);
+            set_text(text_38, `${(get(candidate).paused ? `pausiert durch ${get(candidate).suppressed_by}` : get(candidate).quality) ?? ""} · ${get(candidate).source ?? ""}`);
           },
           [
             () => clsx(candidateClass(get(candidate))),
@@ -4661,9 +4680,9 @@ function App($$anchor, $$props) {
             () => get(candidate).reason.replaceAll("_", " ")
           ]
         );
-        append($$anchor3, div_28);
+        append($$anchor3, div_31);
       });
-      var node_6 = sibling(div_27, 2);
+      var node_6 = sibling(div_30, 2);
       {
         var consequent_4 = ($$anchor3) => {
           var fragment_1 = root_9();
@@ -4671,13 +4690,13 @@ function App($$anchor, $$props) {
           each(ul, 21, () => $$props.snapshot.diagnosis.paused_requirements, index, ($$anchor4, item) => {
             var li = root_8();
             var strong_8 = child(li);
-            var text_36 = child(strong_8);
+            var text_39 = child(strong_8);
             var span_11 = sibling(strong_8);
-            var text_37 = child(span_11);
+            var text_40 = child(span_11);
             template_effect(
               ($0, $1) => {
-                set_text(text_36, $0);
-                set_text(text_37, $1);
+                set_text(text_39, $0);
+                set_text(text_40, $1);
               },
               [
                 () => labelFor(get(item).key),
@@ -4692,43 +4711,43 @@ function App($$anchor, $$props) {
           if ($$props.snapshot.diagnosis.paused_requirements.length) $$render(consequent_4);
         });
       }
-      var div_30 = sibling(article_3, 2);
-      var article_4 = child(div_30);
-      var div_31 = child(article_4);
-      var div_32 = child(div_31);
-      var h2_1 = sibling(child(div_32));
-      var text_38 = child(h2_1);
-      var span_12 = sibling(div_32);
-      var text_39 = child(span_12);
-      var dl_2 = sibling(div_31, 2);
-      var div_33 = child(dl_2);
-      var dd_7 = sibling(child(div_33));
-      var text_40 = child(dd_7);
-      var div_34 = sibling(div_33, 2);
-      var dd_8 = sibling(child(div_34));
-      var text_41 = child(dd_8);
-      var div_35 = sibling(div_34, 2);
-      var dd_9 = sibling(child(div_35));
-      var text_42 = child(dd_9);
-      var div_36 = sibling(div_35, 2);
-      var dd_10 = sibling(child(div_36));
-      var text_43 = child(dd_10);
+      var div_33 = sibling(article_3, 2);
+      var article_4 = child(div_33);
+      var div_34 = child(article_4);
+      var div_35 = child(div_34);
+      var h2_1 = sibling(child(div_35));
+      var text_41 = child(h2_1);
+      var span_12 = sibling(div_35);
+      var text_42 = child(span_12);
+      var dl_2 = sibling(div_34, 2);
+      var div_36 = child(dl_2);
+      var dd_9 = sibling(child(div_36));
+      var text_43 = child(dd_9);
       var div_37 = sibling(div_36, 2);
-      var dd_11 = sibling(child(div_37));
-      var text_44 = child(dd_11);
+      var dd_10 = sibling(child(div_37));
+      var text_44 = child(dd_10);
       var div_38 = sibling(div_37, 2);
-      var dd_12 = sibling(child(div_38));
-      var text_45 = child(dd_12);
+      var dd_11 = sibling(child(div_38));
+      var text_45 = child(dd_11);
       var div_39 = sibling(div_38, 2);
-      var dd_13 = sibling(child(div_39));
-      var text_46 = child(dd_13);
+      var dd_12 = sibling(child(div_39));
+      var text_46 = child(dd_12);
       var div_40 = sibling(div_39, 2);
-      var dd_14 = sibling(child(div_40));
-      var text_47 = child(dd_14);
+      var dd_13 = sibling(child(div_40));
+      var text_47 = child(dd_13);
+      var div_41 = sibling(div_40, 2);
+      var dd_14 = sibling(child(div_41));
+      var text_48 = child(dd_14);
+      var div_42 = sibling(div_41, 2);
+      var dd_15 = sibling(child(div_42));
+      var text_49 = child(dd_15);
+      var div_43 = sibling(div_42, 2);
+      var dd_16 = sibling(child(div_43));
+      var text_50 = child(dd_16);
       var article_5 = sibling(article_4, 2);
-      var div_41 = sibling(child(article_5), 2);
+      var div_44 = sibling(child(article_5), 2);
       each(
-        div_41,
+        div_44,
         21,
         () => Object.entries($$props.snapshot.diagnosis.inputs),
         index,
@@ -4736,52 +4755,52 @@ function App($$anchor, $$props) {
           var $$array_2 = /* @__PURE__ */ user_derived(() => to_array(get($$item), 2));
           let key = () => get($$array_2)[0];
           let value = () => get($$array_2)[1];
-          var div_42 = root_10();
-          var span_13 = child(div_42);
-          var text_48 = child(span_13);
+          var div_45 = root_10();
+          var span_13 = child(div_45);
+          var text_51 = child(span_13);
           var code = sibling(span_13);
-          var text_49 = child(code);
+          var text_52 = child(code);
           template_effect(
             ($0, $1) => {
-              set_text(text_48, $0);
-              set_text(text_49, $1);
+              set_text(text_51, $0);
+              set_text(text_52, $1);
             },
             [
               () => labelFor(key()),
               () => typeof value() === "string" ? value() : JSON.stringify(value())
             ]
           );
-          append($$anchor3, div_42);
+          append($$anchor3, div_45);
         },
         ($$anchor3) => {
-          var p_5 = root_11();
-          append($$anchor3, p_5);
+          var p_6 = root_11();
+          append($$anchor3, p_6);
         }
       );
       var article_6 = sibling(article_5, 2);
-      var div_43 = child(article_6);
-      var button_1 = sibling(child(div_43));
-      var text_50 = child(button_1);
-      var details = sibling(div_43, 2);
+      var div_46 = child(article_6);
+      var button_1 = sibling(child(div_46));
+      var text_53 = child(button_1);
+      var details = sibling(div_46, 2);
       var pre = sibling(child(details), 2);
-      var text_51 = child(pre);
+      var text_54 = child(pre);
       template_effect(
         ($0, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10) => {
-          set_text(text_29, $$props.snapshot.version);
-          set_text(text_30, `${$0 ?? ""} → ${$1 ?? ""}`);
-          set_text(text_31, $$props.snapshot.diagnosis.hierarchy.failure.status === "none" ? "belastbar" : $$props.snapshot.diagnosis.hierarchy.failure.status);
-          set_text(text_38, $2);
-          set_text(text_39, `${$3 ?? ""} %`);
-          set_text(text_40, $4);
-          set_text(text_41, $$props.snapshot.diagnosis.solar.observed_lux ?? "—");
-          set_text(text_42, $$props.snapshot.diagnosis.solar.lux_trend ?? "—");
-          set_text(text_43, $5);
-          set_text(text_44, $6);
-          set_text(text_45, $7);
-          set_text(text_46, $8);
-          set_text(text_47, $9);
-          set_text(text_50, get(copyState) === "copied" ? "Kopiert" : get(copyState) === "failed" ? "Kopieren fehlgeschlagen" : "Evidence kopieren");
-          set_text(text_51, $10);
+          set_text(text_32, $$props.snapshot.version);
+          set_text(text_33, `${$0 ?? ""} → ${$1 ?? ""}`);
+          set_text(text_34, $$props.snapshot.diagnosis.hierarchy.failure.status === "none" ? "belastbar" : $$props.snapshot.diagnosis.hierarchy.failure.status);
+          set_text(text_41, $2);
+          set_text(text_42, `${$3 ?? ""} %`);
+          set_text(text_43, $4);
+          set_text(text_44, $$props.snapshot.diagnosis.solar.observed_lux ?? "—");
+          set_text(text_45, $$props.snapshot.diagnosis.solar.lux_trend ?? "—");
+          set_text(text_46, $5);
+          set_text(text_47, $6);
+          set_text(text_48, $7);
+          set_text(text_49, $8);
+          set_text(text_50, $9);
+          set_text(text_53, get(copyState) === "copied" ? "Kopiert" : get(copyState) === "failed" ? "Kopieren fehlgeschlagen" : "Evidence kopieren");
+          set_text(text_54, $10);
         },
         [
           () => labelFor($$props.snapshot.diagnosis.hierarchy.master_mode),
@@ -4806,11 +4825,11 @@ function App($$anchor, $$props) {
     var alternate_1 = ($$anchor2) => {
       var section_2 = root_19();
       var article_7 = child(section_2);
-      var div_44 = child(article_7);
-      var span_14 = sibling(child(div_44));
-      var text_52 = child(span_14);
-      var div_45 = sibling(div_44, 2);
-      var label_1 = child(div_45);
+      var div_47 = child(article_7);
+      var span_14 = sibling(child(div_47));
+      var text_55 = child(span_14);
+      var div_48 = sibling(div_47, 2);
+      var label_1 = child(div_48);
       var input = sibling(child(label_1));
       var label_2 = sibling(label_1, 2);
       var input_1 = sibling(child(label_2));
@@ -4821,39 +4840,39 @@ function App($$anchor, $$props) {
       var label_5 = sibling(label_4, 2);
       var input_4 = child(label_5);
       var article_8 = sibling(article_7, 2);
-      var div_46 = child(article_8);
-      var div_47 = sibling(child(div_46));
-      var span_15 = child(div_47);
-      var text_53 = child(span_15);
+      var div_49 = child(article_8);
+      var div_50 = sibling(child(div_49));
+      var span_15 = child(div_50);
+      var text_56 = child(span_15);
       var button_2 = sibling(span_15);
       var button_3 = sibling(button_2);
-      var text_54 = child(button_3);
-      var node_7 = sibling(div_46, 2);
+      var text_57 = child(button_3);
+      var node_7 = sibling(div_49, 2);
       {
         var consequent_6 = ($$anchor3) => {
-          var p_6 = root_13();
-          var text_55 = child(p_6);
-          template_effect(() => set_text(text_55, get(saveError)));
-          append($$anchor3, p_6);
+          var p_7 = root_13();
+          var text_58 = child(p_7);
+          template_effect(() => set_text(text_58, get(saveError)));
+          append($$anchor3, p_7);
         };
         if_block(node_7, ($$render) => {
           if (get(saveError)) $$render(consequent_6);
         });
       }
-      var div_48 = sibling(node_7, 2);
-      var node_8 = sibling(child(div_48), 2);
+      var div_51 = sibling(node_7, 2);
+      var node_8 = sibling(child(div_51), 2);
       each(node_8, 17, () => Object.entries(get(editableSettings).profiles), index, ($$anchor3, $$item) => {
         var $$array_3 = /* @__PURE__ */ user_derived(() => to_array(get($$item), 2));
         let key = () => get($$array_3)[0];
         let profile = () => get($$array_3)[1];
-        var div_49 = root_14();
-        var strong_9 = child(div_49);
-        var text_56 = child(strong_9);
+        var div_52 = root_14();
+        var strong_9 = child(div_52);
+        var text_59 = child(strong_9);
         var input_5 = sibling(strong_9, 2);
         var input_6 = sibling(input_5, 2);
         template_effect(
           ($0) => {
-            set_text(text_56, $0);
+            set_text(text_59, $0);
             set_attribute(input_5, "aria-label", `${key()} normal`);
             set_value(input_5, profile().normal);
             set_attribute(input_6, "aria-label", `${key()} invertiert`);
@@ -4863,20 +4882,20 @@ function App($$anchor, $$props) {
         );
         delegated("change", input_5, (event) => updateProfile(key(), "normal", event.currentTarget.valueAsNumber));
         delegated("change", input_6, (event) => updateProfile(key(), "inverted", event.currentTarget.valueAsNumber));
-        append($$anchor3, div_49);
+        append($$anchor3, div_52);
       });
       var article_9 = sibling(article_8, 2);
-      var div_50 = sibling(child(article_9), 2);
-      each(div_50, 21, () => Object.entries(get(editableSettings).calibration_defaults), index, ($$anchor3, $$item) => {
+      var div_53 = sibling(child(article_9), 2);
+      each(div_53, 21, () => Object.entries(get(editableSettings).calibration_defaults), index, ($$anchor3, $$item) => {
         var $$array_4 = /* @__PURE__ */ user_derived(() => to_array(get($$item), 2));
         let key = () => get($$array_4)[0];
         let value = () => get($$array_4)[1];
         var label_6 = root_15();
-        var text_57 = child(label_6);
-        var input_7 = sibling(text_57);
+        var text_60 = child(label_6);
+        var input_7 = sibling(text_60);
         template_effect(
           ($0) => {
-            set_text(text_57, $0);
+            set_text(text_60, $0);
             set_value(input_7, value());
           },
           [() => labelFor(key())]
@@ -4885,26 +4904,26 @@ function App($$anchor, $$props) {
         append($$anchor3, label_6);
       });
       var article_10 = sibling(article_9, 2);
-      var div_51 = sibling(child(article_10), 4);
-      each(div_51, 21, () => get(editableSettings).binding_groups, index, ($$anchor3, group) => {
+      var div_54 = sibling(child(article_10), 4);
+      each(div_54, 21, () => get(editableSettings).binding_groups, index, ($$anchor3, group) => {
         var section_3 = root_18();
         var h3 = child(section_3);
-        var text_58 = child(h3);
+        var text_61 = child(h3);
         var node_9 = sibling(h3, 2);
         each(node_9, 17, () => get(group).fields, index, ($$anchor4, field) => {
-          var div_52 = root_16();
-          var strong_10 = child(div_52);
-          var text_59 = child(strong_10);
+          var div_55 = root_16();
+          var strong_10 = child(div_55);
+          var text_62 = child(strong_10);
           var span_16 = sibling(strong_10, 2);
-          var text_60 = child(span_16);
+          var text_63 = child(span_16);
           var small_3 = sibling(span_16, 2);
-          var text_61 = child(small_3);
+          var text_64 = child(small_3);
           template_effect(
             ($0, $1, $2) => {
-              set_text(text_59, $0);
+              set_text(text_62, $0);
               set_class(span_16, 1, $1);
-              set_text(text_60, $2);
-              set_text(text_61, `${get(field).requirement === "required" ? "Pflicht" : get(field).requirement === "conditional" ? "bedingt erforderlich" : "optional"} · ${get(field).owner ?? ""} · ${get(field).max_age_seconds === null ? "stateful" : `${get(field).max_age_seconds} s`} · ${get(field).require_timestamp ? "Zeitbeleg erforderlich" : "kein Zeitbeleg erforderlich"}`);
+              set_text(text_63, $2);
+              set_text(text_64, `${get(field).requirement === "required" ? "Pflicht" : get(field).requirement === "conditional" ? "bedingt erforderlich" : "optional"} · ${get(field).owner ?? ""} · ${get(field).max_age_seconds === null ? "stateful" : `${get(field).max_age_seconds} s`} · ${get(field).require_timestamp ? "Zeitbeleg erforderlich" : "kein Zeitbeleg erforderlich"}`);
             },
             [
               () => labelFor(get(field).key),
@@ -4912,37 +4931,37 @@ function App($$anchor, $$props) {
               () => labelFor(get(field).status)
             ]
           );
-          append($$anchor4, div_52);
+          append($$anchor4, div_55);
         });
         var node_10 = sibling(node_9, 2);
         {
           var consequent_7 = ($$anchor4) => {
-            var p_7 = root_17();
-            var text_62 = child(p_7);
-            template_effect(($0) => set_text(text_62, `Opening-Safety-Polarität: ${$0 ?? ""}. Ohne explizite Polarität bleibt eine Kippfreigabe blockiert.`), [
+            var p_8 = root_17();
+            var text_65 = child(p_8);
+            template_effect(($0) => set_text(text_65, `Opening-Safety-Polarität: ${$0 ?? ""}. Ohne explizite Polarität bleibt eine Kippfreigabe blockiert.`), [
               () => labelFor(get(editableSettings).opening_safety_polarity)
             ]);
-            append($$anchor4, p_7);
+            append($$anchor4, p_8);
           };
           if_block(node_10, ($$render) => {
             if (get(group).key === "opening_safety_cover_bindings") $$render(consequent_7);
           });
         }
-        template_effect(() => set_text(text_58, `${get(group).label ?? ""} · ${get(group).readiness === "ready" ? "bereit" : "Pflicht-Evidence fehlt"}`));
+        template_effect(() => set_text(text_61, `${get(group).label ?? ""} · ${get(group).readiness === "ready" ? "bereit" : "Pflicht-Evidence fehlt"}`));
         append($$anchor3, section_3);
       });
       template_effect(
         ($0, $1) => {
           set_class(span_14, 1, $0);
-          set_text(text_52, $1);
+          set_text(text_55, $1);
           set_value(input, get(editableSettings).window_azimuth);
           set_value(input_1, get(editableSettings).window_tilt);
           set_checked(input_2, get(editableSettings).axis_inverted);
           set_checked(input_3, get(editableSettings).automation_enabled);
           set_checked(input_4, get(editableSettings).apply_enabled);
-          set_text(text_53, get(draftDirty) ? "Ungespeicherter Entwurf" : "Serverstand bestätigt");
+          set_text(text_56, get(draftDirty) ? "Ungespeicherter Entwurf" : "Serverstand bestätigt");
           button_3.disabled = saving() || !$$props.onSaveSettings;
-          set_text(text_54, saving() ? "Speichere …" : "Shadow-Konfiguration speichern");
+          set_text(text_57, saving() ? "Speichere …" : "Konfiguration speichern");
         },
         [
           () => `badge ${statusTone($$props.snapshot.overview.apply_status)}`,
@@ -4953,7 +4972,6 @@ function App($$anchor, $$props) {
       delegated("change", input_1, (event) => updateNumber("window_tilt", event));
       delegated("change", input_2, (event) => updateBoolean("axis_inverted", event));
       delegated("change", input_3, (event) => updateBoolean("automation_enabled", event));
-      delegated("change", input_4, (event) => updateBoolean("apply_enabled", event));
       delegated("click", button_2, resetDraft);
       delegated("click", button_3, () => void saveDraft());
       append($$anchor2, section_2);
@@ -4965,11 +4983,13 @@ function App($$anchor, $$props) {
     });
   }
   template_effect(
-    ($0, $1) => {
-      set_class(span, 1, $0);
-      set_text(text$1, `Shadow · ${$1 ?? ""}`);
+    ($0, $1, $2) => {
+      set_text(text$1, `BLIND CONTROL · ${$0 ?? ""} · ${$$props.snapshot.settings.apply_owner === "blind_control" ? "OWNER ARMED" : "LEGACY OWNER"}`);
+      set_class(span, 1, $1);
+      set_text(text_1, `${$$props.snapshot.settings.runtime_mode === "shadow" ? "Shadow" : "Live vorbereitet"} · ${$2 ?? ""}`);
     },
     [
+      () => $$props.snapshot.settings.runtime_mode.toUpperCase(),
       () => `status-dot ${statusTone($$props.snapshot.overview.apply_status)}`,
       () => statusLabel($$props.snapshot.overview.apply_status)
     ]
@@ -4991,6 +5011,9 @@ async function updateOptions(hass, settings) {
   delete options.calibration_defaults;
   delete options.binding_groups;
   delete options.binding_freshness;
+  delete options.runtime_mode;
+  delete options.apply_owner;
+  delete options.apply_enabled;
   await hass.connection.sendMessagePromise({
     type: "blind_control/update_options",
     options

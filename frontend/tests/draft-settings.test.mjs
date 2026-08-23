@@ -14,6 +14,8 @@ const settings = () => ({
   window_tilt: 90,
   automation_enabled: true,
   apply_enabled: true,
+  runtime_mode: 'shadow',
+  apply_owner: 'legacy',
   binding_groups: [],
   observation_freshness_seconds: 120,
   binding_freshness: {},

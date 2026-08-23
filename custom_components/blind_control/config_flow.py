@@ -12,6 +12,7 @@ from homeassistant.helpers.selector import selector
 
 from .binding_suggestions import BindingSuggestions, discover_binding_suggestions
 from .config import (
+    APPLY_OWNERS,
     BINDING_GROUPS,
     BINDING_INTENT_BOUND,
     BINDING_INTENT_EMPTY,
@@ -20,6 +21,7 @@ from .config import (
     MANDATORY_AUTOMATIC_BINDING_KEYS,
     MANDATORY_TECHNICAL_BINDING_KEYS,
     OPENING_SAFETY_POLARITIES,
+    RUNTIME_MODES,
     BlindControlConfig,
 )
 from .const import DOMAIN
@@ -30,6 +32,8 @@ def _config_schema(
     config: BlindControlConfig | None = None,
     suggestions: BindingSuggestions | None = None,
     open_meteo_suggestion: str = "",
+    *,
+    include_runtime_controls: bool = False,
 ):
     config = config or BlindControlConfig.defaults()
     fields: dict[object, object] = {
@@ -98,6 +102,25 @@ def _config_schema(
         ),
         vol.Required("position_tolerance", default=config.position_tolerance): vol.Coerce(float),
     }
+    if include_runtime_controls:
+        fields[vol.Required("runtime_mode", default=config.runtime_mode)] = selector(
+            {
+                "select": {
+                    "options": list(RUNTIME_MODES),
+                    "mode": "dropdown",
+                    "translation_key": "runtime_mode",
+                }
+            }
+        )
+        fields[vol.Required("apply_owner", default=config.apply_owner)] = selector(
+            {
+                "select": {
+                    "options": list(APPLY_OWNERS),
+                    "mode": "dropdown",
+                    "translation_key": "apply_owner",
+                }
+            }
+        )
     for profile_name in DEFAULT_PROFILE_NAMES:
         profile = config.profile(profile_name)
         fields[vol.Required(f"position_{profile_name}_normal", default=profile.normal)] = vol.All(
@@ -232,7 +255,7 @@ def _mapping_from_form(
 
 
 class BlindControlConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Create one ConfigEntry that evaluates only in Shadow mode."""
+    """Create one ConfigEntry with migration-safe Shadow defaults."""
 
     VERSION = 1
 
@@ -244,6 +267,8 @@ class BlindControlConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 config = BlindControlConfig.from_mapping(_mapping_from_form(user_input))
+                if config.runtime_mode != "shadow" or config.apply_owner != "legacy":
+                    raise ValueError("initial_setup_must_start_in_shadow")
             except OpenMeteoUrlError:
                 return self.async_show_form(
                     step_id="user",
@@ -282,7 +307,7 @@ class BlindControlConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class BlindControlOptionsFlow(OptionsFlow):
-    """Edit profiles and calibration defaults without touching an actuator."""
+    """Edit configuration; runtime gates are applied only after validated save."""
 
     def __init__(self, config_entry) -> None:
         self._entry = config_entry
@@ -305,19 +330,30 @@ class BlindControlOptionsFlow(OptionsFlow):
                         current,
                         suggestions,
                         str(user_input.get("open_meteo_api_url", open_meteo_suggestion)),
+                        include_runtime_controls=True,
                     ),
                     errors={"open_meteo_api_url": "invalid_open_meteo_url"},
                 )
             except (TypeError, ValueError, KeyError):
                 return self.async_show_form(
                     step_id="init",
-                    data_schema=_config_schema(current, suggestions, open_meteo_suggestion),
+                    data_schema=_config_schema(
+                        current,
+                        suggestions,
+                        open_meteo_suggestion,
+                        include_runtime_controls=True,
+                    ),
                     errors={"base": "invalid_configuration"},
                 )
             return self.async_create_entry(title="", data=config.to_mapping())
         return self.async_show_form(
             step_id="init",
-            data_schema=_config_schema(current, suggestions, open_meteo_suggestion),
+            data_schema=_config_schema(
+                current,
+                suggestions,
+                open_meteo_suggestion,
+                include_runtime_controls=True,
+            ),
         )
 
 

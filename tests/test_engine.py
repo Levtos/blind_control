@@ -86,7 +86,7 @@ class DecisionEngineTests(unittest.TestCase):
         runtime = ShadowRuntime()
         snapshot = runtime.evaluate(ready_inputs(), evaluated_at=None, now=0)
 
-        self.assertEqual(snapshot.version, "blind_control.shadow.v1")
+        self.assertEqual(snapshot.version, "blind_control.runtime.v2")
         self.assertTrue(snapshot.shadow_only)
         self.assertFalse(snapshot.actuation_executed)
         self.assertFalse(snapshot.write_path_reachable)
@@ -100,7 +100,7 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertIn("cover_position", projection["settings"]["binding_freshness"])
         self.assertEqual(
             projection["automation_projection"]["version"],
-            "blind_control.automation_projection.v1",
+            "blind_control.automation_projection.v2",
         )
         self.assertIn("binding_groups", projection["settings"])
         core_group = next(

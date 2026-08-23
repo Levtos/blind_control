@@ -77,6 +77,12 @@ class OverrideTracker:
         self._writing_until = 0.0
         self._writing_target = None
 
+    def abort_own_write(self) -> None:
+        """Close a guard after a command failed before the actuator accepted it."""
+
+        self._writing_until = 0.0
+        self._writing_target = None
+
     def observe_position(
         self,
         position: float | None,
@@ -98,6 +104,11 @@ class OverrideTracker:
         current_time = time.monotonic() if now is None else now
         if current_time < self._writing_until:
             self.baseline = value
+            if (
+                self._writing_target is not None
+                and abs(value - self._writing_target) <= self.tolerance
+            ):
+                self.finish_own_write(value)
             return self._override
 
         if abs(value - self.baseline) <= self.tolerance:

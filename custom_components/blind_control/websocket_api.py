@@ -1,4 +1,4 @@
-"""Read-only Shadow snapshot and OptionsFlow-backed configuration transport."""
+"""Read-only snapshot and non-critical configuration transport."""
 
 from __future__ import annotations
 
@@ -93,8 +93,11 @@ def _merge_options(current: BlindControlConfig, options: Mapping[str, Any]) -> d
             "legacy_bindings",
             "binding_intents",
             "open_meteo_api_url",
+            "runtime_mode",
+            "apply_owner",
+            "apply_enabled",
         }:
-            raise ValueError("entity_bindings_require_native_options_flow")
+            raise ValueError("safety_critical_options_require_native_options_flow")
         merged[key] = value
     return merged
 

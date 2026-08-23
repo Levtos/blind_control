@@ -1,4 +1,4 @@
-"""Deterministic Blind Control decision tree for AP2 Shadow mode."""
+"""Deterministic Blind Control decision tree with separated apply intent."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from .contracts import (
 from .cooldown import CooldownTracker
 from .solar import calculate_solar_exposure
 
-DECISION_CONTRACT_VERSION = "blind_control.decision.v2"
+DECISION_CONTRACT_VERSION = "blind_control.decision.v3"
 DAYLIGHT_STATES = frozenset({"early_morning", "forenoon", "midday", "afternoon", "late_afternoon"})
 TRANSITION_STATES = frozenset({"evening", "late_evening"})
 NIGHT_STATES = frozenset({"early_night", "late_night"})
@@ -62,6 +62,7 @@ class DecisionEngine:
         now: float | None = None,
         cooldown: CooldownTracker | None = None,
         failure_hold_target: float | None = None,
+        runtime_ready: bool = True,
     ) -> DecisionTrace:
         override = override or ManualOverride.inactive()
         solar = calculate_solar_exposure(inputs, self.config)
@@ -185,6 +186,7 @@ class DecisionEngine:
                 override=override,
                 cooldown=cooldown,
                 now=0.0 if now is None else now,
+                runtime_ready=runtime_ready,
             )
         )
         reasons = list(self._reasons(candidates, paused, fachlicher_target, failure, safety, apply))
@@ -630,7 +632,12 @@ class DecisionEngine:
         override: ManualOverride,
         cooldown: CooldownTracker | None,
         now: float,
+        runtime_ready: bool,
     ) -> ApplyDecision:
+        decision_context = {
+            "runtime_mode": self.config.runtime_mode,
+            "apply_owner": self.config.apply_owner,
+        }
         if safety.status == "blocked":
             return ApplyDecision(
                 status="blocked",
@@ -638,6 +645,7 @@ class DecisionEngine:
                 requested_target=effective_target,
                 approved_target=None,
                 cooldown_pending_target=None,
+                **decision_context,
             )
         if not self.config.automation_enabled:
             return ApplyDecision(
@@ -646,6 +654,7 @@ class DecisionEngine:
                 requested_target=effective_target,
                 approved_target=None,
                 cooldown_pending_target=None,
+                **decision_context,
             )
         if not self.config.apply_enabled:
             return ApplyDecision(
@@ -654,34 +663,88 @@ class DecisionEngine:
                 requested_target=effective_target,
                 approved_target=None,
                 cooldown_pending_target=None,
+                **decision_context,
             )
-        if safety.status == "safe_position":
+        if override.active and safety.status != "safe_position":
             return ApplyDecision(
-                status="safety_ready",
-                reason="safety_target_bypasses_normal_cooldown",
+                status="manual_hold",
+                reason="manual_override_blocks_automatic_apply",
                 requested_target=effective_target,
-                approved_target=effective_target,
+                approved_target=None,
                 cooldown_pending_target=None,
+                **decision_context,
+            )
+        if not runtime_ready:
+            return ApplyDecision(
+                status="blocked",
+                reason="restart_baseline_pending",
+                requested_target=effective_target,
+                approved_target=None,
+                cooldown_pending_target=None,
+                **decision_context,
+            )
+        if self.config.runtime_mode == "live" and self.config.apply_owner != "blind_control":
+            return ApplyDecision(
+                status="blocked",
+                reason="exclusive_apply_owner_not_confirmed",
+                requested_target=effective_target,
+                approved_target=None,
+                cooldown_pending_target=None,
+                **decision_context,
+            )
+        if effective_target is None:
+            return ApplyDecision(
+                status="blocked",
+                reason="no_effective_target",
+                requested_target=None,
+                approved_target=None,
+                cooldown_pending_target=None,
+                **decision_context,
             )
         pending = None
-        status = "shadow_ready"
-        reason = "shadow_intent_only_no_write_path"
+        ready = True
+        reason = "target_ready"
         if cooldown is not None and effective_target is not None:
             proposed = cooldown.propose(
                 effective_target,
                 now=now,
                 cooldown_seconds=self.config.apply_cooldown_seconds,
+                bypass_cooldown=safety.status == "safe_position",
             )
             if not proposed.apply_now:
-                status = "cooldown"
+                status = "stable" if proposed.reason == "identical_target" else "cooldown"
                 reason = proposed.reason
                 pending = proposed.pending_target
+                ready = False
+                return ApplyDecision(
+                    status=status,
+                    reason=reason,
+                    requested_target=effective_target,
+                    approved_target=None,
+                    cooldown_pending_target=pending,
+                    **decision_context,
+                )
+            reason = proposed.reason
+        if safety.status == "safe_position":
+            status = "safety_ready"
+            reason = "safety_target_bypasses_normal_cooldown"
+        elif self.config.runtime_mode == "shadow":
+            status = "shadow_ready"
+            reason = "shadow_intent_only_no_write_path"
+        else:
+            status = "live_ready"
         return ApplyDecision(
             status=status,
             reason=reason,
             requested_target=effective_target,
-            approved_target=effective_target,
+            approved_target=effective_target if ready else None,
             cooldown_pending_target=pending,
+            write_path_reachable=(
+                self.config.runtime_mode == "live"
+                and self.config.apply_owner == "blind_control"
+                and self.config.apply_enabled
+            ),
+            **decision_context,
         )
 
     def _failure(
@@ -765,6 +828,8 @@ class DecisionEngine:
             requested_target=effective_target,
             approved_target=None,
             cooldown_pending_target=None,
+            runtime_mode=self.config.runtime_mode,
+            apply_owner=self.config.apply_owner,
         )
 
     def _active_mode(self, candidates: list[Candidate], *, waking: bool) -> str:
