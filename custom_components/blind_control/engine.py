@@ -34,6 +34,7 @@ NIGHT_STATES = frozenset({"early_night", "late_night"})
 SCREEN_ACTIVITY = frozenset({"screen", "glare", "general_glare"})
 TV_ACTIVITY = frozenset({"tv", "console", "streaming", "playstation", "xbox", "switch"})
 PC_ACTIVITY = frozenset({"pc", "computer", "workstation"})
+EFFECTIVE_SLEEP_STATES = frozenset({"provisional_sleep", "sleep"})
 OPENING_CANDIDATES = frozenset({"base_daylight", "storm_approaching", "cool_air_available"})
 MANDATORY_AUTOMATIC_DECISION_INPUTS = (
     "bio_state",
@@ -249,16 +250,17 @@ class DecisionEngine:
         waking: bool,
         override: ManualOverride,
     ) -> list[Candidate]:
+        effective_sleep = _is_any_value(inputs.bio_state, EFFECTIVE_SLEEP_STATES)
         candidates = [
             self._candidate(
                 "sleep",
                 "sleep",
-                _is_value(inputs.bio_state, "sleep"),
-                self.config.target("sleep") if _is_value(inputs.bio_state, "sleep") else None,
+                effective_sleep,
+                self.config.target("sleep") if effective_sleep else None,
                 inputs.bio_state.source,
-                "canonical_bio_state_sleep"
-                if _is_value(inputs.bio_state, "sleep")
-                else "bio_state_not_sleep",
+                "canonical_bio_state_effective_sleep"
+                if effective_sleep
+                else "bio_state_not_effective_sleep",
                 inputs.bio_state.quality,
             ),
             self._candidate(
@@ -898,6 +900,10 @@ class DecisionEngine:
 
 def _is_value(observation: InputObservation, expected: str) -> bool:
     return observation.usable and str(observation.value).lower() == expected
+
+
+def _is_any_value(observation: InputObservation, expected: frozenset[str]) -> bool:
+    return observation.usable and str(observation.value).lower() in expected
 
 
 def _activity(inputs: BlindControlInputs, values: frozenset[str]) -> bool:

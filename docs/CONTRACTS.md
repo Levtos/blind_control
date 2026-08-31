@@ -27,7 +27,7 @@ Aktivierungsfreigabe. Ein Feld ohne Owner-/Freshness-Nachweis bleibt
 
 | Input/Feld | Konkrete Quelle / Version | Owner | Consumer | Freshness/Quality/Conflict-Semantik | Status |
 | --- | --- | --- | --- | --- | --- |
-| Bio State | `sensor.benni_core_state_bio_state`, Mapping v1.5.0 | Core State | Mode/Waking/Sleep | canonical; no alias; missing/stale not silently awake | übernommen |
+| Bio State | `sensor.benni_core_state_bio_state`, Mapping v1.5.0 plus Core-State Issue #59 | Core State | Mode/Waking/Sleep | `effective_sleep = bio_state in {provisional_sleep, sleep}`; missing/stale not silently awake | übernommen |
 | Activity State | `sensor.benni_core_state_activity_state`, Activity v1.0.0 | Core State | Media/Activity Modes | valid local candidate may win; rejected feed cannot win; reason/quality required | übernommen |
 | Day State | `sensor.benni_core_state_day_state`, Mapping v1.5.0 | Core State | Grundzustand/solar windows | exact current nine-state vocabulary; unknown remains diagnosable | übernommen |
 | Day Context | `sensor.benni_core_state_day_context`, Mapping v1.5.0 | Core State | weekday/weekend/holiday/vacation mapping | no local calendar rederive; missing is a gate | übernommen |
@@ -188,6 +188,10 @@ Entscheidungshierarchie interpretiert werden.
 
 `normal` projiziert `neutral`, `waking`, `sleep`, `away`, `privacy`,
 `glare -> general|tv|pc` oder `climate -> heat|cold|storm|cool_air`.
+Der bestehende `sleep`-Zweig ist aktiv, wenn der kanonische Bio-State
+`provisional_sleep` oder `sleep` ist. Beide Werte verwenden denselben
+Candidate-Key und das konfigurierte Sleep-Profil; es gibt keinen lokalen
+Pre-Sleep-State und keine separate Zielposition.
 Waking pausiert die festgelegten Umweltäste sichtbar. Ein nachgewiesener
 fremder Override liefert `manual -> override`; Safety und der festgelegte
 Lifecycle können dessen effektives Ziel technisch überstimmen, ohne daraus

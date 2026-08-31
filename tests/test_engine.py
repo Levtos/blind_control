@@ -537,6 +537,41 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertEqual(away.winner.category, "away")
         self.assertIsNone(away.winner.variant)
 
+    def test_provisional_sleep_and_sleep_share_the_configured_sleep_profile(self) -> None:
+        self.assertEqual(BlindControlConfig.defaults().target("sleep"), 5)
+        config = BlindControlConfig.from_mapping(
+            {"profiles": {"sleep": {"normal": 17, "inverted": 83}}}
+        )
+        engine = DecisionEngine(config)
+        provisional = engine.evaluate(
+            replace(ready_inputs(), bio_state=fresh("provisional_sleep", "core_state.bio"))
+        )
+        confirmed = engine.evaluate(
+            replace(ready_inputs(), bio_state=fresh("sleep", "core_state.bio"))
+        )
+
+        for trace in (provisional, confirmed):
+            sleep = next(item for item in trace.candidates if item.key == "sleep")
+            self.assertTrue(sleep.active)
+            self.assertEqual(sleep.reason, "canonical_bio_state_effective_sleep")
+            self.assertEqual(sleep.target_position, engine.config.target("sleep"))
+            self.assertEqual(trace.active_mode, "sleep")
+            self.assertEqual(trace.winner.category, "sleep")
+            self.assertEqual(trace.winner.candidate_key, "sleep")
+            self.assertEqual(trace.fachlicher_target, 17)
+
+        self.assertEqual(provisional.fachlicher_target, confirmed.fachlicher_target)
+
+    def test_awake_is_not_effective_sleep(self) -> None:
+        trace = DecisionEngine().evaluate(
+            replace(ready_inputs(), bio_state=fresh("awake", "core_state.bio"))
+        )
+
+        sleep = next(item for item in trace.candidates if item.key == "sleep")
+        self.assertFalse(sleep.active)
+        self.assertEqual(sleep.reason, "bio_state_not_effective_sleep")
+        self.assertNotEqual(trace.active_mode, "sleep")
+
     def test_waking_clears_a_previous_override_and_pauses_cold_insulation(self) -> None:
         runtime = ShadowRuntime()
         runtime.on_restart(20)

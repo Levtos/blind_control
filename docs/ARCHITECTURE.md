@@ -37,7 +37,10 @@ angesprochen.
 
 Core State ist Owner von Bio-/Sleep-/Waking-, Activity-, Presence-, Away- und
 Day-State-Verträgen. Blind Control konsumiert diese Verträge und rekonstruiert
-keinen zweiten Activity-, Sleep-, Waking- oder Presence-State.
+keinen zweiten Activity-, Sleep-, Waking- oder Presence-State. Die reine
+Consumer-Projektion `effective_sleep` fasst ausschließlich die kanonischen
+Bio-Werte `provisional_sleep` und `sleep` auf den bestehenden Sleep-Kandidaten
+zusammen; Zielposition und Apply bleiben Eigentum von Blind Control.
 
 ### Core Contracts
 

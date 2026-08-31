@@ -95,6 +95,9 @@ HA-Sentinels `unknown` und `unavailable` werden global verworfen.
 - `waking` kommt nur aus `bio_state == waking`, ist bis `awake` exklusiv und
   pausiert Heat, Glare, Privacy und Cold Insulation. Safety, Readiness und
   deaktivierte Automatik bleiben übergeordnet.
+- `provisional_sleep` und `sleep` aktivieren als `effective_sleep` denselben
+  Sleep-Kandidaten und dasselbe konfigurierte Sleep-Profil. Blind Control
+  führt dafür keinen eigenen Pre-Sleep-State und kein separates Profil ein.
 - TV, Streaming und Konsolen verwenden `glare_tv`; PC verwendet `glare_pc`.
   Glare benötigt zusätzlich eine eigene, fensterbezogene Solar-Exposure mit
   Confidence; es teilt kein Lux-Hard-Gate mit Heat. Night und
