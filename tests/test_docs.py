@@ -53,6 +53,7 @@ class DocumentationTests(unittest.TestCase):
             "### A16 – Cover-Entity-Rename",
             "cover.wohnbereich_thermo_verdunklungsrollo",
             "124° OSO",
+            "effective_sleep = bio_state in {provisional_sleep, sleep}",
         ):
             self.assertIn(term, lastenheft)
 
@@ -123,6 +124,7 @@ class DocumentationTests(unittest.TestCase):
             "blind_control.ux.v3",
             "blind_control.automation_projection.v2",
             "manual_hold",
+            "effective_sleep = bio_state in {provisional_sleep, sleep}",
         ):
             self.assertIn(term, source)
 

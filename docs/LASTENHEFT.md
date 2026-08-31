@@ -140,7 +140,13 @@ Mindestens vorzusehen:
 - manueller Override
 - Automatik deaktiviert
 
-Sleep bleibt ein eigenständiger fachlicher Zustand. Waking wird ausschließlich aus dem kanonischen Zustand übernommen und darf nicht aus einer lokalen Blind-Control-Uhrzeit abgeleitet werden.
+Sleep bleibt ein eigenständiger fachlicher Zustand. Für Consumer-Semantik gilt
+`effective_sleep = bio_state in {provisional_sleep, sleep}`: Beide kanonischen
+Core-State-Werte aktivieren denselben Sleep-Kandidaten und dasselbe frei
+konfigurierbare Sleep-Profil. Blind Control erzeugt daraus keinen zusätzlichen
+Bio- oder Activity-State. Waking wird ausschließlich aus dem kanonischen
+Zustand übernommen und darf nicht aus einer lokalen Blind-Control-Uhrzeit
+abgeleitet werden.
 
 ### 7.3 Umwelt- und Nutzungsschutz
 

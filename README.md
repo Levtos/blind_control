@@ -40,7 +40,8 @@ technical release and runbook; it is not a live cutover.
   calibration defaults
 - versioned owner-bound input, decision, diagnostic, UX, and Shadow contracts
 - deterministic Solar Exposure, compatible minimum composition, exclusive
-  Waking, Opening Safety, Override tracking, and latest-target cooldown state
+  Waking, shared `provisional_sleep`/`sleep` consumer semantics, Opening Safety,
+  Override tracking, and latest-target cooldown state
 - versioned hierarchy: `normal|manual|failure`, winner category/variant and
   visible compatible active or paused branches; Safety and Apply remain a
   separate technical layer
