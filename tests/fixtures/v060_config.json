@@ -1,0 +1,254 @@
+{
+  "config_version": 6,
+  "profiles": {
+    "window_safety": {
+      "logical": 100
+    },
+    "privacy_bed": {
+      "logical": 40
+    },
+    "waking": {
+      "logical": 100
+    },
+    "sleep": {
+      "logical": 17.0
+    },
+    "away": {
+      "logical": 5
+    },
+    "private_time": {
+      "logical": 40
+    },
+    "privacy": {
+      "logical": 40
+    },
+    "heat_protection": {
+      "logical": 15
+    },
+    "glare_general": {
+      "logical": 60
+    },
+    "glare_tv": {
+      "logical": 60
+    },
+    "glare_pc": {
+      "logical": 75
+    },
+    "cold_insulation": {
+      "logical": 5
+    },
+    "storm_approaching": {
+      "logical": 100
+    },
+    "cool_air_available": {
+      "logical": 100
+    },
+    "open": {
+      "logical": 100
+    },
+    "manual_override": {
+      "logical": 50
+    }
+  },
+  "legacy_profile_values": {},
+  "window_azimuth": 124.0,
+  "window_tilt": 90.0,
+  "axis_inverted": true,
+  "automation_enabled": true,
+  "apply_enabled": false,
+  "runtime_mode": "shadow",
+  "apply_owner": "legacy",
+  "open_meteo_api_url": "",
+  "opening_safety_polarity": "unspecified",
+  "input_bindings": {
+    "cover_position": "cover.fixture"
+  },
+  "legacy_bindings": {},
+  "binding_intents": {},
+  "observation_freshness_seconds": 120.0,
+  "binding_freshness": {
+    "bio_state": {
+      "max_age_seconds": null,
+      "require_timestamp": false,
+      "owner": "core_state"
+    },
+    "activity_state": {
+      "max_age_seconds": null,
+      "require_timestamp": false,
+      "owner": "core_state"
+    },
+    "day_state": {
+      "max_age_seconds": null,
+      "require_timestamp": false,
+      "owner": "core_state"
+    },
+    "day_context": {
+      "max_age_seconds": null,
+      "require_timestamp": false,
+      "owner": "core_state"
+    },
+    "away": {
+      "max_age_seconds": null,
+      "require_timestamp": false,
+      "owner": "core_state"
+    },
+    "private_time": {
+      "max_age_seconds": null,
+      "require_timestamp": false,
+      "owner": "core_state"
+    },
+    "privacy": {
+      "max_age_seconds": null,
+      "require_timestamp": false,
+      "owner": "privacy_owner"
+    },
+    "opening_state": {
+      "max_age_seconds": null,
+      "require_timestamp": true,
+      "owner": "opening_owner"
+    },
+    "opening_safe_for_blind": {
+      "max_age_seconds": null,
+      "require_timestamp": true,
+      "owner": "opening_owner"
+    },
+    "cover_available": {
+      "max_age_seconds": null,
+      "require_timestamp": true,
+      "owner": "cover_device"
+    },
+    "cover_ready": {
+      "max_age_seconds": null,
+      "require_timestamp": true,
+      "owner": "technical_readiness"
+    },
+    "cover_position": {
+      "max_age_seconds": 120.0,
+      "require_timestamp": true,
+      "owner": "cover_device"
+    },
+    "outdoor_lux": {
+      "max_age_seconds": 900.0,
+      "require_timestamp": true,
+      "owner": "solar_environment"
+    },
+    "lux_trend": {
+      "max_age_seconds": 900.0,
+      "require_timestamp": true,
+      "owner": "solar_environment"
+    },
+    "sun_elevation": {
+      "max_age_seconds": 900.0,
+      "require_timestamp": true,
+      "owner": "solar_environment"
+    },
+    "sun_azimuth": {
+      "max_age_seconds": 900.0,
+      "require_timestamp": true,
+      "owner": "solar_environment"
+    },
+    "expected_direct_radiation": {
+      "max_age_seconds": 1200.0,
+      "require_timestamp": true,
+      "owner": "solar_environment"
+    },
+    "expected_diffuse_radiation": {
+      "max_age_seconds": 1200.0,
+      "require_timestamp": true,
+      "owner": "solar_environment"
+    },
+    "cloud_cover": {
+      "max_age_seconds": 1800.0,
+      "require_timestamp": true,
+      "owner": "solar_environment"
+    },
+    "indoor_temperature": {
+      "max_age_seconds": 1800.0,
+      "require_timestamp": true,
+      "owner": "weather_environment"
+    },
+    "outdoor_temperature": {
+      "max_age_seconds": 1800.0,
+      "require_timestamp": true,
+      "owner": "weather_environment"
+    },
+    "indoor_temperature_trend": {
+      "max_age_seconds": 1800.0,
+      "require_timestamp": true,
+      "owner": "weather_environment"
+    },
+    "outdoor_temperature_trend": {
+      "max_age_seconds": 1800.0,
+      "require_timestamp": true,
+      "owner": "weather_environment"
+    },
+    "weather_alert": {
+      "max_age_seconds": 1800.0,
+      "require_timestamp": true,
+      "owner": "weather_environment"
+    },
+    "precipitation_trend": {
+      "max_age_seconds": 1800.0,
+      "require_timestamp": true,
+      "owner": "weather_environment"
+    },
+    "wind_trend": {
+      "max_age_seconds": 1800.0,
+      "require_timestamp": true,
+      "owner": "weather_environment"
+    },
+    "pressure_trend": {
+      "max_age_seconds": 1800.0,
+      "require_timestamp": true,
+      "owner": "weather_environment"
+    },
+    "air_movement": {
+      "max_age_seconds": 1800.0,
+      "require_timestamp": true,
+      "owner": "weather_environment"
+    },
+    "active_mode": {
+      "max_age_seconds": 120.0,
+      "require_timestamp": true,
+      "owner": "legacy_policy"
+    },
+    "effective_target": {
+      "max_age_seconds": 120.0,
+      "require_timestamp": true,
+      "owner": "legacy_policy"
+    },
+    "safety_status": {
+      "max_age_seconds": 120.0,
+      "require_timestamp": true,
+      "owner": "legacy_policy"
+    },
+    "apply_status": {
+      "max_age_seconds": 120.0,
+      "require_timestamp": true,
+      "owner": "legacy_policy"
+    }
+  },
+  "heat_outdoor_threshold": 30.0,
+  "heat_indoor_threshold": 26.0,
+  "heat_radiation_threshold": 250.0,
+  "heat_confidence_threshold": 0.0,
+  "glare_confidence_threshold": 0.35,
+  "cloud_shadow_lux_drop": 1000.0,
+  "cloud_cover_threshold": 75.0,
+  "model_lux_ratio": 0.75,
+  "minimum_incidence_factor": 0.05,
+  "model_lux_per_watt": 120.0,
+  "diffuse_lux_threshold": 2500.0,
+  "night_lux_threshold": 50.0,
+  "cold_outdoor_threshold": 8.0,
+  "cold_lux_threshold": 650.0,
+  "position_settle_seconds": 40.0,
+  "movement_timeout_seconds": 300.0,
+  "cool_air_delta": 2.0,
+  "storm_precipitation_trend_threshold": 0.0,
+  "storm_wind_trend_threshold": 0.0,
+  "storm_pressure_drop_threshold": 0.0,
+  "storm_required_signals": 2,
+  "apply_cooldown_seconds": 60.0,
+  "position_tolerance": 3.0
+}

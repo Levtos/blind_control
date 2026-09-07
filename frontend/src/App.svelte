@@ -58,7 +58,12 @@
 
   const labels: Record<string, string> = {
     normal: 'Regulär',
-    cold_lux_threshold: 'Cold: Dunkelheit unter (lx)',
+    cold_lux_enter_threshold: 'Cold: Eintritt unter (lx)',
+    cold_lux_exit_threshold: 'Cold: Austritt über (lx)',
+    environment_hysteresis_ratio: 'Solar/Confidence: Haltefaktor (0–1)',
+    environment_enter_seconds: 'Umweltschutz: Eintritt stabil (s)',
+    environment_exit_seconds: 'Umweltschutz: Entlastung stabil (s)',
+    movement_recovery_seconds: 'Bewegungsfehler: stabile Ruhe zur Erholung (s)',
     cold_outdoor_threshold: 'Cold: Außentemperatur bis (°C)',
     heat_indoor_threshold: 'Heat: Innentemperatur ab (°C)',
     heat_outdoor_threshold: 'Heat: Außentemperatur ab (°C)',
@@ -320,7 +325,8 @@
           <div><dt>Apply</dt><dd class={statusTone(recordValue(snapshot.overview.technical.apply, 'status'))}>{recordValue(snapshot.overview.technical.apply, 'status')}</dd></div>
           <div><dt>Istposition (logisch)</dt><dd>{positionLabel(snapshot.overview.cover_position)}</dd></div>
           <div><dt>Geräteziel</dt><dd>{positionLabel(snapshot.overview.physical_target)}</dd></div>
-          <div><dt>Bewegung</dt><dd>{statusLabel(snapshot.overview.movement_status)}</dd></div>
+            <div><dt>Bewegung</dt><dd>{statusLabel(snapshot.overview.movement_status)}</dd></div>
+            <div><dt>Letzter Bewegungsfehler</dt><dd>{statusLabel(snapshot.overview.movement_error ?? 'none')} · {statusLabel(snapshot.overview.recovery_status ?? 'none')}</dd></div>
           <div><dt>Cover bereit</dt><dd>{householdLabel(snapshot.overview.technical.cover_ready)}</dd></div>
           <div><dt>Manual Override</dt><dd>{snapshot.overview.override.active ? 'aktiv' : 'inaktiv'}</dd></div>
           <div><dt>Betriebsmodus</dt><dd>{snapshot.settings.runtime_mode}</dd></div>
@@ -462,6 +468,7 @@
 
       <article class="card span-2">
         <div class="card-heading"><div><p class="eyebrow">KALIBRIERUNG</p><h2>Shadow-Defaults</h2></div><span class="muted">später trace-basiert kalibrieren</span></div>
+        <p class="hint">Cold endet erst oberhalb der höheren Austrittsschwelle. Der Solar-Haltefaktor senkt die Austrittsschwellen für bestehenden Schutz. Eintritt und Entlastung müssen jeweils stabil bleiben; Safety reagiert sofort. Der Apply-Cooldown schützt den Motor unabhängig davon.</p>
         <div class="calibration-grid">
           {#each Object.entries(editableSettings.calibration_defaults) as [key, value]}
             <label>{labelFor(key)}<input type="number" min={key.endsWith("_temperature_threshold") || ["heat_indoor_threshold", "heat_outdoor_threshold", "cold_outdoor_threshold"].includes(key) ? -100 : 0} step="any" value={value} onchange={(event) => updateCalibration(key, event)} /></label>

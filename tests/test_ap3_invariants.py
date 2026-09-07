@@ -104,6 +104,7 @@ def test_revoked_consumed_and_outdated_approvals_cannot_write():
         runtime.on_restart(42)
         hass = FakeHass()
         adapter = CoverApplyExecutor(hass, config, runtime)
+        runtime.evaluate(ready_inputs(), now=0)
         old = runtime.evaluate(ready_inputs(), now=10)
         newest = runtime.evaluate(ready_inputs(activity_state=fresh("pc")), now=11)
         await adapter.async_apply(old, now=11)
@@ -176,11 +177,11 @@ def test_own_motion_requires_stable_target_not_timeout_and_restart_is_not_overri
     assert runtime.override_tracker.motion_status == "target_not_reached"
     runtime.observe_cover_position(20, now=8)
     assert runtime.override_tracker.own_target == 20
-    runtime.observe_cover_position(20, now=10)
+    runtime.observe_cover_position(20, now=38)
     assert runtime.override_tracker.own_target is None
-    runtime.observe_cover_position(60, now=11)
+    runtime.observe_cover_position(60, now=40)
     assert not runtime.override.active
-    runtime.observe_cover_position(60, now=13)
+    runtime.observe_cover_position(60, now=42)
     assert runtime.override.active
 
     runtime.on_restart(None)
@@ -253,7 +254,7 @@ def test_cloud_percent_and_physical_input_normalization(cloud):
     }
     inputs = build_inputs_from_states(states, config, now=now)
     assert inputs.cover_position.value == 30
-    assert inputs.cover_motion.value == "opening"
+    assert inputs.cover_motion.value == "closing"
     assert inputs.cloud_cover.value == cloud
     states["sensor.fixture_cloud"] = FakeState("101", updated_at=now)
     assert not build_inputs_from_states(states, config, now=now).cloud_cover.usable
@@ -327,6 +328,7 @@ def test_invalidated_tv_intent_is_not_replayed_after_cooldown():
     runtime = ShadowRuntime(config_for("live", "blind_control"))
     runtime.on_restart(100)
     runtime.cooldown_tracker.record_write(100, now=0, cooldown_seconds=60)
+    runtime.evaluate(ready_inputs(activity_state=fresh("tv"), cover_position=fresh(100)), now=0)
     tv = runtime.evaluate(
         ready_inputs(activity_state=fresh("tv"), cover_position=fresh(100)), now=10
     )

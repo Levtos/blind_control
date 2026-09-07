@@ -1,13 +1,15 @@
 # AP3 Cutover- und Rollback-Runbook
 
-**Stand:** 2026-09-07, Stabilisierung v0.6.0. **Status:** Testing / Shadow / Not Live.
+**Stand:** 2026-09-07, Hardening v0.6.1. **Status:** Testing / Shadow / Not Live.
 Installation und neue Live-Shadow-Evidence sind separate, noch auszuführende Gates.
 Die historische Evidence „Installed / Shadow / Not Live“ für v0.5.1 ist kein
-Nachweis für v0.6.0.
+Nachweis für v0.6.1.
 
 Dieses Dokument führt nichts aus. Vor dem Fenster ist ein neues unabhängiges
-read-only Quality Gate aus frischem Kontext erforderlich. Danach gibt Benni
-das konkrete Fenster einschließlich der erforderlichen Neustarts frei.
+read-only Quality Gate aus frischem Kontext mit PASS erforderlich.
+Erst danach installiert Benni v0.6.1 und sammelt neue Shadow-Evidence.
+Nach deren Abnahme gibt Benni das konkrete Fenster einschließlich der
+erforderlichen Neustarts frei.
 Live und Live Verified bleiben ausschließlich Bennis Gates.
 
 ## 1. Lokales Änderungspaket und Consumer-Inventar
@@ -51,7 +53,7 @@ sind, wird kein Writer freigegeben.
 ## 2. Preconditions
 
 - Neues unabhängiges Abschlussreview ohne offene Critical-/High-Blocker.
-- v0.6.0 separat durch Benni installiert; bestätigtes shadow + legacy,
+- v0.6.1 nach Review-PASS separat durch Benni installiert; bestätigtes shadow + legacy,
   Apply **aus**, keine automatische Übernahme historischer Apply-Freigaben.
 - Frische Opening-/Positions-/Motion-/Readiness-Evidence. Cover steht
   nachweislich in Ruhe; relevante Fenster sind für den Beginn geschlossen.
@@ -90,6 +92,23 @@ Keine technische One-Shot-Pflicht: Apply bleibt ein laufender Regler;
 bei neuen Inputs darf eine neue gültige Entscheidung entstehen. Für Pause
 Apply aus oder Integration deaktivieren. Es gibt keine Bewegungshistorie,
 die nach einer Pause abgearbeitet wird.
+
+v0.6.1: applied bestätigt nur den ohne Exception abgeschlossenen HA-Handler,
+nicht die Bewegung. command_error/target_not_reached bleiben diagnostisch
+sichtbar und sperren normale Automatik zunächst. Nach einem neuen durchgehend
+frischen, stabilen Ruhefenster (Default 30 s) endet die alte Attribution;
+recovery_status=recovered und die Istposition als neue Baseline machen den
+Regler wieder bewertungsfähig. Nur die aktuelle Entscheidung kann anschließend
+unter allen Gates fahren; Safety bleibt vorher sofort möglich.
+Während des beobachteten ersten Laufs bleibt jeder solche Fehler trotzdem
+Abbruchgrund nach Schritt 11/R2: eine automatische Recovery ersetzt Bennis
+technische Abnahme nicht.
+
+Vor dem Fahrt-Gate numerische Achse und semantisches opening/closing unabhängig
+prüfen. HA-konforme Motion wird nicht invertiert. Ein Gerät mit widersprüchlicher
+Motion-/Positions-Evidence erhält keine Freigabe über eine globale Textumkehr.
+Umwelt-Hysterese und Eintritt-/Entlastungszeiten in der Shadow-Diagnose prüfen;
+Cooldown ist kein Ersatz. Werte und Rückweg stehen in MIGRATION.md.
 
 ### Warum Disable allein für die Legacy nicht genügt
 

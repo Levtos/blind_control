@@ -290,10 +290,13 @@ Cooling Opportunity wird zweistufig modelliert.
 Cold ist ein eigenständiger Umweltbedarf, getrennt von Heat. Tagsüber soll
 natürliches Licht einfallen, bei echter Dunkelheit darf isoliert werden.
 
-Positive Aktivierung benötigt frischen outdoor_lux < cold_lux_threshold
+Positive Aktivierung benötigt frischen outdoor_lux < cold_lux_enter_threshold
 (Default 400 lx) sowie frische Außentemperatur <= cold_outdoor_threshold
-(Default 8 °C). Beide Schwellen sind konfigurierbar, auch negative Temperaturen.
-Bei >=400 lx gilt mit Defaultschwelle kein Cold, auch bei Minusgraden.
+(Default 8 °C). Bereits aktives Cold hält bis Lux > cold_lux_exit_threshold
+(Default 500 lx); Exit muss größer als Enter sein. Eintritt und Entlastung
+müssen zusätzlich gemäß Abschnitt 17 stabil gelten. Die 100-lx-Lücke umfasst
+die Review-Schwankungen 390/410/395/420 und ist ein konservativer Kalibrierwert,
+kein behaupteter Messfehler des Sensors. Alle Schwellen sind editierbar.
 Unknown/stale Lux, solar_not_on_window allein oder ein fallender Temperaturtrend
 dürfen Cold nicht aktivieren. Technische Safety bleibt übergeordnet.
 
@@ -320,8 +323,10 @@ oder Suppression.
 Erst an der Geräte-/Apply-Grenze gilt:
 physical_target = logical_target bei axis_inverted=false,
 physical_target = 100 - logical_target bei axis_inverted=true.
-Eingehende Geräteposition und Fahrtrichtung werden an der Input-Grenze
-konsistent zur logischen Achse normalisiert.
+Eingehende numerische Geräteposition wird entsprechend normalisiert.
+HA opening/closing sind semantische Zustände aus is_opening/is_closing und
+werden nicht gespiegelt. Axis Inversion korrigiert ausschließlich Zahlen;
+bei einem nicht vertragskonformen Geräteadapter bleibt das Shadow-Gate offen.
 
 | Profil | Logischer Default | Invertiert, nur abgeleitet |
 | --- | ---: | ---: |
@@ -364,6 +369,13 @@ Anforderungen:
 - eigener Schreibvorgang ist durch einen Writing Guard erkennbar,
 - tatsächliche Zielposition innerhalb Toleranz und stabile Ruhe für position_settle_seconds beendet erst die eigene Fahrt,
 - Bewegungstimeout meldet target_not_reached, nicht Benutzer-Override; Zwischenpositionen und Nachlauf bleiben zugeordnet,
+- command_error/target_not_reached blockieren normale Automatik bis zu einem
+  neuen frischen Ruhefenster (movement_recovery_seconds, Default 30 s,
+  mindestens position_settle_seconds). Bewegung, Positionsänderung außerhalb
+  Toleranz oder fehlende Evidence unterbrechen dieses Fenster. Danach eigene
+  Attribution abbrechen, Istposition als Baseline übernehmen und nur die aktuelle
+  Gesamtentscheidung bewerten. Letzter Fehler bleibt mit recovered sichtbar;
+  keine alte Zielqueue und keine schnelle Retry-Schleife. Positive Safety bleibt sofort möglich.
 - Position in Ruhe dient als Baseline; Restart während Bewegung wartet auf stabile Ruhe,
 - `_last_target` allein ist nach einem Neustart kein ausreichender Nachweis,
 - Konfigurationsänderungen erzeugen keinen Override,
@@ -384,6 +396,37 @@ Entscheidung und Aktorausführung werden getrennt.
 - Liegt die aktuelle tatsächliche Position innerhalb Zieltoleranz, entfällt der Write. Ein identischer historischer Command ist kein Dedupe-Beweis; Safety darf wiederholen.
 - Nach Neustart wird kein Blindflug gefahren, bevor Inputs und Apply-Readiness ausreichend belegt sind.
 - Das System muss wiederholtes Hoch-/Runterfahren durch schwankende Inputs verhindern, ohne relevante Zustandsänderungen zu verschlucken.
+
+### Verbindliche Konkretisierung v0.6.1
+
+Cooldown ist Motorschutz nach erfolgreichem HA-Servicehandler; Hysterese
+verwendet getrennte Eintritts-/Halteschwellen; Debounce verlangt zeitlich
+stabile Bedingungen. Keiner dieser drei Mechanismen ersetzt die anderen.
+Heat, Glare und Cold besitzen je einen kleinen Umwelt-Transition-State ohne
+Ziele oder Timerqueue. Default: Eintritt 10 s, Entlastung 120 s
+(environment_enter_seconds / environment_exit_seconds, Exit mindestens Enter).
+Ein Widerspruch zur laufenden Transition verwirft deren Startzeit; nur die
+aktuelle Bedingung zählt. Fehlende Quality unterbricht den Stabilitätsnachweis.
+
+Cold verwendet das Lux-Band aus Abschnitt 12. Für bereits aktives Heat/Glare
+gelten Confidence und minimale solare Inzidenz mit environment_hysteresis_ratio
+(Default 0.8) als niedrigere Halteschwelle. Defaults: Heat 0.55/0.44,
+Glare 0.35/0.28, Inzidenz 0.05/0.04. Das 20-%-Halteband und die Zeiten
+sind editierbare Kalibrierwerte, keine zusätzliche Solar-/Heat-v2.
+Die rohe Solar-Diagnose bleibt unmittelbar sichtbar. Cloud Shadow bleibt
+relevant; unbekannte Solar-Evidence ist weiterhin ein Quality-Blocker.
+
+Während ein schließender Schutz eintritt, wird keine vorübergehende weiter
+öffnende Freigabe erzeugt. Andere kompatible Anforderungen bleiben bewertet.
+Screen-/TV-/PC-Kontext und Profilziele werden nie verzögert gespeichert.
+Waking, Sleep, Privacy, Away, technische Safety, deaktivierte Automatik,
+Runtime-/Owner-/Apply-Gates und Failure-Sperren bleiben unmittelbar wirksam.
+Umweltzeiten erzeugen keinen eigenen Scheduler: der bestehende Recompute-Timer
+prüft spätestens nach min(Freshness-Kadenz, Umwelt-Eintritt, Recovery-Ruhezeit).
+
+HA-Service-Erfolg bedeutet nur: der Handler ist ohne Exception zurückgekehrt
+(blocking=True). applied und erfolgreicher Cooldown entstehen erst danach.
+Physische Zielerreichung bleibt durch Position, Motion und Settling zu belegen.
 
 ## 18. Degraded-, Unknown- und Fallback-Verhalten
 

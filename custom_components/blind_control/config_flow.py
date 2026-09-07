@@ -83,7 +83,9 @@ def _config_schema(
         vol.Required("cloud_cover_threshold", default=config.cloud_cover_threshold): vol.All(
             vol.Coerce(float), vol.Range(min=0, max=100)
         ),
-        vol.Required("cold_lux_threshold", default=config.cold_lux_threshold): vol.Coerce(float),
+        vol.Required(
+            "cold_lux_enter_threshold", default=config.cold_lux_enter_threshold
+        ): vol.Coerce(float),
         vol.Required("position_settle_seconds", default=config.position_settle_seconds): vol.Coerce(
             float
         ),
@@ -116,6 +118,14 @@ def _config_schema(
         ),
         vol.Required("position_tolerance", default=config.position_tolerance): vol.Coerce(float),
     }
+    for key in (
+        "cold_lux_exit_threshold",
+        "environment_hysteresis_ratio",
+        "environment_enter_seconds",
+        "environment_exit_seconds",
+        "movement_recovery_seconds",
+    ):
+        fields[vol.Required(key, default=getattr(config, key))] = vol.Coerce(float)
     if include_runtime_controls:
         fields[vol.Required("runtime_mode", default=config.runtime_mode)] = selector(
             {

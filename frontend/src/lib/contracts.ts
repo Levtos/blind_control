@@ -117,6 +117,8 @@ export type UxSnapshot = {
     cover_position: number | null;
     physical_target: number | null;
     movement_status: string;
+    movement_error?: string | null;
+    recovery_status?: string;
     household: {
       bio_state: string | null;
       activity_state: string | null;
@@ -154,6 +156,7 @@ export type UxSnapshot = {
     write_path_reachable: boolean;
   };
   diagnosis: {
+    environment?: Record<string, { active: boolean; pending: boolean | null; since: number | null }>;
     hierarchy: {
       master_mode: MasterMode;
       winner: DecisionWinner | null;

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from .config import BlindControlConfig
@@ -18,6 +18,7 @@ from .contracts import (
 )
 from .cooldown import CooldownTracker
 from .engine import DecisionEngine
+from .environment import EnvironmentalState
 from .override import OverrideTracker
 from .shadow_diff import ShadowDiff, compare_legacy_snapshot
 
@@ -39,6 +40,9 @@ class ShadowSnapshot:
     write_path_reachable: bool = False
     physical_target: float | None = None
     movement_status: str = "baseline_pending"
+    movement_error: str | None = None
+    recovery_status: str = "none"
+    environment: dict[str, object] = field(default_factory=dict)
 
     @property
     def effective_target(self) -> float | None:
@@ -57,6 +61,9 @@ class ShadowSnapshot:
             "write_path_reachable": self.write_path_reachable,
             "physical_target": self.physical_target,
             "movement_status": self.movement_status,
+            "movement_error": self.movement_error,
+            "recovery_status": self.recovery_status,
+            "environment": self.environment,
         }
 
     def debug_payload(self) -> dict[str, object]:
@@ -83,6 +90,7 @@ class ShadowRuntime:
     def __init__(self, config: BlindControlConfig | None = None) -> None:
         self.config = config or BlindControlConfig.defaults()
         self.engine = DecisionEngine(self.config)
+        self.environment_state = EnvironmentalState()
         self.override_tracker = OverrideTracker.from_config(self.config)
         self.cooldown_tracker = CooldownTracker(tolerance=self.config.position_tolerance)
         self._override_context_key: OverrideContextKey | None = None
@@ -125,6 +133,7 @@ class ShadowRuntime:
             runtime_ready=runtime_ready,
             motion_status=self.override_tracker.motion_status,
             own_target=self.override_tracker.own_target,
+            environment_state=self.environment_state,
         )
         if current_safe_position is not None:
             self._last_safe_position = current_safe_position
@@ -148,6 +157,9 @@ class ShadowRuntime:
             if trace.effective_target is not None
             else None,
             movement_status=self.override_tracker.motion_status,
+            movement_error=self.override_tracker.movement_error,
+            recovery_status=self.override_tracker.recovery_status,
+            environment=self.environment_state.as_dict(),
         )
         self.latest_snapshot = snapshot
         return snapshot
@@ -164,15 +176,18 @@ class ShadowRuntime:
 
         self.config = config
         self.engine = DecisionEngine(config)
+        self.environment_state = EnvironmentalState()
         self.override_tracker.tolerance = config.position_tolerance
         self.override_tracker.settle_seconds = config.position_settle_seconds
         self.override_tracker.timeout_seconds = config.movement_timeout_seconds
+        self.override_tracker.recovery_seconds = config.movement_recovery_seconds
         self.cooldown_tracker.tolerance = config.position_tolerance
         self._override_context_key = None
         self.on_configuration_change()
         return self.evaluate(inputs, evaluated_at=evaluated_at, now=now)
 
     def on_restart(self, position: float | None) -> ManualOverride:
+        self.environment_state = EnvironmentalState()
         self._override_context_key = None
         self._last_safe_position = None
         return self.override_tracker.on_restart(position)
@@ -212,7 +227,7 @@ class ShadowRuntime:
         return self.override_tracker.clear()
 
     def abort_own_write(self) -> None:
-        """Close a failed command guard without changing the quiet baseline."""
+        """Retain failed-command attribution until fresh quiet recovery evidence."""
 
         self.override_tracker.abort_own_write()
 

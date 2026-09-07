@@ -1115,7 +1115,7 @@ class BootstrapTests(unittest.TestCase):
                 len(value.schema.schema) if isinstance(value, _FakeSection) else 1
                 for value in form["data_schema"].schema.values()
             )
-            self.assertEqual(visible_fields, 79)
+            self.assertEqual(visible_fields, 84)
             self.assertNotIn("runtime_mode", form["data_schema"].schema)
             self.assertNotIn("apply_owner", form["data_schema"].schema)
             unsafe_result = asyncio.run(
@@ -1277,7 +1277,12 @@ class BootstrapTests(unittest.TestCase):
                 "model_lux_ratio": config.model_lux_ratio,
                 "minimum_incidence_factor": config.minimum_incidence_factor,
                 "model_lux_per_watt": config.model_lux_per_watt,
-                "cold_lux_threshold": config.cold_lux_threshold,
+                "cold_lux_enter_threshold": config.cold_lux_enter_threshold,
+                "cold_lux_exit_threshold": config.cold_lux_exit_threshold,
+                "environment_hysteresis_ratio": config.environment_hysteresis_ratio,
+                "environment_enter_seconds": config.environment_enter_seconds,
+                "environment_exit_seconds": config.environment_exit_seconds,
+                "movement_recovery_seconds": config.movement_recovery_seconds,
                 "position_settle_seconds": config.position_settle_seconds,
                 "movement_timeout_seconds": config.movement_timeout_seconds,
                 "diffuse_lux_threshold": config.diffuse_lux_threshold,
@@ -1321,6 +1326,19 @@ class BootstrapTests(unittest.TestCase):
                 _FakeConfigEntry("entry-1", data=result["data"])
             )
             options_form = asyncio.run(options_flow.async_step_init())
+            calibration = {
+                "cold_lux_enter_threshold": 350,
+                "cold_lux_exit_threshold": 600,
+                "environment_hysteresis_ratio": 0.75,
+                "environment_enter_seconds": 15,
+                "environment_exit_seconds": 150,
+                "movement_recovery_seconds": 45,
+            }
+            options_flow.hass = _FakeHomeAssistant()
+            saved = asyncio.run(options_flow.async_step_init(calibration))
+            self.assertEqual(saved["type"], "create_entry")
+            for key, value in calibration.items():
+                self.assertEqual(saved["data"][key], value)
             self.assertIn("runtime_mode", options_form["data_schema"].schema)
             self.assertIn("apply_owner", options_form["data_schema"].schema)
             self.assertIsInstance(

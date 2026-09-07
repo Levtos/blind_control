@@ -426,6 +426,7 @@ class DecisionEngineTests(unittest.TestCase):
             outdoor_temperature=fresh(34.0, "weather_temperature"),
         )
 
+        runtime.evaluate(inputs, now=10)
         trace = runtime.evaluate(inputs, now=20)
 
         self.assertEqual(trace.trace.active_mode, "manual_override")
@@ -590,6 +591,7 @@ class DecisionEngineTests(unittest.TestCase):
             privacy=fresh(True, "core_state.privacy"),
         )
 
+        runtime.evaluate(cold_waking, now=20)
         snapshot = runtime.evaluate(cold_waking, now=30)
 
         self.assertFalse(snapshot.trace.override.active)
@@ -855,7 +857,7 @@ class SolarAndLifecycleTests(unittest.TestCase):
     def test_override_lifecycle_distinguishes_owned_external_restart_and_config(self) -> None:
         runtime = ShadowRuntime()
         runtime.on_restart(50)
-        runtime.begin_own_write(20, now=10, grace_seconds=5)
+        runtime.begin_own_write(20, now=10, grace_seconds=10)
         runtime.observe_cover_position(40, source="owned_position", now=12)
         runtime.observe_cover_position(20, source="owned_position", now=14)
         runtime.observe_cover_position(20, source="owned_position", now=16)
