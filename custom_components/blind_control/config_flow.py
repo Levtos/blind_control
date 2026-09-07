@@ -73,9 +73,23 @@ def _config_schema(
         vol.Required("cloud_shadow_lux_drop", default=config.cloud_shadow_lux_drop): vol.Coerce(
             float
         ),
-        vol.Required("cloud_shadow_ratio", default=config.cloud_shadow_ratio): vol.All(
+        vol.Required(
+            "minimum_incidence_factor", default=config.minimum_incidence_factor
+        ): vol.Coerce(float),
+        vol.Required("model_lux_per_watt", default=config.model_lux_per_watt): vol.Coerce(float),
+        vol.Required("model_lux_ratio", default=config.model_lux_ratio): vol.All(
             vol.Coerce(float), vol.Range(min=0, max=1)
         ),
+        vol.Required("cloud_cover_threshold", default=config.cloud_cover_threshold): vol.All(
+            vol.Coerce(float), vol.Range(min=0, max=100)
+        ),
+        vol.Required("cold_lux_threshold", default=config.cold_lux_threshold): vol.Coerce(float),
+        vol.Required("position_settle_seconds", default=config.position_settle_seconds): vol.Coerce(
+            float
+        ),
+        vol.Required(
+            "movement_timeout_seconds", default=config.movement_timeout_seconds
+        ): vol.Coerce(float),
         vol.Required("diffuse_lux_threshold", default=config.diffuse_lux_threshold): vol.Coerce(
             float
         ),
@@ -123,11 +137,8 @@ def _config_schema(
         )
     for profile_name in DEFAULT_PROFILE_NAMES:
         profile = config.profile(profile_name)
-        fields[vol.Required(f"position_{profile_name}_normal", default=profile.normal)] = vol.All(
+        fields[vol.Required(f"position_{profile_name}_logical", default=profile.logical)] = vol.All(
             vol.Coerce(float), vol.Range(min=0, max=100)
-        )
-        fields[vol.Required(f"position_{profile_name}_inverted", default=profile.inverted)] = (
-            vol.All(vol.Coerce(float), vol.Range(min=0, max=100))
         )
     input_bindings = dict(config.input_bindings)
     legacy_bindings = dict(config.legacy_bindings)
@@ -215,8 +226,7 @@ def _mapping_from_form(
     for profile_name in DEFAULT_PROFILE_NAMES:
         profile = config.profile(profile_name)
         profiles[profile_name] = {
-            "normal": values.pop(f"position_{profile_name}_normal", profile.normal),
-            "inverted": values.pop(f"position_{profile_name}_inverted", profile.inverted),
+            "logical": values.pop(f"position_{profile_name}_logical", profile.logical),
         }
     input_bindings = dict(config.input_bindings)
     legacy_bindings = dict(config.legacy_bindings)

@@ -90,8 +90,7 @@ HA-Sentinels `unknown` und `unavailable` werden global verworfen.
   kleinste Wert gewinnt.
 - Öffnungsgründe (`base_daylight`, `storm_approaching`,
   `cool_air_available`) werden nur verwendet, wenn kein schließender Kandidat
-  aktiv ist. Dadurch bleibt die Achseninvertierung mit expliziten Werten
-  semantisch stabil.
+  aktiv ist. Die Arbitration bleibt ausschließlich logisch; Geräteinvertierung folgt erst am Adapter.
 - `waking` kommt nur aus `bio_state == waking`, ist bis `awake` exklusiv und
   pausiert Heat, Glare, Privacy und Cold Insulation. Safety, Readiness und
   deaktivierte Automatik bleiben übergeordnet.
@@ -132,20 +131,20 @@ HA-Sentinels `unknown` und `unavailable` werden global verworfen.
 Die AP1-Migrationsdefaults sind in `config.py` versioniert und in ConfigFlow
 und OptionsFlow editierbar:
 
-| Profil | Normal | Invertiert |
+| Profil | Logisch | Invertiert (abgeleitet) |
 | --- | ---: | ---: |
 | Window Safety | 100 | 0 |
 | Privacy Bed | 40 | 60 |
 | Waking | 100 | 0 |
-| Sleep | 5 | 60 |
+| Sleep | 5 | 95 |
 | Privacy | 40 | 60 |
-| Heat Protection | 15 | 55 |
+| Heat Protection | 15 | 85 |
 | TV Glare | 60 | 40 |
 | PC Glare | 75 | 25 |
 | Open | 100 | 0 |
 
 Zusätzliche Profile und die Achsen-Invertierung verwenden dieselbe sichere
-Validierung. Temperatur-, Lux-, Strahlungs-, Confidence-, Temperatur-/Luxtrend-,
+Validierung. Temperatur-, Lux-, Strahlungs-, Confidence-, Luxtrend-,
 Wettertrend-, Cooldown- und Toleranzwerte sind konfigurierbare Defaults und
 ausdrücklich für spätere Shadow-Kalibrierung vorgesehen; sie bilden keine neue
 Grundsatzrunde.
@@ -154,8 +153,8 @@ Grundsatzrunde.
 
 `OverrideTracker`:
 
-- setzt nach Restart eine Ruhepositions-Baseline;
-- unterdrückt eigene Beobachtungen innerhalb eines expliziten Writing Guards;
+- wartet nach Restart auf tatsächlich stabile Ruheposition, auch bei laufender Bewegung;
+- behält eigene Bewegung bis zur stabil erreichten Zielposition zugeordnet; Timeout ist Geräte-/Bewegungsfehler, kein Fremd-Override;
 - ignoriert Attribut-Churn ohne Positionsänderung;
 - erzeugt nur bei einer fremden Positionsänderung außerhalb des Guards einen
   sichtbaren Override;
@@ -266,7 +265,7 @@ Projektion. Die Sensorplattform besitzt weder Service noch Schreibpfad.
 - laufender HA-Observation-/Coordinator-Pfad mit konfigurierbaren Owner-
   Bindings, Freshness- und Legacy-Evidence;
 - versionierte Backend-, Trace-, UX- und Shadow-Contracts;
-- konfigurierte Normal-/Invertiert-Profile und Achseninvertierung;
+- logische Profile und abgeleitete Achseninvertierung (v6);
 - Solar-Geometrie mit Golden-Vector-Regressionen;
 - Minimum-Komposition, exklusives Waking, Heat/Glare, Storm/Cool-Air/Cold;
 - Opening-Safety, positive Open-Gründe und Unknown/Stale-Blockierung;
@@ -335,7 +334,7 @@ das Apply-Gate bleibt absolut. `failure` steht ausschließlich für fehlende
 Entscheidungsqualität oder Contractfehler. Es hält eine frische nachweislich
 sichere aktuelle/letzte Position oder blockiert Apply. Es gibt dabei nie einen
 stummen 100-%-Fallback. Nur positiv bestätigte Opening-Safety darf die
-achsenspezifisch konfigurierte Safety-Open-Position freigeben. Ein bekannter
+logisch konfigurierte Safety-Open-Position freigeben. Ein bekannter
 neutraler Context ohne Spezialkandidat bleibt `normal`. Ein schon bestehendes
 fachliches Target überspringt das Quality-Gate nicht: unklare Temperatur-,
 Activity-/Belegungs- oder Lux-/Solar-Evidence wird als
@@ -433,3 +432,26 @@ veröffentlichten Slug-Suffix `*_privacy_candidate` zusammen mit
 Contract. Diese Contractklasse wird vor generischen Blind-Mastern priorisiert;
 installationsspezifische Entity-IDs bleiben unbekannt und werden nicht im
 Produktcode hinterlegt.
+
+
+## AP3-Fortschreibung vom 07.09.2026
+
+Die vorigen Versionsabschnitte beschreiben AP2-Provenienz. Aktuell gelten
+AP3_STABILIZATION.md, CONTRACTS.md Abschnitt 8 und AP3_CUTOVER.md.
+Ein logischer Profilwert ersetzt getrennte Normal-/Invertiert-Eingaben.
+Cloud Cover ist 0–100 %, model_lux_ratio ein separates Helligkeitsverhältnis.
+Cold benötigt frischen Lux < cold_lux_threshold (Default 400 lx) und die
+konfigurierbare Außentemperaturschwelle; Off-Window allein reicht nicht.
+Temperaturtrends sind v1-Diagnose, kein heimlicher Heat-/Cool-Air-Entscheider.
+private_time bleibt kanonischer Core-State-Input ohne zusätzlichen Waking-Filter.
+
+Gestoppte Runtimes bleiben widerrufen. Own Write endet erst mit tatsächlichem
+Ziel in bestätigter Ruhe. Safety wiederholt aus aktueller Istabweichung und
+ersetzt eine Abwärtsfahrt sofort. Normaler Cooldown startet erst bei Dispatch;
+alte Zwischenziele werden nie nachgeholt. Solar unknown blockiert neue
+Automatikfahrten. Shadow bleibt ohne erreichbaren Cover-Write.
+
+Die v0.5.1-Shadow-Evidence ist historisch. Neue v0.6.0-Installation/Shadow und
+unabhängiges Quality Gate bleiben offen; der Implementierer setzt kein PASS.
+
+Die historischen 89/91-Feldzahlen oben gelten nur für AP2/v5. Config v6 verwendet 79/81 sichtbare Felder mit nur einem logischen Profilwert.

@@ -1,6 +1,6 @@
 # Blind Control Statusmodell und Live-Shadow-Contracts
 
-**Contract:** `blind_control.decision.v3`
+**Contract:** `blind_control.decision.v4`
 **Status:** `Installed / Shadow / Not Live`
 
 ## Mastermodus und Hierarchie
@@ -16,12 +16,12 @@ Safety und Apply. Beispiele sind `glare -> pc`, `glare -> tv`,
 `climate -> heat` und `climate -> cold`. Kompatible aktive Nebenäste bleiben
 sichtbar; nur tatsächlich aktive Äste dürfen pausiert werden. Waking ist
 exklusiv und pausiert ausschließlich aktive Heat-, Glare-, Privacy- und
-Cold-Anforderungen.
+Cold-Anforderungen. Der kanonische Core-State-Input private_time erhält keinen zusätzlichen Waking-Filter.
 
 Failure erzeugt keine neue Fahrt. Die aktuelle oder letzte nachweislich sichere
 Position wird gehalten und Apply bleibt blockiert. Ohne belastbare Position
 wird Apply vollständig blockiert. Ein 100-%-Ziel ist kein Failure-Fallback;
-nur positive Opening-Safety darf die konfigurierte achsenspezifische
+nur positive Opening-Safety darf die logisch konfigurierte
 Safety-Open-Position freigeben.
 
 ## Day-State-Kontext
@@ -145,6 +145,24 @@ Der Apply-Lifecycle ist `blocked|manual_hold|cooldown|stable|shadow_ready|
 live_ready|safety_ready|applied|error`. `applied` bedeutet, dass der isolierte
 Adapter den freigegebenen HA-Aufruf angenommen hat; es ist keine Aussage über
 `Live Verified`. Modus, Owner, Ausführungsstatus und Reachability werden über
-`blind_control.automation_projection.v2` und `blind_control.ux.v3` redigiert
+`blind_control.automation_projection.v3` und `blind_control.ux.v4` redigiert
 projiziert. Änderungen der drei kritischen Gates bleiben dem nativen
 OptionsFlow vorbehalten.
+
+
+## Bewegungs- und Positionscontract v0.6.0
+
+Alle fachlichen und effektiven Ziele sowie cover_position sind logisch
+(0 geschlossen / 100 offen). physical_target zeigt den erst am Adapter
+invertierten Gerätewert. movement_status trennt Ruhe, Settling, eigene/fremde
+Bewegung, fehlende Positions-Evidence und target_not_reached/command_error.
+Ein Service-Dispatch ist keine Zielerreichung. Eigene Fahrt endet erst bei
+stabiler tatsächlicher Zielposition in Ruhe; ein Timeout erzeugt keinen Override.
+Restart während Bewegung wartet auf eine ruhende Baseline. Positive Opening-
+Safety darf vorher aufwärts reagieren, sofern frische Positions-/Readiness-
+Evidence und sämtliche Arming-Gates vorliegen.
+
+Ein historisch identisches Ziel sperrt Safety nicht. Pending enthält nur den
+aktuellen Gesamtentscheid, keinen später freizugebenden historischen Command.
+Solar unknown bleibt auch bei einzeln frischen Inputs ein automatischer Blocker.
+Config v6 / Cloud 0–100 / Cold-Lux-Gate: siehe CONTRACTS.md und MIGRATION.md.

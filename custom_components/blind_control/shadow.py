@@ -21,7 +21,7 @@ from .engine import DecisionEngine
 from .override import OverrideTracker
 from .shadow_diff import ShadowDiff, compare_legacy_snapshot
 
-SHADOW_CONTRACT_VERSION = "blind_control.runtime.v2"
+SHADOW_CONTRACT_VERSION = "blind_control.runtime.v3"
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +37,8 @@ class ShadowSnapshot:
     shadow_only: bool = True
     actuation_executed: bool = False
     write_path_reachable: bool = False
+    physical_target: float | None = None
+    movement_status: str = "baseline_pending"
 
     @property
     def effective_target(self) -> float | None:
@@ -53,6 +55,8 @@ class ShadowSnapshot:
             "shadow_only": self.shadow_only,
             "actuation_executed": self.actuation_executed,
             "write_path_reachable": self.write_path_reachable,
+            "physical_target": self.physical_target,
+            "movement_status": self.movement_status,
         }
 
     def debug_payload(self) -> dict[str, object]:
@@ -83,6 +87,13 @@ class ShadowRuntime:
         self.cooldown_tracker = CooldownTracker(tolerance=self.config.position_tolerance)
         self._override_context_key: OverrideContextKey | None = None
         self._last_safe_position: float | None = None
+        self.active = True
+        self.latest_snapshot: ShadowSnapshot | None = None
+
+    def stop(self) -> None:
+        self.active = False
+        self.latest_snapshot = None
+        self.cooldown_tracker.pending_target = None
 
     @property
     def override(self) -> ManualOverride:
@@ -97,6 +108,9 @@ class ShadowRuntime:
         legacy_snapshot: Mapping[str, object] | LegacyEvidence | None = None,
         runtime_ready: bool = True,
     ) -> ShadowSnapshot:
+        if not self.active:
+            raise RuntimeError("runtime_stopped")
+        self.cooldown_tracker.pending_target = None
         self._apply_override_context_lifecycle(OverrideContextKey.from_inputs(inputs))
         current_safe_position = _safe_hold_position(inputs)
         failure_hold_target = (
@@ -109,6 +123,8 @@ class ShadowRuntime:
             cooldown=self.cooldown_tracker,
             failure_hold_target=failure_hold_target,
             runtime_ready=runtime_ready,
+            motion_status=self.override_tracker.motion_status,
+            own_target=self.override_tracker.own_target,
         )
         if current_safe_position is not None:
             self._last_safe_position = current_safe_position
@@ -119,7 +135,7 @@ class ShadowRuntime:
             if legacy_snapshot is not None
             else LegacyEvidence.empty()
         )
-        return ShadowSnapshot(
+        snapshot = ShadowSnapshot(
             version=SHADOW_CONTRACT_VERSION,
             evaluated_at=evaluated_at or datetime.now(UTC),
             inputs=inputs.as_dict(),
@@ -128,7 +144,13 @@ class ShadowRuntime:
             legacy_evidence=legacy_evidence,
             shadow_only=self.config.runtime_mode == "shadow",
             write_path_reachable=trace.apply.write_path_reachable,
+            physical_target=self.config.device_position(trace.effective_target)
+            if trace.effective_target is not None
+            else None,
+            movement_status=self.override_tracker.motion_status,
         )
+        self.latest_snapshot = snapshot
+        return snapshot
 
     def update_config(
         self,
@@ -143,6 +165,9 @@ class ShadowRuntime:
         self.config = config
         self.engine = DecisionEngine(config)
         self.override_tracker.tolerance = config.position_tolerance
+        self.override_tracker.settle_seconds = config.position_settle_seconds
+        self.override_tracker.timeout_seconds = config.movement_timeout_seconds
+        self.cooldown_tracker.tolerance = config.position_tolerance
         self._override_context_key = None
         self.on_configuration_change()
         return self.evaluate(inputs, evaluated_at=evaluated_at, now=now)
@@ -157,7 +182,7 @@ class ShadowRuntime:
         return self.override_tracker.on_configuration_change(position)
 
     def begin_own_write(
-        self, target: float, *, now: float = 0.0, grace_seconds: float = 10.0
+        self, target: float, *, now: float = 0.0, grace_seconds: float | None = None
     ) -> None:
         self.override_tracker.begin_own_write(
             target,
@@ -172,12 +197,14 @@ class ShadowRuntime:
         source: str = "cover_observation",
         now: float = 0.0,
         observed_at: datetime | None = None,
+        moving: bool = False,
     ) -> ManualOverride:
         return self.override_tracker.observe_position(
             position,
             source=source,
             now=now,
             observed_at=observed_at,
+            moving=moving,
         )
 
     def clear_override(self) -> ManualOverride:

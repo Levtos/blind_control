@@ -27,7 +27,7 @@ from .contracts import (
 from .cooldown import CooldownTracker
 from .solar import calculate_solar_exposure
 
-DECISION_CONTRACT_VERSION = "blind_control.decision.v3"
+DECISION_CONTRACT_VERSION = "blind_control.decision.v4"
 DAYLIGHT_STATES = frozenset({"early_morning", "forenoon", "midday", "afternoon", "late_afternoon"})
 TRANSITION_STATES = frozenset({"evening", "late_evening"})
 NIGHT_STATES = frozenset({"early_night", "late_night"})
@@ -64,6 +64,8 @@ class DecisionEngine:
         cooldown: CooldownTracker | None = None,
         failure_hold_target: float | None = None,
         runtime_ready: bool = True,
+        motion_status: str = "idle",
+        own_target: float | None = None,
     ) -> DecisionTrace:
         override = override or ManualOverride.inactive()
         solar = calculate_solar_exposure(inputs, self.config)
@@ -188,6 +190,12 @@ class DecisionEngine:
                 cooldown=cooldown,
                 now=0.0 if now is None else now,
                 runtime_ready=runtime_ready,
+                current_position=float(inputs.cover_position.value)
+                if inputs.cover_position.usable
+                else None,
+                motion_status=motion_status,
+                own_target=own_target,
+                closing=inputs.cover_motion.usable and inputs.cover_motion.value == "closing",
             )
         )
         reasons = list(self._reasons(candidates, paused, fachlicher_target, failure, safety, apply))
@@ -528,7 +536,8 @@ class DecisionEngine:
         return (
             inputs.outdoor_temperature.usable
             and float(inputs.outdoor_temperature.value) <= self.config.cold_outdoor_threshold
-            and solar.state in {SolarExposureState.NIGHT, SolarExposureState.SOLAR_NOT_ON_WINDOW}
+            and inputs.outdoor_lux.usable
+            and float(inputs.outdoor_lux.value) < self.config.cold_lux_threshold
         )
 
     def _safety(
@@ -573,7 +582,9 @@ class DecisionEngine:
             return SafetyDecision(
                 status="safe_position",
                 reason="fully_open_window_requires_configured_safety_position",
-                approved_target=self.config.target("window_safety"),
+                approved_target=max(
+                    self.config.target("window_safety"), float(inputs.cover_position.value)
+                ),
                 opening_state=opening.value,
                 source=inputs.opening_state.source,
             )
@@ -635,6 +646,10 @@ class DecisionEngine:
         cooldown: CooldownTracker | None,
         now: float,
         runtime_ready: bool,
+        current_position: float | None,
+        motion_status: str,
+        own_target: float | None,
+        closing: bool,
     ) -> ApplyDecision:
         decision_context = {
             "runtime_mode": self.config.runtime_mode,
@@ -676,7 +691,7 @@ class DecisionEngine:
                 cooldown_pending_target=None,
                 **decision_context,
             )
-        if not runtime_ready:
+        if not runtime_ready and safety.status != "safe_position":
             return ApplyDecision(
                 status="blocked",
                 reason="restart_baseline_pending",
@@ -704,6 +719,23 @@ class DecisionEngine:
                 **decision_context,
             )
         pending = None
+        safety_drive = safety.status == "safe_position"
+        if motion_status != "idle" and not (
+            safety_drive
+            and (
+                closing
+                or own_target != effective_target
+                or motion_status in {"target_not_reached", "command_error"}
+            )
+        ):
+            return ApplyDecision(
+                status="blocked",
+                reason=motion_status,
+                requested_target=effective_target,
+                approved_target=None,
+                cooldown_pending_target=None,
+                **decision_context,
+            )
         ready = True
         reason = "target_ready"
         if cooldown is not None and effective_target is not None:
@@ -712,6 +744,7 @@ class DecisionEngine:
                 now=now,
                 cooldown_seconds=self.config.apply_cooldown_seconds,
                 bypass_cooldown=safety.status == "safe_position",
+                current_position=None if safety_drive and closing else current_position,
             )
             if not proposed.apply_now:
                 status = "stable" if proposed.reason == "identical_target" else "cooldown"
@@ -976,4 +1009,13 @@ def _automatic_decision_quality_blockers(
                 reason="daylight_phase_conflicts_with_sun_below_horizon",
             ),
         )
-    return tuple(dict.fromkeys((*mandatory, *solar.quality_blockers, *consistency)))
+    aggregate = (
+        (
+            QualityBlocker(
+                key="solar_exposure", quality=InputQuality.UNKNOWN, reason="solar_aggregate_unknown"
+            ),
+        )
+        if solar.state is SolarExposureState.UNKNOWN
+        else ()
+    )
+    return tuple(dict.fromkeys((*mandatory, *solar.quality_blockers, *consistency, *aggregate)))

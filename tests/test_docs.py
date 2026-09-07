@@ -36,7 +36,7 @@ class DocumentationTests(unittest.TestCase):
 
         lastenheft = (DOCS / "LASTENHEFT.md").read_text(encoding="utf-8")
         for term in (
-            "**Dokumentstatus:** v0.2",
+            "**Dokumentstatus:** v0.3",
             "direct_sun",
             "cloud_shadow",
             "diffuse_bright",
@@ -94,8 +94,8 @@ class DocumentationTests(unittest.TestCase):
             "async_reload(entry_id)",
             "$state.snapshot",
             "Installed / Shadow / Not Live",
-            "blind_control.decision.v3",
-            "blind_control.automation_projection.v2",
+            "blind_control.decision.v4",
+            "blind_control.automation_projection.v3",
         ):
             self.assertIn(term, status_model)
 
@@ -119,10 +119,10 @@ class DocumentationTests(unittest.TestCase):
             'selector({"entity": {}})',
             "failure.quality_blockers[]",
             "Status-Sensorentität",
-            "blind_control.decision.v3",
-            "blind_control.runtime.v2",
-            "blind_control.ux.v3",
-            "blind_control.automation_projection.v2",
+            "blind_control.decision.v4",
+            "blind_control.runtime.v3",
+            "blind_control.ux.v4",
+            "blind_control.automation_projection.v3",
             "manual_hold",
             "effective_sleep = bio_state in {provisional_sleep, sleep}",
         ):
@@ -260,16 +260,16 @@ class DocumentationTests(unittest.TestCase):
     def test_ap3_runbook_is_redacted_reversible_and_separates_live_gate(self) -> None:
         source = (DOCS / "AP3_CUTOVER.md").read_text(encoding="utf-8")
         for term in (
-            "Redigiertes Consumer-Inventar",
-            "HomeKit-Konfiguration",
+            "Consumer-Inventar",
+            "custom/homekit.yaml",
             "Core-Devices-Import",
-            "Core-Contracts Source-Evidence",
-            "System-Readiness",
-            "Bedtime-Skript",
+            "source_binding_evidence.py",
+            "System Readiness",
+            "manual_bio_scripts.yaml",
             "cover.living_thermal_blind",
-            "Atomarer Live-Cutover",
+            "Null-Writer",
             "Rollback",
-            "unabhängige Sol-High-Prüfung",
+            "read-only Quality Gate aus frischem Kontext",
             "Installed / Shadow / Not Live",
         ):
             self.assertIn(term, source)

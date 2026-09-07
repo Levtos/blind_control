@@ -16,7 +16,6 @@ _COVER_DOMAIN = "cover"
 _SET_POSITION_SERVICE = "set_cover_position"
 _ENTITY_ID_FIELD = "entity_id"
 _POSITION_FIELD = "position"
-_WRITING_GUARD_SECONDS = 120.0
 _READY_STATUSES = frozenset({"live_ready", "safety_ready"})
 
 
@@ -47,7 +46,11 @@ class CoverApplyExecutor:
         """Dispatch one target or return an unchanged/blocked snapshot."""
 
         decision = snapshot.trace.apply
-        if not self._armed or decision.status not in _READY_STATUSES:
+        if (
+            not self._armed
+            or snapshot is not self.runtime.latest_snapshot
+            or decision.status not in _READY_STATUSES
+        ):
             return snapshot
         target = decision.approved_target
         entity_id = dict(self.config.input_bindings).get("cover_position")
@@ -84,17 +87,20 @@ class CoverApplyExecutor:
         self.runtime.begin_own_write(
             target,
             now=monotonic_now,
-            grace_seconds=_WRITING_GUARD_SECONDS,
         )
         try:
+            # No await between lifecycle validation and the service boundary.
+            if not self._armed or snapshot is not self.runtime.latest_snapshot:
+                return snapshot
+            self.runtime.latest_snapshot = None  # Consume this approval exactly once.
             await async_call(
                 _COVER_DOMAIN,
                 _SET_POSITION_SERVICE,
                 {
                     _ENTITY_ID_FIELD: entity_id,
-                    _POSITION_FIELD: target,
+                    _POSITION_FIELD: self.config.device_position(target),
                 },
-                blocking=True,
+                blocking=False,
             )
         except Exception:  # Home Assistant integrations may raise arbitrary service errors.
             self.runtime.abort_own_write()
@@ -113,8 +119,11 @@ class CoverApplyExecutor:
                 write_path_reachable=True,
             )
 
+        self.runtime.cooldown_tracker.record_write(
+            target, now=monotonic_now, cooldown_seconds=self.config.apply_cooldown_seconds
+        )
         return _replace_apply(
-            snapshot,
+            replace(snapshot, movement_status=self.runtime.override_tracker.motion_status),
             replace(
                 decision,
                 status="applied",
@@ -129,7 +138,9 @@ class CoverApplyExecutor:
     @property
     def _armed(self) -> bool:
         return (
-            self.config.runtime_mode == "live"
+            self.runtime.active
+            and self.runtime.config is self.config
+            and self.config.runtime_mode == "live"
             and self.config.apply_owner == "blind_control"
             and self.config.apply_enabled
         )

@@ -192,3 +192,14 @@ neuen Fachmodule konsumieren nur generische owner-bound Observations und
 veröffentlichen einen read-only Shadow-/UX-Snapshot. Die in diesem Inventar
 als ungeklärt markierten externen Bindings bleiben ungeklärt; AP2 ersetzt sie
 nicht durch Alias- oder Recompute-Logik.
+
+
+## AP3-Inventur vom 07.09.2026
+
+Die aktuelle redigierte Vorher-/Nachher-/Rollback-Tabelle mit allen Consumer-
+Kategorien, tatsächlichen Fundstellen und verbleibenden Export-Gates steht in
+[AP3_CUTOVER.md](AP3_CUTOVER.md). Source-Evidence ist von aktiven Registry-
+Bindings getrennt; die Importdatei ersetzt keine persistierte Master-Konfiguration.
+Legacy bleibt installiert, wird für das Fenster aber vollständig disabled
+und durch einen genehmigten HA-Neustart von alten Tasks getrennt.
+Neue Schema-/Owner-Entscheidungen: [AP3_STABILIZATION.md](AP3_STABILIZATION.md).

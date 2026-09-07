@@ -86,7 +86,7 @@ class DecisionEngineTests(unittest.TestCase):
         runtime = ShadowRuntime()
         snapshot = runtime.evaluate(ready_inputs(), evaluated_at=None, now=0)
 
-        self.assertEqual(snapshot.version, "blind_control.runtime.v2")
+        self.assertEqual(snapshot.version, "blind_control.runtime.v3")
         self.assertTrue(snapshot.shadow_only)
         self.assertFalse(snapshot.actuation_executed)
         self.assertFalse(snapshot.write_path_reachable)
@@ -100,7 +100,7 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertIn("cover_position", projection["settings"]["binding_freshness"])
         self.assertEqual(
             projection["automation_projection"]["version"],
-            "blind_control.automation_projection.v2",
+            "blind_control.automation_projection.v3",
         )
         self.assertIn("binding_groups", projection["settings"])
         core_group = next(
@@ -420,6 +420,7 @@ class DecisionEngineTests(unittest.TestCase):
         runtime = ShadowRuntime()
         runtime.on_restart(50)
         runtime.observe_cover_position(80, source="foreign_position", now=10)
+        runtime.observe_cover_position(80, source="foreign_position", now=12)
         inputs = sunny_inputs(
             activity_state=fresh("pc", "core_state.activity"),
             outdoor_temperature=fresh(34.0, "weather_temperature"),
@@ -443,6 +444,7 @@ class DecisionEngineTests(unittest.TestCase):
         runtime = ShadowRuntime()
         runtime.on_restart(50)
         runtime.observe_cover_position(80, source="foreign_position", now=10)
+        runtime.observe_cover_position(80, source="foreign_position", now=12)
         tv = replace(ready_inputs(), activity_state=fresh("tv", "core_state.activity"))
         console = replace(tv, activity_state=fresh("console", "core_state.activity"))
         next_day = replace(console, day_state=fresh("night", "core_state.day"))
@@ -457,13 +459,15 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertFalse(ended.trace.override.active)
         self.assertEqual(ended.trace.override.reason, "override_context_changed")
         self.assertFalse(runtime.observe_cover_position(80, source="same_position", now=23).active)
-        self.assertTrue(runtime.observe_cover_position(70, source="new_position", now=24).active)
+        self.assertFalse(runtime.observe_cover_position(70, source="new_position", now=24).active)
+        self.assertTrue(runtime.observe_cover_position(70, source="new_position", now=26).active)
 
     def test_apply_disabled_cannot_be_bypassed_by_manual_override(self) -> None:
         config = replace(BlindControlConfig.defaults(), apply_enabled=False)
         runtime = ShadowRuntime(config)
         runtime.on_restart(50)
         runtime.observe_cover_position(80, source="foreign_position", now=10)
+        runtime.observe_cover_position(80, source="foreign_position", now=12)
 
         trace = runtime.evaluate(ready_inputs(), now=20)
 
@@ -640,7 +644,7 @@ class DecisionEngineTests(unittest.TestCase):
         ).evaluate(inputs)
 
         self.assertEqual(normal.effective_target, 100)
-        self.assertEqual(inverted.effective_target, 0)
+        self.assertEqual(inverted.effective_target, 100)
         self.assertEqual(inverted.safety.status, "safe_position")
 
     def test_stale_opening_does_not_become_closed(self) -> None:
@@ -784,7 +788,7 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertEqual(trace.fachlicher_target, 100)
         self.assertIn("cooler_moving_outdoor_air_available", trace.reasons)
 
-    def test_axis_inversion_uses_explicit_configured_value(self) -> None:
+    def test_axis_inversion_keeps_logical_arbitration(self) -> None:
         config = replace(BlindControlConfig.defaults(), axis_inverted=True)
         inputs = sunny_inputs(
             outdoor_temperature=fresh(34.0, "weather_temperature"),
@@ -792,15 +796,16 @@ class DecisionEngineTests(unittest.TestCase):
 
         trace = DecisionEngine(config).evaluate(inputs)
 
-        self.assertEqual(trace.fachlicher_target, 55)
-        self.assertEqual(config.target("heat_protection"), 55)
+        self.assertEqual(trace.fachlicher_target, 15)
+        self.assertEqual(config.target("heat_protection"), 15)
+        self.assertEqual(config.device_position(15), 85)
 
-    def test_config_round_trip_keeps_explicit_normal_and_inverted_values(self) -> None:
+    def test_config_round_trip_keeps_logical_and_derived_complement(self) -> None:
         config = replace(BlindControlConfig.defaults(), axis_inverted=True)
         restored = BlindControlConfig.from_mapping(config.to_mapping())
 
         self.assertTrue(restored.axis_inverted)
-        self.assertEqual(restored.profile("glare_pc").normal, 75)
+        self.assertEqual(restored.profile("glare_pc").logical, 75)
         self.assertEqual(restored.profile("glare_pc").inverted, 25)
 
 
@@ -853,14 +858,17 @@ class SolarAndLifecycleTests(unittest.TestCase):
         runtime.begin_own_write(20, now=10, grace_seconds=5)
         runtime.observe_cover_position(40, source="owned_position", now=12)
         runtime.observe_cover_position(20, source="owned_position", now=14)
+        runtime.observe_cover_position(20, source="owned_position", now=16)
         self.assertFalse(runtime.override.active)
 
         runtime.observe_cover_position(80, source="foreign_position", now=20)
+        runtime.observe_cover_position(80, source="foreign_position", now=22)
         self.assertTrue(runtime.override.active)
         self.assertEqual(runtime.override.baseline, 20)
         runtime.clear_override()
-        self.assertFalse(runtime.observe_cover_position(80, source="same_position", now=21).active)
-        self.assertTrue(runtime.observe_cover_position(70, source="new_position", now=22).active)
+        self.assertFalse(runtime.observe_cover_position(80, source="same_position", now=23).active)
+        self.assertFalse(runtime.observe_cover_position(70, source="new_position", now=24).active)
+        self.assertTrue(runtime.observe_cover_position(70, source="new_position", now=26).active)
         runtime.clear_override()
         runtime.on_configuration_change(80)
         self.assertFalse(runtime.override.active)
@@ -877,7 +885,8 @@ class SolarAndLifecycleTests(unittest.TestCase):
             now=0,
         )
 
-        self.assertEqual(snapshot.trace.fachlicher_target, 0)
+        self.assertEqual(snapshot.trace.fachlicher_target, 100)
+        self.assertEqual(snapshot.physical_target, 0)
         self.assertFalse(snapshot.trace.override.active)
 
     def test_legacy_shadow_diff_is_fieldwise_and_classified(self) -> None:
@@ -916,9 +925,10 @@ class SolarAndLifecycleTests(unittest.TestCase):
     def test_latest_target_only_cooldown(self) -> None:
         tracker = CooldownTracker(tolerance=0)
         first = tracker.propose(20, now=0, cooldown_seconds=60)
+        tracker.record_write(20, now=0, cooldown_seconds=60)
         second = tracker.propose(70, now=10, cooldown_seconds=60)
         third = tracker.propose(40, now=20, cooldown_seconds=60)
-        released = tracker.release(now=60, cooldown_seconds=60)
+        released = tracker.propose(40, now=60, cooldown_seconds=60)
 
         self.assertTrue(first.apply_now)
         self.assertFalse(second.apply_now)

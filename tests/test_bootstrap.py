@@ -811,6 +811,9 @@ class BootstrapTests(unittest.TestCase):
                 indoor_temperature=fresh(22.0, "sensor.fixture_indoor"),
                 outdoor_temperature=fresh(20.0, "sensor.fixture_outdoor"),
             )
+            entry.runtime_data.shadow.on_restart(
+                42
+            )  # Quiet baseline for this projection-only fixture.
             entry.runtime_data.snapshot = entry.runtime_data.shadow.evaluate(inputs)
             entry.runtime_data.coordinator._notify_snapshot_listeners()
 
@@ -1065,7 +1068,7 @@ class BootstrapTests(unittest.TestCase):
             asyncio.run(get_handler(hass, read_only, {"id": 6, "entry_id": "entry-1"}))
             self.assertEqual(read_only.results[0][0], 6)
             projection = read_only.results[0][1]
-            self.assertEqual(projection["version"], "blind_control.ux.v3")
+            self.assertEqual(projection["version"], "blind_control.ux.v4")
             serialized = json.dumps(projection)
             self.assertNotIn("sensor.fixture_bio", serialized)
             self.assertNotIn("sensor.fixture_legacy", serialized)
@@ -1095,7 +1098,7 @@ class BootstrapTests(unittest.TestCase):
             self.assertIn("window_azimuth", form["data_schema"].schema)
             provider_url = _schema_key(form["data_schema"], "open_meteo_api_url")
             self.assertIn("api.open-meteo.com", provider_url.options["default"])
-            self.assertIn("position_waking_normal", form["data_schema"].schema)
+            self.assertIn("position_waking_logical", form["data_schema"].schema)
             core_state_section = _schema_value(form["data_schema"], "core_state_bindings")
             self.assertIsInstance(core_state_section, _FakeSection)
             self.assertTrue(core_state_section.options["collapsed"])
@@ -1112,7 +1115,7 @@ class BootstrapTests(unittest.TestCase):
                 len(value.schema.schema) if isinstance(value, _FakeSection) else 1
                 for value in form["data_schema"].schema.values()
             )
-            self.assertEqual(visible_fields, 89)
+            self.assertEqual(visible_fields, 79)
             self.assertNotIn("runtime_mode", form["data_schema"].schema)
             self.assertNotIn("apply_owner", form["data_schema"].schema)
             unsafe_result = asyncio.run(
@@ -1270,7 +1273,13 @@ class BootstrapTests(unittest.TestCase):
                 "heat_radiation_threshold": config.heat_radiation_threshold,
                 "heat_confidence_threshold": config.heat_confidence_threshold,
                 "cloud_shadow_lux_drop": config.cloud_shadow_lux_drop,
-                "cloud_shadow_ratio": config.cloud_shadow_ratio,
+                "cloud_cover_threshold": config.cloud_cover_threshold,
+                "model_lux_ratio": config.model_lux_ratio,
+                "minimum_incidence_factor": config.minimum_incidence_factor,
+                "model_lux_per_watt": config.model_lux_per_watt,
+                "cold_lux_threshold": config.cold_lux_threshold,
+                "position_settle_seconds": config.position_settle_seconds,
+                "movement_timeout_seconds": config.movement_timeout_seconds,
                 "diffuse_lux_threshold": config.diffuse_lux_threshold,
                 "night_lux_threshold": config.night_lux_threshold,
                 "cold_outdoor_threshold": config.cold_outdoor_threshold,
@@ -1283,8 +1292,7 @@ class BootstrapTests(unittest.TestCase):
                 "position_tolerance": config.position_tolerance,
             }
             for name, profile in config.profiles:
-                user_input[f"position_{name}_normal"] = profile.normal
-                user_input[f"position_{name}_inverted"] = profile.inverted
+                user_input[f"position_{name}_logical"] = profile.logical
             user_input["core_state_bindings"] = {"bio_state": "sensor.bound_bio"}
             user_input["opening_safety_cover_bindings"] = {
                 "opening_safety_polarity": "positive_safe"
@@ -1296,7 +1304,7 @@ class BootstrapTests(unittest.TestCase):
             result = asyncio.run(flow.async_step_user(user_input))
             self.assertEqual(result["type"], "create_entry")
             self.assertEqual(result["title"], "Blind Control")
-            self.assertEqual(result["data"]["config_version"], 5)
+            self.assertEqual(result["data"]["config_version"], 6)
             self.assertEqual(
                 result["data"]["open_meteo_api_url"],
                 provider_url.options["default"],

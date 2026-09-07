@@ -96,6 +96,8 @@ def build_inputs_from_states(
     """Build the complete input contract from configured HA state objects."""
 
     now = now or datetime.now(UTC)
+    # CORE_CONTRACTS_MIGRATION: replace this owner-bound entity adapter with
+    # declared roles only after the full profile contract matrix is activated.
     configured = dict(config.input_bindings)
     provider_observations = provider_observations or {}
     values = {}
@@ -110,6 +112,33 @@ def build_inputs_from_states(
             config.binding_policy(key),
             now,
             opening_safety_polarity=config.opening_safety_polarity,
+        )
+    position = values["cover_position"]
+    cover = states.get(configured.get("cover_position", ""))
+    motion = str(getattr(cover, "state", "unknown")).lower()
+    if config.axis_inverted and motion in {"opening", "closing"}:
+        motion = "closing" if motion == "opening" else "opening"
+    values["cover_motion"] = replace(
+        position,
+        value=motion,
+        quality=position.quality
+        if motion in {"open", "closed", "opening", "closing", "stopped"}
+        else InputQuality.UNKNOWN,
+    )
+    if position.usable:
+        number = float(position.value)
+        values["cover_position"] = replace(
+            position,
+            value=config.device_position(number) if 0 <= number <= 100 else None,
+            quality=position.quality if 0 <= number <= 100 else InputQuality.CONFLICT,
+        )
+    cloud = values["cloud_cover"]
+    if cloud.usable and not 0 <= float(cloud.value) <= 100:
+        values["cloud_cover"] = replace(
+            cloud,
+            value=None,
+            quality=InputQuality.CONFLICT,
+            reason="cloud_cover_outside_percent_range",
         )
     return BlindControlInputs(**values)
 
@@ -213,6 +242,7 @@ class ShadowCoordinator:
     def stop(self) -> None:
         """Remove observation listeners without invoking any HA service."""
 
+        self.shadow.stop()
         for unsubscribe in self._unsubscribers:
             if callable(unsubscribe):
                 unsubscribe()
@@ -224,6 +254,8 @@ class ShadowCoordinator:
         self._refresh_requested = False
 
     async def async_refresh(self) -> ShadowSnapshot:
+        if not self.shadow.active:
+            raise RuntimeError("runtime_stopped")
         now = datetime.now(UTC)
         states = {
             entity_id: self.hass.states.get(entity_id)
@@ -243,17 +275,20 @@ class ShadowCoordinator:
         )
         legacy = build_legacy_evidence_from_states(states, self.config, now=now)
         position = _number_value(inputs.cover_position)
-        runtime_ready = self._restart_baseline_established
-        if not runtime_ready:
-            self.shadow.on_restart(position)
+        if not self._restart_baseline_established:
+            self.shadow.on_restart(None)
             self._restart_baseline_established = True
-        elif inputs.cover_position.usable:
+        if inputs.cover_position.usable and inputs.cover_motion.usable:
             self.shadow.observe_cover_position(
                 position,
                 source=inputs.cover_position.source,
                 now=time.monotonic(),
                 observed_at=now,
+                moving=inputs.cover_motion.value in {"opening", "closing"},
             )
+        else:
+            self.shadow.observe_cover_position(None)
+        runtime_ready = self.shadow.override_tracker.initialized and inputs.cover_motion.usable
         snapshot = self.shadow.evaluate(
             inputs,
             evaluated_at=now,
@@ -354,6 +389,8 @@ class ShadowCoordinator:
     def _schedule_refresh(self) -> None:
         """Hop through Home Assistant's thread-safe scheduler before task creation."""
 
+        if not self.shadow.active:
+            return
         add_job = getattr(self.hass, "add_job", None)
         if callable(add_job):
             add_job(self._schedule_refresh_in_event_loop)
@@ -371,6 +408,8 @@ class ShadowCoordinator:
     def _schedule_refresh_in_event_loop(self) -> None:
         """Create the coroutine only after the scheduler reached HA's event loop."""
 
+        if not self.shadow.active:
+            return
         if self._refresh_task is not None and not self._refresh_task.done():
             self._refresh_requested = True
             return
@@ -385,7 +424,7 @@ class ShadowCoordinator:
     def _refresh_finished(self, _task: asyncio.Task[object]) -> None:
         """Run one coalesced follow-up when an event arrived during refresh."""
 
-        if not self._refresh_requested:
+        if not self.shadow.active or not self._refresh_requested:
             return
         self._refresh_requested = False
         self._schedule_refresh()

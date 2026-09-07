@@ -125,9 +125,9 @@ def calculate_solar_exposure(
     lux_value = float(lux.value)
     trend_value = _number(trend)
     cloud_value = _number(cloud)
-    model_lux = expected * 120.0 if expected is not None else None
+    model_lux = expected * config.model_lux_per_watt if expected is not None else None
 
-    if incidence < 0.05:
+    if incidence < config.minimum_incidence_factor:
         state = SolarExposureState.SOLAR_NOT_ON_WINDOW
         reason = "sun_geometry_does_not_hit_window"
         cloud_shadow = False
@@ -157,7 +157,7 @@ def calculate_solar_exposure(
 
     return SolarExposure(
         state=state,
-        confidence=_confidence(inputs, incidence),
+        confidence=_confidence(inputs, incidence, config),
         incidence_factor=incidence,
         expected_radiation_w_m2=expected,
         observed_lux=lux_value,
@@ -207,7 +207,7 @@ def _is_cloud_shadow(
 ) -> bool:
     if direct_radiation is not None and direct_radiation < config.heat_radiation_threshold:
         return False
-    if cloud_cover is not None and cloud_cover >= config.cloud_shadow_ratio:
+    if cloud_cover is not None and cloud_cover >= config.cloud_cover_threshold:
         return True
     if lux_trend is not None and lux_trend <= -config.cloud_shadow_lux_drop:
         return True
@@ -216,11 +216,11 @@ def _is_cloud_shadow(
         and cloud_cover is None
         and model_lux is not None
         and model_lux > 0
-        and lux < model_lux * config.cloud_shadow_ratio
+        and lux < model_lux * config.model_lux_ratio
     )
 
 
-def _confidence(inputs: BlindControlInputs, incidence: float) -> float:
+def _confidence(inputs: BlindControlInputs, incidence: float, config: BlindControlConfig) -> float:
     score = 0.0
     if inputs.sun_elevation.usable and inputs.sun_azimuth.usable:
         score += 0.35
@@ -234,7 +234,11 @@ def _confidence(inputs: BlindControlInputs, incidence: float) -> float:
         score += 0.1
     if inputs.cloud_cover.usable:
         score += 0.1
-    if incidence < 0.05 and inputs.sun_elevation.usable and inputs.sun_azimuth.usable:
+    if (
+        incidence < config.minimum_incidence_factor
+        and inputs.sun_elevation.usable
+        and inputs.sun_azimuth.usable
+    ):
         score = max(score, 0.75)
     return round(min(1.0, score), 3)
 
