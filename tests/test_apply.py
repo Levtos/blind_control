@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import sys
 import types
 import unittest
@@ -58,11 +59,27 @@ class FakeServices:
     def __init__(self, *, fail: bool = False) -> None:
         self.fail = fail
         self.calls: list[tuple[str, str, dict[str, object], bool]] = []
+        self.background_errors: list[Exception] = []
+        self.tasks: list[asyncio.Task] = []
 
     async def async_call(self, domain, service, data, *, blocking=False):
         self.calls.append((domain, service, data, blocking))
+        if blocking:
+            await self._handler()
+        else:
+            # HA schedules the handler and catches/logs failures in that task.
+            self.tasks.append(asyncio.create_task(self._catch_handler_error()))
+
+    async def _handler(self):
+        await asyncio.sleep(0)
         if self.fail:
             raise RuntimeError("redacted service failure")
+
+    async def _catch_handler_error(self):
+        try:
+            await self._handler()
+        except Exception as error:
+            self.background_errors.append(error)
 
 
 class FakeHass:
@@ -151,7 +168,7 @@ class ApplyExecutorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(hass.services.calls), 1)
         self.assertEqual(hass.services.calls[0][0:2], ("cover", "set_cover_position"))
         self.assertEqual(hass.services.calls[0][2]["position"], 100.0)
-        self.assertFalse(hass.services.calls[0][3])
+        self.assertTrue(hass.services.calls[0][3])
         self.assertTrue(applied.actuation_executed)
         self.assertEqual(applied.trace.apply.status, "applied")
         self.assertFalse(runtime.override.active)
@@ -228,7 +245,8 @@ class ApplyExecutorTests(unittest.IsolatedAsyncioTestCase):
         await executor.async_apply(first, now=20)
         runtime.observe_cover_position(100, now=21)
         runtime.observe_cover_position(100, now=23)
-        heat = runtime.evaluate(
+        # The entering heat has not completed its environmental dwell yet.
+        pending_heat = runtime.evaluate(
             ready_inputs(
                 indoor_temperature=fresh(27.0),
                 outdoor_temperature=fresh(34.0),
@@ -245,7 +263,8 @@ class ApplyExecutorTests(unittest.IsolatedAsyncioTestCase):
         )
         await executor.async_apply(released, now=81)
 
-        self.assertEqual(heat.trace.apply.cooldown_pending_target, 15.0)
+        self.assertNotIn("heat_protection", pending_heat.trace.winner_keys)
+        self.assertTrue(pending_heat.environment["heat"]["pending"])
         self.assertEqual(glare.trace.apply.cooldown_pending_target, 75.0)
         self.assertEqual([call[2]["position"] for call in hass.services.calls], [100.0, 75.0])
 

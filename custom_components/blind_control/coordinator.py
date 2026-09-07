@@ -116,8 +116,7 @@ def build_inputs_from_states(
     position = values["cover_position"]
     cover = states.get(configured.get("cover_position", ""))
     motion = str(getattr(cover, "state", "unknown")).lower()
-    if config.axis_inverted and motion in {"opening", "closing"}:
-        motion = "closing" if motion == "opening" else "opening"
+    # HA motion states are semantic, not derivatives of the numeric device axis.
     values["cover_motion"] = replace(
         position,
         value=motion,
@@ -234,7 +233,13 @@ class ShadowCoordinator:
             async_track_time_interval(
                 self.hass,
                 self._time_changed,
-                timedelta(seconds=self.config.freshness_timer_seconds()),
+                timedelta(
+                    seconds=min(
+                        self.config.freshness_timer_seconds(),
+                        self.config.environment_enter_seconds,
+                        self.config.movement_recovery_seconds,
+                    )
+                ),
             )
         )
         return snapshot

@@ -376,7 +376,8 @@ produktseitig fest codiert.
 
 Config v6: je Profil {logical}; alte Normal-Werte sind Migrationsbasis,
 alte Paare bleiben als legacy_profile_values erhalten. Eingehende
-Geräteposition/Fahrtrichtung wird logisch normalisiert; ausgehendes fertig
+Geräteposition wird numerisch normalisiert; opening/closing bleiben semantisch
+unverändert. Ausgehendes fertig
 bestimmtes Ziel wird allein am Adapter gegebenenfalls zu 100 - logical.
 Invertierung verändert keine fachliche Arbitration.
 
@@ -385,9 +386,13 @@ cloud_cover_threshold Default 75 %, alte cloud_shadow_ratio mal 100.
 model_lux_ratio ist separat ein dimensionsloses Helligkeitsverhältnis.
 Solar-Aggregat unknown blockiert normale Aktuation ohne neuen Open-Fallback.
 
-Cold benötigt frischen Lux < cold_lux_threshold (Default 400) und frische
+Cold benötigt zum Eintritt frischen Lux < cold_lux_enter_threshold (Default 400) und frische
 Außentemperatur <= cold_outdoor_threshold (Default 8). Off-Window allein
-reicht nicht. Temperaturtrendfelder bleiben v1-Diagnose / mögliche v2-Arbeit,
+reicht nicht. Bereits aktives Cold hält bis Lux > cold_lux_exit_threshold
+(Default 500); Eintritt/Entlastung werden 10/120 s stabilisiert. Heat/Glare
+verwenden getrennte Confidence-/Inzidenz-Haltebänder mit Faktor 0.8 und dieselben
+Zeiten. Alle Werte sind konfigurierbar; LASTENHEFT Abschnitt 17 ist normativ.
+Temperaturtrendfelder bleiben v1-Diagnose / mögliche v2-Arbeit,
 ohne erfundene Einheit, Schwelle oder Gewichtung.
 private_time bleibt Core-State-Wahrheit; kein zusätzlicher Waking-Filter.
 
@@ -407,13 +412,20 @@ Gestoppte Runtimes bleiben widerrufen. Ein Snapshot ist höchstens einmal nutzba
 
 movement_status unterscheidet baseline_pending, idle, settling, external_moving,
 own_moving, own_settling, target_not_reached, command_error und position_unavailable.
-Eigene Fahrt endet nur am tatsächlichen Ziel innerhalb Toleranz und in
-bestätigter Ruhe. Ein Timeout ersetzt keinen Beleg. Ein Servicefehler ist kein
-Beweis, dass kein Befehl beim Gerät ankam; Attribution bleibt erhalten.
-applied bestätigt Dispatch, nicht Zielerreichung oder Live Verified.
+Normale eigene Fahrt endet am tatsächlichen Ziel innerhalb Toleranz und in
+bestätigter Ruhe. Bei command_error/target_not_reached bleibt Attribution
+bis zu einem neuen stabilen Ruhefenster erhalten (movement_recovery_seconds,
+Default 30 s, mindestens position_settle_seconds). Dann wird der Vorgang
+abgebrochen und die tatsächliche Position zur Baseline. Kein Manual Override,
+kein Nachholen des alten Ziels. movement_error hält den letzten Fehler,
+recovery_status unterscheidet none, waiting_for_quiet, superseded_by_safety
+und recovered. Diese additiven Diagnosefelder stehen in Runtime/UX/Statussensor.
+Ein Servicefehler beweist nicht, dass kein Befehl beim Gerät ankam.
+applied bestätigt HA-Handler-Erfolg mit blocking=True, nicht Zielerreichung
+oder Live Verified; Exceptions erzeugen error und keinen erfolgreichen Cooldown.
 
 Nur aktuelle Istnähe verhindert einen identischen Write. Cooldown startet bei
-Dispatch; die aktuelle Gesamtentscheidung ersetzt Pending. Safety darf nach
+Handler-Erfolg; die aktuelle Gesamtentscheidung ersetzt Pending. Safety darf nach
 erneuter Istabweichung dasselbe Ziel anfordern oder eine Abwärtsfahrt ersetzen.
 
 Private Bindings/URLs erscheinen nicht öffentlich. runtime_mode, apply_owner
@@ -422,3 +434,9 @@ ist operative Bestätigung, kein automatischer fremder Writer-Lock:
 AP3_CUTOVER.md verlangt vollständig deaktivierte Legacy plus HA-Prozessneustart.
 Core Contracts wird noch nicht angebunden; Readiness-Audit und spätere Rollen
 stehen in AP3_STABILIZATION.md / MIGRATION.md.
+
+Runtime environment und UX diagnosis.environment zeigen je heat/glare/cold
+active, pending (boolean oder null) und since (monotone Startzeit oder null).
+Es sind keine Zielcommands. environment_protection_stabilizing blockiert eine
+weiter öffnende Freigabe während des Eintritts eines schließenden Schutzes;
+Quality/Safety/Override und die harten Betriebs-/Writer-Gates bleiben vorrangig.

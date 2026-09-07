@@ -471,9 +471,14 @@ class BlindControlConfig:
     diffuse_lux_threshold: float = 2500.0
     night_lux_threshold: float = 50.0
     cold_outdoor_threshold: float = 8.0
-    cold_lux_threshold: float = 400.0
+    cold_lux_enter_threshold: float = 400.0
+    cold_lux_exit_threshold: float = 500.0
+    environment_hysteresis_ratio: float = 0.8
+    environment_enter_seconds: float = 10.0
+    environment_exit_seconds: float = 120.0
     position_settle_seconds: float = 2.0
     movement_timeout_seconds: float = 120.0
+    movement_recovery_seconds: float = 30.0
     cool_air_delta: float = 2.0
     storm_precipitation_trend_threshold: float = 0.0
     storm_wind_trend_threshold: float = 0.0
@@ -492,7 +497,7 @@ class BlindControlConfig:
             "cloud_shadow_lux_drop",
             "diffuse_lux_threshold",
             "night_lux_threshold",
-            "cold_lux_threshold",
+            "cold_lux_enter_threshold",
             "cool_air_delta",
             "storm_precipitation_trend_threshold",
             "storm_wind_trend_threshold",
@@ -502,6 +507,27 @@ class BlindControlConfig:
             "observation_freshness_seconds",
         ):
             _number(getattr(self, name), name=name, minimum=0, maximum=100_000)
+        _number(
+            self.cold_lux_exit_threshold, name="cold_lux_exit_threshold", minimum=0, maximum=125_000
+        )
+        if self.cold_lux_exit_threshold <= self.cold_lux_enter_threshold:
+            raise ValueError("cold_lux_exit_threshold must exceed cold_lux_enter_threshold")
+        _number(
+            self.environment_hysteresis_ratio,
+            name="environment_hysteresis_ratio",
+            minimum=0.01,
+            maximum=0.99,
+        )
+        for name in ("environment_enter_seconds", "environment_exit_seconds"):
+            _number(getattr(self, name), name=name, minimum=0.1, maximum=3600)
+        if self.environment_exit_seconds < self.environment_enter_seconds:
+            raise ValueError("environment_exit_seconds must be at least environment_enter_seconds")
+        _number(
+            self.movement_recovery_seconds,
+            name="movement_recovery_seconds",
+            minimum=self.position_settle_seconds,
+            maximum=3600,
+        )
         _number(
             self.heat_confidence_threshold,
             name="heat_confidence_threshold",
@@ -619,6 +645,7 @@ class BlindControlConfig:
             maximum=86_400,
         )
         profiles = raw.get("profiles")
+        cold_enter = float(raw.get("cold_lux_enter_threshold", raw.get("cold_lux_threshold", 400)))
         return cls(
             profiles=_profile_items(profiles),
             legacy_profile_values=_legacy_profile_values(raw),
@@ -675,9 +702,21 @@ class BlindControlConfig:
             diffuse_lux_threshold=float(raw.get("diffuse_lux_threshold", 2500)),
             night_lux_threshold=float(raw.get("night_lux_threshold", 50)),
             cold_outdoor_threshold=float(raw.get("cold_outdoor_threshold", 8)),
-            cold_lux_threshold=float(raw.get("cold_lux_threshold", 400)),
+            cold_lux_enter_threshold=cold_enter,
+            cold_lux_exit_threshold=float(
+                raw.get("cold_lux_exit_threshold", max(cold_enter + 100, cold_enter * 1.25))
+            ),
+            environment_hysteresis_ratio=float(raw.get("environment_hysteresis_ratio", 0.8)),
+            environment_enter_seconds=float(raw.get("environment_enter_seconds", 10)),
+            environment_exit_seconds=float(raw.get("environment_exit_seconds", 120)),
             position_settle_seconds=float(raw.get("position_settle_seconds", 2)),
             movement_timeout_seconds=float(raw.get("movement_timeout_seconds", 120)),
+            movement_recovery_seconds=float(
+                raw.get(
+                    "movement_recovery_seconds",
+                    max(30, float(raw.get("position_settle_seconds", 2))),
+                )
+            ),
             cool_air_delta=float(raw.get("cool_air_delta", 2)),
             storm_precipitation_trend_threshold=float(
                 raw.get("storm_precipitation_trend_threshold", 0)
@@ -724,9 +763,14 @@ class BlindControlConfig:
             "diffuse_lux_threshold": self.diffuse_lux_threshold,
             "night_lux_threshold": self.night_lux_threshold,
             "cold_outdoor_threshold": self.cold_outdoor_threshold,
-            "cold_lux_threshold": self.cold_lux_threshold,
+            "cold_lux_enter_threshold": self.cold_lux_enter_threshold,
+            "cold_lux_exit_threshold": self.cold_lux_exit_threshold,
+            "environment_hysteresis_ratio": self.environment_hysteresis_ratio,
+            "environment_enter_seconds": self.environment_enter_seconds,
+            "environment_exit_seconds": self.environment_exit_seconds,
             "position_settle_seconds": self.position_settle_seconds,
             "movement_timeout_seconds": self.movement_timeout_seconds,
+            "movement_recovery_seconds": self.movement_recovery_seconds,
             "cool_air_delta": self.cool_air_delta,
             "storm_precipitation_trend_threshold": self.storm_precipitation_trend_threshold,
             "storm_wind_trend_threshold": self.storm_wind_trend_threshold,

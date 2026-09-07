@@ -2,6 +2,39 @@
 
 **Stand:** Config v6 / AP3-Stabilisierung 2026-09-07. Testing / Shadow / Not Live.
 
+## Additive v0.6.0 → v0.6.1-Konfiguration
+
+Config bleibt v6. Bestehende Profile, Achse, Gates, Bindings, Freshness,
+Provider und übrige Kalibrierung laden mit unveränderter Bedeutung.
+Der Regressionstest lädt eine neutrale vollständige Konfiguration, die mit
+dem unveränderten v0.6.0-Serializer (303d843) erzeugt wurde, und vergleicht alle Felder.
+
+| Feld | Default / Übernahme | Validierung |
+| --- | --- | --- |
+| cold_lux_enter_threshold | bestehendes cold_lux_threshold unverändert, sonst 400 lx | 0–100000 |
+| cold_lux_exit_threshold | max(Enter + 100 lx, Enter × 1.25), somit normalerweise 500 lx | strikt größer als Enter, höchstens 125000 |
+| environment_hysteresis_ratio | 0.8; Haltefaktor für Heat-/Glare-Confidence und minimale solare Inzidenz | 0.01–0.99 |
+| environment_enter_seconds | 10 s | 0.1–3600 |
+| environment_exit_seconds | 120 s | mindestens Enter, höchstens 3600 |
+| movement_recovery_seconds | max(30 s, bestehende position_settle_seconds) | mindestens Settling, höchstens 3600 |
+
+Neue explizite Werte haben Vorrang vor diesen Defaults. Ein erneuter
+JSON-/Config-Roundtrip skaliert nichts. Speichern verwendet den neuen
+Cold-Enter-Namen; der alte Name ist ausschließlich ein Ladealias.
+Native Formulare und Panel machen alle sechs Werte editierbar.
+84 sichtbare Initialfelder / 86 Optionsfelder; Owner/Runtime bleiben nur im
+nativen OptionsFlow. Keine automatische Änderung von Apply oder Ownership.
+
+Die Zeiten und Bänder sind bewusste neue Flatter-/Recovery-Semantik, keine
+Veränderung der alten Profile. Vor Versionsrollback auf v0.6.0 dessen
+vollständigen Original-ConfigEntry-/Options-Export wiederherstellen:
+v0.6.0 kennt den neuen Cold-Namen und die neuen Bänder nicht.
+Das Versionsbackup bleibt daher notwendig.
+
+**Reihenfolge für v0.6.1:** erst neues unabhängiges read-only Quality Gate
+aus frischem Kontext mit PASS, dann Bennis Backup/Installation und neue
+Shadow-Evidence. Dieses Release führt keinen dieser HA-Schritte aus.
+
 ## Persistierte Konfiguration
 
 BlindControlConfig.from_mapping lädt vorhandene ConfigEntry-Daten und Options.

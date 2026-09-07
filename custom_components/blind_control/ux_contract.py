@@ -74,6 +74,8 @@ def build_ux_snapshot(
             "cover_position": input_value("cover_position"),
             "physical_target": snapshot.physical_target,
             "movement_status": snapshot.movement_status,
+            "movement_error": snapshot.movement_error,
+            "recovery_status": snapshot.recovery_status,
             "household": {
                 key: input_value(key)
                 for key in (
@@ -95,6 +97,7 @@ def build_ux_snapshot(
             "write_path_reachable": snapshot.write_path_reachable,
         },
         "diagnosis": {
+            "environment": snapshot.environment,
             "hierarchy": {
                 "master_mode": trace.master_mode.value,
                 "winner": winner,
@@ -143,7 +146,12 @@ def build_ux_snapshot(
                 "model_lux_ratio": config.model_lux_ratio,
                 "minimum_incidence_factor": config.minimum_incidence_factor,
                 "model_lux_per_watt": config.model_lux_per_watt,
-                "cold_lux_threshold": config.cold_lux_threshold,
+                "cold_lux_enter_threshold": config.cold_lux_enter_threshold,
+                "cold_lux_exit_threshold": config.cold_lux_exit_threshold,
+                "environment_hysteresis_ratio": config.environment_hysteresis_ratio,
+                "environment_enter_seconds": config.environment_enter_seconds,
+                "environment_exit_seconds": config.environment_exit_seconds,
+                "movement_recovery_seconds": config.movement_recovery_seconds,
                 "position_settle_seconds": config.position_settle_seconds,
                 "movement_timeout_seconds": config.movement_timeout_seconds,
                 "cool_air_delta": config.cool_air_delta,
@@ -185,6 +193,8 @@ def build_automation_projection(snapshot: ShadowSnapshot) -> dict[str, object]:
         "effective_target": trace.effective_target,
         "physical_target": snapshot.physical_target,
         "movement_status": snapshot.movement_status,
+        "movement_error": snapshot.movement_error,
+        "recovery_status": snapshot.recovery_status,
         "failure_status": trace.failure.status,
         "failure_reason": trace.failure.reason,
         "failure_quality_blockers": [

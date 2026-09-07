@@ -143,7 +143,7 @@ belegte Position ohne neuen Befehl und bleibt blockiert.
 
 Der Apply-Lifecycle ist `blocked|manual_hold|cooldown|stable|shadow_ready|
 live_ready|safety_ready|applied|error`. `applied` bedeutet, dass der isolierte
-Adapter den freigegebenen HA-Aufruf angenommen hat; es ist keine Aussage über
+Adapter den freigegebenen HA-Handler ohne Exception abgewartet hat; es ist keine Aussage über
 `Live Verified`. Modus, Owner, Ausführungsstatus und Reachability werden über
 `blind_control.automation_projection.v3` und `blind_control.ux.v4` redigiert
 projiziert. Änderungen der drei kritischen Gates bleiben dem nativen
@@ -166,3 +166,11 @@ Ein historisch identisches Ziel sperrt Safety nicht. Pending enthält nur den
 aktuellen Gesamtentscheid, keinen später freizugebenden historischen Command.
 Solar unknown bleibt auch bei einzeln frischen Inputs ein automatischer Blocker.
 Config v6 / Cloud 0–100 / Cold-Lux-Gate: siehe CONTRACTS.md und MIGRATION.md.
+
+v0.6.1 ergänzt movement_error (letzter command_error/target_not_reached oder
+null) und recovery_status (none/waiting_for_quiet/superseded_by_safety/recovered).
+Nach neu belegter stabiler Ruhe darf ein fehlerhafter eigener Vorgang abgebrochen
+und die Istposition als Baseline übernommen werden. Das ist kein Override und
+keine bestätigte Zielerreichung. Fehler bleibt als recovered sichtbar.
+Umwelt-Transitionen stehen zusätzlich unter diagnosis.environment; die rohe
+Solar-/Inputdiagnose bleibt unmittelbar. Details: AP3_STABILIZATION.md.

@@ -269,7 +269,7 @@ Die Entscheidung vom 07.09.2026 ist in AP3_STABILIZATION.md begründet.
 Der begrenzte Umbau trennt logische Zielentscheidung, tatsächlich beobachtete
 Bewegung und Dispatch. Öffentliche Hierarchie und Owner bleiben bestehen.
 
-Owner-bindings → Input-Adapter (logische Position/Motion) → Decision v4 →
+Owner-bindings → Input-Adapter (logische Position, semantische HA-Motion) → Decision v4 →
 Quality / Safety / Override / Ruhe-Baseline / Cooldown →
 live + blind_control + Apply an → einziger CoverApplyExecutor →
 physisches Gerätetarget (gegebenenfalls 100 - logical).
@@ -277,18 +277,25 @@ physisches Gerätetarget (gegebenenfalls 100 - logical).
 Der Adapter überprüft unmittelbar vor dem Servicecall aktive Runtime,
 identische aktuelle Konfiguration und neueste unverbrauchte Snapshot-Freigabe.
 Stop widerruft die Runtime vor Listener-/Task-Cleanup dauerhaft. Alte queued
-Callbacks können weder Refresh noch Writer reaktivieren. Der Servicecall ist
-nicht blockierend bezüglich der physischen Bewegung; frische Opening-Safety
-kann eine laufende eigene Abwärtsfahrt sofort ersetzen.
+Callbacks können weder Refresh noch Writer reaktivieren. blocking=True wartet
+auf den HA-Servicehandler, damit dessen Exception zum Adapter gelangt, nicht
+auf die physische Zielposition. Erst Handler-Erfolg meldet applied und startet
+Cooldown. Die danach laufende physische Abwärtsfahrt kann positive
+Opening-Safety sofort ersetzen. Handlerinterne unterdrückte Fehler kann der
+Caller nicht erkennen; dafür bleibt die unabhängige Bewegungsevidence zwingend.
 
 Normale Automatik wartet nach Restart auf stabile Istposition in Ruhe.
 Positiv belegte Opening-Safety darf sofort aufwärts reagieren, braucht aber
 weiter frische Position, Availability und Readiness sowie alle Arming-Gates.
 Eigene Fahrt endet erst nach tatsächlicher Zielerreichung und bestätigter Ruhe.
 Timeout oder Servicefehler behalten Own-Write-Zuordnung und melden Fehler;
-sie erzeugen keinen Manual Override. Nur spätere belegte Fremdänderung tut dies.
+sie erzeugen keinen Manual Override. Ein neues durchgehend frisches Ruhefenster
+von movement_recovery_seconds bricht den fehlerhaften Vorgang ab und übernimmt
+die Istposition als Baseline. movement_error bleibt sichtbar,
+recovery_status wird recovered. Nur eine spätere belegte Fremdänderung erzeugt
+Override. Keine Retryqueue; die aktuelle Entscheidung durchläuft alle Gates erneut.
 
-Cooldown beginnt bei Dispatch; identische Command-Historie sperrt Safety nicht.
+Cooldown beginnt nach Handler-Erfolg; identische Command-Historie sperrt Safety nicht.
 Pending wird bei jeder Gesamtentscheidung ersetzt, niemals später blind
 freigegeben. Kein alter TV-/PC-/Heat-Zielstapel. Unknown-Solar blockiert normale
 Aktuation auch ohne einzelne fehlende Pflichtfelder.
@@ -304,3 +311,13 @@ CORE_CONTRACTS_MIGRATION markiert die tatsächliche Adaptergrenze.
 Kein rekursiver Rename-Helper mehr. Operative Consumer- und Rollback-Schritte
 einschließlich verpflichtendem Legacy-Disable plus HA-Neustart stehen in
 AP3_CUTOVER.md. Diese Architektur führt selbst keinen Cutover aus.
+
+v0.6.1: ShadowRuntime besitzt zusätzlich EnvironmentalState mit drei
+booleschen Transitionen (Heat/Glare/Cold, pending und Startzeit). Die Engine
+erhält diesen Zustand und monotone Zeit explizit; bei gleicher
+Input-/Config-/Zustandsfolge bleibt sie deterministisch. Standalone-Evaluierung
+ohne diesen Zustand ist die rohe fachliche Kandidatenprüfung, keine produktive
+Runtime-Freigabe. Jeder produktive Shadow-/Live-Pfad übergibt den Zustand.
+Weder Profilpositionen noch Activity-Ziele werden darin gespeichert.
+Restart/Config-Replacement setzt ihn zurück. Hysterese/Zeiten:
+LASTENHEFT Abschnitt 17 und AP3_STABILIZATION.md.

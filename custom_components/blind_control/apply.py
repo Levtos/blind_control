@@ -100,14 +100,20 @@ class CoverApplyExecutor:
                     _ENTITY_ID_FIELD: entity_id,
                     _POSITION_FIELD: self.config.device_position(target),
                 },
-                blocking=False,
+                # Await HA handler acceptance, not physical target attainment.
+                blocking=True,
             )
         except Exception:  # Home Assistant integrations may raise arbitrary service errors.
             self.runtime.abort_own_write()
             self.runtime.cooldown_tracker.rollback_failed_write(target)
             _LOGGER.error("Blind Control cover apply failed; target remains unapplied")
             return _replace_apply(
-                snapshot,
+                replace(
+                    snapshot,
+                    movement_status=self.runtime.override_tracker.motion_status,
+                    movement_error=self.runtime.override_tracker.movement_error,
+                    recovery_status=self.runtime.override_tracker.recovery_status,
+                ),
                 replace(
                     decision,
                     status="error",
@@ -120,10 +126,17 @@ class CoverApplyExecutor:
             )
 
         self.runtime.cooldown_tracker.record_write(
-            target, now=monotonic_now, cooldown_seconds=self.config.apply_cooldown_seconds
+            target,
+            now=time.monotonic() if now is None else monotonic_now,
+            cooldown_seconds=self.config.apply_cooldown_seconds,
         )
         return _replace_apply(
-            replace(snapshot, movement_status=self.runtime.override_tracker.motion_status),
+            replace(
+                snapshot,
+                movement_status=self.runtime.override_tracker.motion_status,
+                movement_error=self.runtime.override_tracker.movement_error,
+                recovery_status=self.runtime.override_tracker.recovery_status,
+            ),
             replace(
                 decision,
                 status="applied",

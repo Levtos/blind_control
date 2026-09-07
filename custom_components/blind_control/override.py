@@ -15,13 +15,16 @@ class OverrideTracker:
     """Track only proven foreign position changes.
 
     The tracker observes facts and never performs a device write.  A writing
-    guard ends only on stable target evidence so an integration-owned movement and its
-    attribute churn cannot become a manual override.
+    guard ends on stable target evidence or controlled quiet recovery after an error,
+    so an integration-owned movement and its attribute churn cannot become an override.
     """
 
     tolerance: float = 3.0
     settle_seconds: float = 2.0
     timeout_seconds: float = 120.0
+    recovery_seconds: float = 30.0
+    movement_error: str | None = None
+    recovery_status: str = "none"
     motion_status: str = "idle"
     _quiet_position: float | None = None
     _quiet_since: float | None = None
@@ -37,6 +40,7 @@ class OverrideTracker:
             tolerance=config.position_tolerance,
             settle_seconds=config.position_settle_seconds,
             timeout_seconds=config.movement_timeout_seconds,
+            recovery_seconds=config.movement_recovery_seconds,
         )
 
     @property
@@ -54,6 +58,8 @@ class OverrideTracker:
         self.initialized = self.baseline is not None
         self._writing_until = 0.0
         self._writing_target = None
+        self.movement_error = None
+        self.recovery_status = "none"
         self._quiet_position = None
         self._quiet_since = None
         self.motion_status = "idle" if self.initialized else "baseline_pending"
@@ -88,6 +94,8 @@ class OverrideTracker:
         self._quiet_position = None
         self._quiet_since = None
         self.motion_status = "own_moving"
+        if self.recovery_status == "waiting_for_quiet":
+            self.recovery_status = "superseded_by_safety"
 
     def finish_own_write(self, position: float | None = None) -> None:
         """Close the guard after the owned movement has settled."""
@@ -98,13 +106,23 @@ class OverrideTracker:
         self._writing_until = 0.0
         self._writing_target = None
         self.motion_status = "idle"
+        if self.recovery_status in {"waiting_for_quiet", "superseded_by_safety"}:
+            self.recovery_status = "recovered"
 
     def abort_own_write(self) -> None:
         """Retain attribution after an ambiguous service failure."""
 
         # An error is not proof that the device rejected the command.
-        # Retain attribution until its actual target is stably reached.
-        self.motion_status = "command_error"
+        # Require a new quiet interval after failure, not pre-command evidence.
+        self._mark_error("command_error")
+
+    def _mark_error(self, reason: str) -> None:
+        if self.recovery_status != "waiting_for_quiet":
+            self._quiet_position = None
+            self._quiet_since = None
+        self.movement_error = reason
+        self.recovery_status = "waiting_for_quiet"
+        self.motion_status = reason
 
     def observe_position(
         self,
@@ -124,11 +142,19 @@ class OverrideTracker:
             self.motion_status = "position_unavailable"
             return self._override
         current_time = time.monotonic() if now is None else now
+        if (
+            self._writing_target is not None
+            and current_time >= self._writing_until
+            and self.recovery_status != "waiting_for_quiet"
+        ):
+            self._mark_error("target_not_reached")
         if moving:
             self._quiet_position = None
             self._quiet_since = None
             self.motion_status = (
-                "target_not_reached"
+                self.movement_error
+                if self.recovery_status == "waiting_for_quiet"
+                else "target_not_reached"
                 if self._writing_target is not None and current_time >= self._writing_until
                 else "own_moving"
                 if self._writing_target is not None
@@ -145,7 +171,15 @@ class OverrideTracker:
             and current_time - self._quiet_since >= self.settle_seconds
         )
         if self._writing_target is not None:
-            if abs(value - self._writing_target) <= self.tolerance and settled:
+            if self.recovery_status == "waiting_for_quiet":
+                self.motion_status = self.movement_error or "target_not_reached"
+                if (
+                    self._quiet_since is not None
+                    and current_time - self._quiet_since >= self.recovery_seconds
+                ):
+                    self.finish_own_write(value)
+                    self.recovery_status = "recovered"
+            elif abs(value - self._writing_target) <= self.tolerance and settled:
                 self.finish_own_write(value)
             else:
                 self.motion_status = (

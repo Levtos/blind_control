@@ -11,12 +11,14 @@ Coordinator-Callbacks mit weiteren Sonderfällen verbunden. Gewählt wurde B:
 begrenzter Umbau dieser Grenzen, ohne neue Arbitration-/Registry-Plattform.
 
 - Engine, Safety und Override verwenden ausschließlich logische Positionen.
-  Input-Adapter normalisiert Geräteposition und Fahrtrichtung; allein der
+  Input-Adapter normalisiert die numerische Geräteposition; HA-Fahrtrichtung
+  bleibt semantisch unverändert (v0.6.1-Nachtrag unten). Allein der
   Actuation-Adapter rechnet das fertig bestimmte Ziel zurück.
 - Cooldown startet bei Dispatch. Pending ist Diagnose der aktuellen
   Entscheidung; jede Auswertung ersetzt es. Keine Release-Methode für alte Ziele.
 - Eigene Bewegung endet erst mit stabiler tatsächlicher Zielposition in Ruhe.
   Die konfigurierbare Frist meldet Fehler, niemals einen Benutzer-Override.
+  v0.6.1 ergänzt den unten beschriebenen kontrollierten Fehlerabbruch in Ruhe.
 - Stop widerruft die konkrete Runtime endgültig. Adapter akzeptiert nur die
   neueste, unverbrauchte Freigabe derselben aktiven Konfiguration.
 - Hierarchie, Candidate-Keys, Owner-Inputs, redigierte Diagnose und admin-only
@@ -100,3 +102,92 @@ model_lux_per_watt (Default 120) ersetzen bisherige lokale Solar-Konstanten.
 Die festen Confidence-Evidence-Gewichte beschreiben die Modellstruktur,
 nicht eine wohnungsabhängige Freigabeschwelle. Der diffuse Faktor 0.5 ist die
 bestehende vereinfachte vertikale Flächenprojektion, keine neue Wetterlogik.
+
+## Fokussierter Hardening-Nachtrag v0.6.1
+
+Scope bleibt ausschließlich der Follow-up aus #3 zu PR #16 / v0.6.0 und
+Implementierungsabschluss 5575618821. Die folgenden Verträge supersedieren
+ältere Aussagen zu Fehlerabschluss, unmittelbaren Umweltwechseln und Text-Motion.
+Kein neues Fachfeature, kein Core-Contracts-Cutover, kein HA-Eingriff.
+
+| Review-Punkt | Ursache | Umsetzung / technische Regression |
+| --- | --- | --- |
+| High: echter Handlerfehler nicht erkannt | HA non-blocking startet den Handler in einer Task mit Exception-Catcher | blocking=True im einzigen Adapter; FakeServices modelliert Hintergrundfehler getrennt. Kein applied, Erfolgs-Cooldown oder actuation_executed bei Handler-Exception. |
+| High: Bewegungsfehler blockiert dauerhaft | Own-Target wurde ausschließlich bei erreichtem Soll gelöscht | Fehler latchen; neues frisches Ruhefenster bricht den Vorgang ab, rebasiert auf Ist und meldet recovered. Keine Zielqueue, aktuelle Entscheidung neu prüfen; positive Safety darf vorher ersetzen. |
+| High: Flatter-Schutz fehlt | unmittelbare Umwelt-Gates und Motor-Cooldown besitzen keine Hysterese | drei Umwelt-Transitionen, Cold-Lux-Band, Solar-/Confidence-Halteband, asymmetrische Stabilität. Profil-/Activity-Ziele werden nie gespeichert. |
+| Evidence: Achsen-Motion | Text wurde zusätzlich zu Zahlen invertiert, ohne HA-Vertrag | opening/closing unverändert aus HA; nur numerische Werte werden gespiegelt. Acht Kombinationen aus Motion und Achse plus Safety-Regressionspfad. |
+
+### HA-Primärevidence
+
+Geprüft am 07.09.2026: [Cover-Entity-Vertrag](https://developers.home-assistant.io/docs/core/entity/cover/),
+[ServiceRegistry.async_call](https://github.com/home-assistant/core/blob/e85b8a256e3b8e402eb862333cdf5738477ea8c3/homeassistant/core.py)
+und [CoverEntity.state](https://github.com/home-assistant/core/blob/e85b8a256e3b8e402eb862333cdf5738477ea8c3/homeassistant/components/cover/__init__.py).
+
+Zusätzlich gegen den aktuellen stabilen Core **2026.9.1** geprüft:
+[ServiceRegistry](https://github.com/home-assistant/core/blob/2026.9.1/homeassistant/core.py)
+und [CoverEntity](https://github.com/home-assistant/core/blob/2026.9.1/homeassistant/components/cover/__init__.py)
+besitzen dieselbe relevante Handler- und Motion-Semantik.
+Die ServiceRegistry erwartet bei blocking=True den Handler direkt; non-blocking
+verwendet eine Hintergrundtask mit Fehlerprotokollierung. Das bestätigt
+Handler-Erfolg, niemals physische Zielerreichung. Unterdrückt eine Geräteintegration
+intern einen Fehler, kann der Caller ihn nicht nachträglich als Exception erkennen.
+Position/Motion/Settling und Timeout bleiben deshalb unabhängig notwendig.
+
+CoverEntity.state verwendet is_opening/is_closing vor is_closed. Es berechnet
+keine Richtung aus current_cover_position. Die HA-Semantik ist eindeutig;
+eine abweichende Geräteintegration ist gesondert zu prüfen. Axis Inversion
+bezieht sich nur auf numerische Gerätewerte. Kein globales Erraten eines
+abweichenden Gerätevertrags; reale Motion-/Achsenplausibilität bleibt Shadow-Gate.
+
+### Recovery-Vertrag
+
+command_error oder target_not_reached bleibt movement_error. Während
+recovery_status=waiting_for_quiet sperrt die Motion-Grenze normale Applys.
+Ein **neues** ruhiges Istpositionsintervall nach dem Fehler ist notwendig;
+laufende Bewegung, fehlende/ungültige/stale Evidence und eine Positionsänderung
+außerhalb Toleranz verwerfen seinen Anfang. Default 30 s
+(movement_recovery_seconds, mindestens position_settle_seconds).
+Dieser konservative Abstand verhindert den Rückfall in die bisher mögliche
+sofortige Wiederholung; er ist eigenständig kalibrierbar und kein Fake-Cooldown-Erfolg.
+
+Danach: alte Attribution abbrechen, Istposition übernehmen, movement_status=idle,
+recovery_status=recovered. Der letzte Fehler bleibt lesbar bis zum nächsten
+Fehler oder Runtime-Neustart. Es gibt keine automatische Wiederholung des alten
+Ziels: allein die nächste aktuelle Gesamtentscheidung darf alle Gates durchlaufen.
+Safety kann die Attribution vorher ersetzen (superseded_by_safety); normaler
+erfolgreicher Safety-Abschluss führt ebenfalls zu recovered.
+
+### Umweltbänder und Stabilität
+
+Cold-Enter 400 lx / Exit 500 lx: die zusätzliche 100-lx-Lücke deckt die
+konkreten Schwankungen bis 420 lx ab, ohne eine weit entfernte Tageslichtschwelle
+einzuführen. Migration abweichender Altwerte: max(Enter + 100, Enter × 1.25).
+Dies ist eine konservative Kalibrierung, keine neue Sensorphysik.
+
+environment_hysteresis_ratio=0.8 senkt bei bereits aktivem Heat/Glare die
+Confidence-Halteschwelle und die minimale geometrische Inzidenz auf 80 % des
+Eintrittswerts: Heat 0.55/0.44, Glare 0.35/0.28, Inzidenz 0.05/0.04.
+Das kleine relative Band skaliert mit vorhandener Benutzerkalibrierung;
+0 als bewusst gespeicherte Confidence-Grenze bleibt 0.
+Die rohe Solar-Klassifikation bleibt unverändert sichtbar; unknown blockiert
+weiter normale Aktuation. Cloud Shadow bleibt schutzrelevant.
+
+environment_enter_seconds=10, environment_exit_seconds=120: Schutz entsteht
+schnell, einzelne Wolken oder kurze Entlastungen lösen ihn nicht. Gegenläufige
+Evidence verwirft die laufende Transition. Fehlende Quality unterbricht die
+Zeitmessung. Alle drei Modi verwenden dieselbe kleine Datenstruktur.
+Waking und harte Personen-/Betriebszustände, Quality/Failure, technische Safety
+und Writer-Gates warten nicht auf Umweltzeiten. Glare-Aktivität TV→PC→none
+wird immer aus dem aktuellen Contract gelesen; alte Profile werden nicht nachgeholt.
+Der vorhandene Recompute-Timer übernimmt die Zeitfortschreibung (normal 10 s);
+keine zusätzlichen Timer pro Modus. Grenzübertritt erfolgt bei der ersten
+frischen Auswertung nach der Mindestdauer.
+
+Alle neuen Werte sind nativ und im bestehenden Kalibrierbereich editierbar.
+Validierung, Config-v6-Kompatibilität und exakter Versionsrollback:
+[MIGRATION.md](MIGRATION.md). Neue Regressionen: tests/test_ap3_hardening.py.
+
+**Testing / Shadow / Not Live. Neues unabhängiges read-only Quality Gate aus
+frischem Kontext erforderlich.** Erst nach dessen PASS installiert Benni
+v0.6.1 und erhebt neue Shadow-Evidence. Keine Selbstzertifizierung durch diesen
+Implementierungsdurchgang; das spätere Cutover-/Live-Gate bleibt separat.

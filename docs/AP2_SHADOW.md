@@ -440,18 +440,21 @@ Die vorigen Versionsabschnitte beschreiben AP2-Provenienz. Aktuell gelten
 AP3_STABILIZATION.md, CONTRACTS.md Abschnitt 8 und AP3_CUTOVER.md.
 Ein logischer Profilwert ersetzt getrennte Normal-/Invertiert-Eingaben.
 Cloud Cover ist 0–100 %, model_lux_ratio ein separates Helligkeitsverhältnis.
-Cold benötigt frischen Lux < cold_lux_threshold (Default 400 lx) und die
-konfigurierbare Außentemperaturschwelle; Off-Window allein reicht nicht.
+Cold benötigt zum Eintritt frischen Lux < cold_lux_enter_threshold (Default
+400 lx) und die konfigurierbare Außentemperaturschwelle; Off-Window allein
+reicht nicht. v0.6.1 ergänzt Exit 500 lx und 10/120 s Stabilisierung.
 Temperaturtrends sind v1-Diagnose, kein heimlicher Heat-/Cool-Air-Entscheider.
 private_time bleibt kanonischer Core-State-Input ohne zusätzlichen Waking-Filter.
 
-Gestoppte Runtimes bleiben widerrufen. Own Write endet erst mit tatsächlichem
-Ziel in bestätigter Ruhe. Safety wiederholt aus aktueller Istabweichung und
-ersetzt eine Abwärtsfahrt sofort. Normaler Cooldown startet erst bei Dispatch;
+Gestoppte Runtimes bleiben widerrufen. Own Write endet erfolgreich mit tatsächlichem
+Ziel in bestätigter Ruhe; Fehler dürfen nach neuem Recovery-Ruhefenster auf Ist
+abgebrochen werden (AP3_STABILIZATION.md). Safety wiederholt aus aktueller Istabweichung und
+ersetzt eine Abwärtsfahrt sofort. Normaler Cooldown startet erst bei HA-Handler-Erfolg;
 alte Zwischenziele werden nie nachgeholt. Solar unknown blockiert neue
 Automatikfahrten. Shadow bleibt ohne erreichbaren Cover-Write.
 
-Die v0.5.1-Shadow-Evidence ist historisch. Neue v0.6.0-Installation/Shadow und
-unabhängiges Quality Gate bleiben offen; der Implementierer setzt kein PASS.
+Die v0.5.1-Shadow-Evidence ist historisch. Erst neues unabhängiges Quality Gate
+mit PASS, danach Bennis v0.6.1-Installation/Shadow; der Implementierer setzt kein PASS.
 
-Die historischen 89/91-Feldzahlen oben gelten nur für AP2/v5. Config v6 verwendet 79/81 sichtbare Felder mit nur einem logischen Profilwert.
+Die historischen 89/91-Feldzahlen oben gelten nur für AP2/v5. Config v6 verwendet
+ab v0.6.1 84/86 sichtbare Felder mit nur einem logischen Profilwert.

@@ -798,7 +798,7 @@ class CoordinatorTests(unittest.TestCase):
             )
             self.assertEqual(len(registry.state_callbacks), 1)
             self.assertEqual(len(registry.time_callbacks), 1)
-            self.assertEqual(registry.intervals[0], timedelta(seconds=60))
+            self.assertEqual(registry.intervals[0], timedelta(seconds=10))
             self.states["sensor.bio_state"].state = "sleeping"
             registry.state_callbacks[0](None)
             await hass.tasks[-1]
@@ -895,7 +895,8 @@ class CoordinatorTests(unittest.TestCase):
                 FakeHass({}), FakeEntry(), config, ShadowRuntime(config)
             )
             await coordinator.async_start()
-            self.assertEqual(registry.intervals[0], timedelta(seconds=300))
+            self.assertEqual(config.freshness_timer_seconds(), 300)
+            self.assertEqual(registry.intervals[0], timedelta(seconds=10))
             coordinator.stop()
 
         with fake_home_assistant_event_modules() as registry:

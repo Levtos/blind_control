@@ -55,8 +55,8 @@ technical release and runbook; it is not a live cutover.
   contract-based installation-local prefill sets only resolved required or
   conditional owner bindings, while user choices and intentionally empty
   optional slots remain untouched; the panel shows only redacted readiness
-  states for the v6 79-field contract (including the private Open-Meteo API
-  URL); AP3 adds two OptionsFlow-only runtime/owner controls, for 81 fields in
+  states for the v6 84-field contract (including the private Open-Meteo API
+  URL); AP3 adds two OptionsFlow-only runtime/owner controls, for 86 fields in
   OptionsFlow while initial setup remains forced to safe Shadow defaults
 - an isolated internal Open-Meteo coordinator performs one read-only request
   for current DNI and diffuse radiation every 900 seconds; it is configured
@@ -101,6 +101,21 @@ Testing / Shadow / Not Live. Ein logischer Profilwert ersetzt die getrennten
 Achsenprofile; die Migration verwendet bisherige Normal-Werte und erhält die
 alten Paare. Cold braucht frischen Lux unter konfigurierbaren 400 lx.
 Safety, Runtime-Stop und evidenzbasierter Bewegungsabschluss sind abgesichert.
-Vor Installation Config-Backup; vor Cutover neues unabhängiges Quality Gate.
+Historischer v0.6.0-Stand; der folgende Hardening-Vertrag ist aktuell.
 Details: [Entscheidung](docs/AP3_STABILIZATION.md),
 [Config-Migration](docs/MIGRATION.md), [Cutover/Rollback](docs/AP3_CUTOVER.md).
+
+## Hardening v0.6.1
+
+Reale HA-Handlerfehler werden mit blocking=True erkannt; physische
+Zielerreichung bleibt separat zu belegen. Fehlerhafte eigene Bewegungen können
+nach frischer stabiler Ruhe kontrolliert auf die Istposition rebasieren.
+Heat/Glare/Cold erhalten Hysterese und asymmetrische Stabilisierung unabhängig
+vom Apply-Cooldown. opening/closing werden bei numerischer Achseninvertierung
+nicht gespiegelt. Config v6 lädt v0.6.0 ohne Verlust bestehender Kalibrierung;
+neue Werte und Versionsrollback stehen in MIGRATION.md.
+
+**Testing / Shadow / Not Live.** Neues unabhängiges read-only Quality Gate aus
+frischem Kontext erforderlich. Erst nach PASS installiert Benni v0.6.1 und
+sammelt neue Shadow-Evidence. Keine Installation oder HA-Live-Änderung durch
+diese technische Veröffentlichung.

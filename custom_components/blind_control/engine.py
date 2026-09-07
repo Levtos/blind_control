@@ -25,6 +25,7 @@ from .contracts import (
     SolarExposureState,
 )
 from .cooldown import CooldownTracker
+from .environment import EnvironmentalState
 from .solar import calculate_solar_exposure
 
 DECISION_CONTRACT_VERSION = "blind_control.decision.v4"
@@ -66,6 +67,7 @@ class DecisionEngine:
         runtime_ready: bool = True,
         motion_status: str = "idle",
         own_target: float | None = None,
+        environment_state: EnvironmentalState | None = None,
     ) -> DecisionTrace:
         override = override or ManualOverride.inactive()
         solar = calculate_solar_exposure(inputs, self.config)
@@ -76,7 +78,7 @@ class DecisionEngine:
         candidates.append(self._base_candidate(inputs))
         candidates.extend(self._mode_candidates(inputs, waking=waking, override=override))
 
-        environment = self._environment_candidates(inputs, solar)
+        environment = self._environment_candidates(inputs, solar, environment_state, now or 0.0)
         if waking:
             for candidate in environment:
                 if candidate.key in {
@@ -198,6 +200,43 @@ class DecisionEngine:
                 closing=inputs.cover_motion.usable and inputs.cover_motion.value == "closing",
             )
         )
+        # Do not open before an entering protection has finished its dwell.
+        # Hard modes and technical gates are evaluated independently above.
+        if (
+            environment_state is not None
+            and not waking
+            and winner is not None
+            and winner.candidate_key
+            in OPENING_CANDIDATES
+            | {"heat_protection", "glare_general", "glare_tv", "glare_pc", "cold_insulation"}
+            and safety.status == "ready"
+            and not failure.active
+            and apply.status in {"live_ready", "shadow_ready"}
+            and effective_target is not None
+        ):
+            pending_targets = []
+            for state, profile in (
+                (environment_state.heat, "heat_protection"),
+                (environment_state.cold, "cold_insulation"),
+            ):
+                if state.pending is True:
+                    pending_targets.append(self.config.target(profile))
+            if environment_state.glare.pending is True:
+                for activities, profile in (
+                    (SCREEN_ACTIVITY, "glare_general"),
+                    (TV_ACTIVITY, "glare_tv"),
+                    (PC_ACTIVITY, "glare_pc"),
+                ):
+                    if _activity(inputs, activities):
+                        pending_targets.append(self.config.target(profile))
+            if pending_targets and effective_target > min(pending_targets):
+                apply = replace(
+                    apply,
+                    status="blocked",
+                    reason="environment_protection_stabilizing",
+                    approved_target=None,
+                    write_path_reachable=False,
+                )
         reasons = list(self._reasons(candidates, paused, fachlicher_target, failure, safety, apply))
         return DecisionTrace(
             version=DECISION_CONTRACT_VERSION,
@@ -352,14 +391,56 @@ class DecisionEngine:
         self,
         inputs: BlindControlInputs,
         solar: SolarExposure,
+        state: EnvironmentalState | None = None,
+        now: float = 0.0,
     ) -> list[Candidate]:
         storm = self._storm_active(inputs)
-        heat, heat_reason = self._heat_active(inputs, solar, storm)
-        glare_relevant = self._glare_relevant(solar)
+        heat, heat_reason = self._heat_active(
+            inputs, solar, storm, held=bool(state and state.heat.active)
+        )
+        glare_relevant = self._glare_relevant(solar, held=bool(state and state.glare.active))
+        cold = self._cold_active(inputs, solar, held=bool(state and state.cold.active))
+        if state is not None:
+            solar_valid = not solar.quality_blockers and solar.state != SolarExposureState.UNKNOWN
+            for transition, desired, valid in (
+                (
+                    state.heat,
+                    heat,
+                    solar_valid
+                    and inputs.indoor_temperature.usable
+                    and inputs.outdoor_temperature.usable,
+                ),
+                (state.glare, glare_relevant, solar_valid),
+                (state.cold, cold, inputs.outdoor_lux.usable and inputs.outdoor_temperature.usable),
+            ):
+                transition.observe(
+                    desired,
+                    now=now,
+                    enter=self.config.environment_enter_seconds,
+                    exit=self.config.environment_exit_seconds,
+                    valid=valid,
+                )
+            heat = (
+                state.heat.active
+                and solar_valid
+                and inputs.indoor_temperature.usable
+                and inputs.outdoor_temperature.usable
+            )
+            glare_relevant = state.glare.active and solar_valid
+            cold = (
+                state.cold.active
+                and inputs.outdoor_lux.usable
+                and inputs.outdoor_temperature.usable
+            )
+            if state.heat.pending is not None:
+                heat_reason = (
+                    "environment_enter_pending"
+                    if state.heat.pending
+                    else "environment_exit_pending"
+                )
         glare_general = glare_relevant and _activity(inputs, SCREEN_ACTIVITY)
         glare_tv = glare_relevant and _activity(inputs, TV_ACTIVITY)
         glare_pc = glare_relevant and _activity(inputs, PC_ACTIVITY)
-        cold = self._cold_active(inputs, solar)
         cool_air = self._cool_air_active(inputs)
         return [
             self._candidate(
@@ -448,7 +529,7 @@ class DecisionEngine:
             ),
         ]
 
-    def _glare_relevant(self, solar: SolarExposure) -> bool:
+    def _glare_relevant(self, solar: SolarExposure, *, held: bool = False) -> bool:
         """Use an independent window-solar signal for screen glare."""
 
         return (
@@ -458,7 +539,18 @@ class DecisionEngine:
                 SolarExposureState.CLOUD_SHADOW,
                 SolarExposureState.DIFFUSE_BRIGHT,
             }
-            and solar.confidence >= self.config.glare_confidence_threshold
+            or self._within_solar_hold_band(solar, held)
+        ) and solar.confidence >= self.config.glare_confidence_threshold * (
+            self.config.environment_hysteresis_ratio if held else 1.0
+        )
+
+    def _within_solar_hold_band(self, solar: SolarExposure, held: bool) -> bool:
+        return (
+            held
+            and solar.state == SolarExposureState.SOLAR_NOT_ON_WINDOW
+            and solar.incidence_factor is not None
+            and solar.incidence_factor
+            >= self.config.minimum_incidence_factor * self.config.environment_hysteresis_ratio
         )
 
     def _heat_active(
@@ -466,6 +558,8 @@ class DecisionEngine:
         inputs: BlindControlInputs,
         solar: SolarExposure,
         storm: bool,
+        *,
+        held: bool = False,
     ) -> tuple[bool, str]:
         if not inputs.indoor_temperature.usable and not inputs.outdoor_temperature.usable:
             return False, "heat_temperature_not_fresh"
@@ -480,13 +574,15 @@ class DecisionEngine:
             SolarExposureState.DIRECT_SUN,
             SolarExposureState.CLOUD_SHADOW,
             SolarExposureState.DIFFUSE_BRIGHT,
-        }
+        } or self._within_solar_hold_band(solar, held)
         if storm:
             return False, "storm_approaching_relaxes_heat"
         if (
             thermal_load
             and solar_possible
-            and solar.confidence >= self.config.heat_confidence_threshold
+            and solar.confidence
+            >= self.config.heat_confidence_threshold
+            * (self.config.environment_hysteresis_ratio if held else 1.0)
         ):
             return True, "thermal_load_with_window_solar_relevance"
         if not thermal_load:
@@ -532,12 +628,18 @@ class DecisionEngine:
             >= self.config.cool_air_delta
         )
 
-    def _cold_active(self, inputs: BlindControlInputs, solar: SolarExposure) -> bool:
+    def _cold_active(
+        self, inputs: BlindControlInputs, solar: SolarExposure, *, held: bool = False
+    ) -> bool:
         return (
             inputs.outdoor_temperature.usable
             and float(inputs.outdoor_temperature.value) <= self.config.cold_outdoor_threshold
             and inputs.outdoor_lux.usable
-            and float(inputs.outdoor_lux.value) < self.config.cold_lux_threshold
+            and (
+                float(inputs.outdoor_lux.value) <= self.config.cold_lux_exit_threshold
+                if held
+                else float(inputs.outdoor_lux.value) < self.config.cold_lux_enter_threshold
+            )
         )
 
     def _safety(

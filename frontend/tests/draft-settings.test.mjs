@@ -23,6 +23,27 @@ const settings = () => ({
   calibration_defaults: { heat_outdoor_threshold: 30 },
 });
 
+test('environment calibration survives polling and confirmed save', () => {
+  const initial = rebaseDraft(null, null, settings());
+  const calibration = {
+    cold_lux_enter_threshold: 350,
+    cold_lux_exit_threshold: 600,
+    environment_hysteresis_ratio: 0.75,
+    environment_enter_seconds: 15,
+    environment_exit_seconds: 150,
+    movement_recovery_seconds: 45,
+  };
+  Object.assign(initial.draftSettings.calibration_defaults, calibration);
+  const poll = rebaseDraft(initial.draftSettings, initial.confirmedRevision, settings());
+  assert.equal(poll.dirty, true);
+  const confirmed = cloneSettings(poll.draftSettings);
+  const saved = settleSave(poll.draftSettings, poll.confirmedRevision, confirmed);
+  assert.equal(saved.saved, true);
+  for (const [key, value] of Object.entries(calibration)) {
+    assert.equal(saved.draftSettings.calibration_defaults[key], value);
+  }
+});
+
 test('poll during editing preserves the local profile draft', () => {
   const initial = rebaseDraft(null, null, settings());
   initial.draftSettings.profiles.open.logical = 73;
