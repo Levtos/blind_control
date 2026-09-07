@@ -13,7 +13,7 @@
   } from './lib/draft-settings.js';
 
   type Tab = 'overview' | 'diagnosis' | 'settings';
-  type ProfileAxis = 'normal' | 'inverted';
+  type ProfileAxis = 'logical';
 
   let {
     snapshot,
@@ -58,6 +58,16 @@
 
   const labels: Record<string, string> = {
     normal: 'Regulär',
+    cold_lux_threshold: 'Cold: Dunkelheit unter (lx)',
+    cold_outdoor_threshold: 'Cold: Außentemperatur bis (°C)',
+    heat_indoor_threshold: 'Heat: Innentemperatur ab (°C)',
+    heat_outdoor_threshold: 'Heat: Außentemperatur ab (°C)',
+    cloud_cover_threshold: 'Wolkenschatten: Bewölkung ab (%)',
+    model_lux_ratio: 'Beobachtete / erwartete Helligkeit (0–1)',
+    minimum_incidence_factor: 'Min. Einfallsfaktor (0–1)',
+    model_lux_per_watt: 'Modellhelligkeit (lx pro W/m²)',
+    position_settle_seconds: 'Ruheposition bestätigen (s)',
+    movement_timeout_seconds: 'Zielerreichung: Fehlerfrist (s)',
     manual: 'Manuell',
     failure: 'Fehler',
     neutral: 'Neutral',
@@ -308,7 +318,9 @@
           <div><dt>Opening</dt><dd>{statusLabel(snapshot.overview.technical.opening_state)}</dd></div>
           <div><dt>Safety</dt><dd class={statusTone(recordValue(snapshot.overview.technical.safety, 'status'))}>{recordValue(snapshot.overview.technical.safety, 'status')}</dd></div>
           <div><dt>Apply</dt><dd class={statusTone(recordValue(snapshot.overview.technical.apply, 'status'))}>{recordValue(snapshot.overview.technical.apply, 'status')}</dd></div>
-          <div><dt>Coverposition</dt><dd>{positionLabel(snapshot.overview.cover_position)}</dd></div>
+          <div><dt>Istposition (logisch)</dt><dd>{positionLabel(snapshot.overview.cover_position)}</dd></div>
+          <div><dt>Geräteziel</dt><dd>{positionLabel(snapshot.overview.physical_target)}</dd></div>
+          <div><dt>Bewegung</dt><dd>{statusLabel(snapshot.overview.movement_status)}</dd></div>
           <div><dt>Cover bereit</dt><dd>{householdLabel(snapshot.overview.technical.cover_ready)}</dd></div>
           <div><dt>Manual Override</dt><dd>{snapshot.overview.override.active ? 'aktiv' : 'inaktiv'}</dd></div>
           <div><dt>Betriebsmodus</dt><dd>{snapshot.settings.runtime_mode}</dd></div>
@@ -432,17 +444,17 @@
       </article>
 
       <article class="card span-2">
-        <div class="card-heading"><div><p class="eyebrow">PROFILE</p><h2>Normal / Invertiert</h2></div><div class="button-row"><span class="muted">{draftDirty ? 'Ungespeicherter Entwurf' : 'Serverstand bestätigt'}</span><button class="quiet-button" type="button" onclick={resetDraft}>Entwurf zurücksetzen</button><button class="primary-button" type="button" disabled={saving || !onSaveSettings} onclick={() => void saveDraft()}>{saving ? 'Speichere …' : 'Konfiguration speichern'}</button></div></div>
+        <div class="card-heading"><div><p class="eyebrow">PROFILE</p><h2>Logische Zielposition</h2></div><div class="button-row"><span class="muted">{draftDirty ? 'Ungespeicherter Entwurf' : 'Serverstand bestätigt'}</span><button class="quiet-button" type="button" onclick={resetDraft}>Entwurf zurücksetzen</button><button class="primary-button" type="button" disabled={saving || !onSaveSettings} onclick={() => void saveDraft()}>{saving ? 'Speichere …' : 'Konfiguration speichern'}</button></div></div>
         {#if saveError}
           <p class="callout failure-callout">{saveError}</p>
         {/if}
         <div class="profile-table" role="table" aria-label="Positionsprofile">
-          <div class="profile-row profile-header" role="row"><span>Profil</span><span>Normal</span><span>Invertiert</span></div>
+          <div class="profile-row profile-header" role="row"><span>Profil</span><span>Logisch</span><span>Invertiert (abgeleitet)</span></div>
           {#each Object.entries(editableSettings.profiles) as [key, profile]}
             <div class="profile-row" role="row">
               <strong>{labelFor(key)}</strong>
-              <input aria-label={`${key} normal`} type="number" min="0" max="100" value={profile.normal} onchange={(event) => updateProfile(key, 'normal', event.currentTarget.valueAsNumber)} />
-              <input aria-label={`${key} invertiert`} type="number" min="0" max="100" value={profile.inverted} onchange={(event) => updateProfile(key, 'inverted', event.currentTarget.valueAsNumber)} />
+              <input aria-label={`${key} logisch`} type="number" min="0" max="100" value={profile.logical} onchange={(event) => updateProfile(key, 'logical', event.currentTarget.valueAsNumber)} />
+              <output>{100 - profile.logical} %</output>
             </div>
           {/each}
         </div>
@@ -452,7 +464,7 @@
         <div class="card-heading"><div><p class="eyebrow">KALIBRIERUNG</p><h2>Shadow-Defaults</h2></div><span class="muted">später trace-basiert kalibrieren</span></div>
         <div class="calibration-grid">
           {#each Object.entries(editableSettings.calibration_defaults) as [key, value]}
-            <label>{labelFor(key)}<input type="number" min="0" value={value} onchange={(event) => updateCalibration(key, event)} /></label>
+            <label>{labelFor(key)}<input type="number" min={key.endsWith("_temperature_threshold") || ["heat_indoor_threshold", "heat_outdoor_threshold", "cold_outdoor_threshold"].includes(key) ? -100 : 0} step="any" value={value} onchange={(event) => updateCalibration(key, event)} /></label>
           {/each}
         </div>
       </article>

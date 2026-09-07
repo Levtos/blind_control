@@ -158,7 +158,7 @@ Activity-/Belegungs- sowie Lux-/Solar-Evidence wird als konkreter
 Failure hält die Laufzeit nur eine nachweislich sichere Position; ohne diesen
 Nachweis wird Apply blockiert. Sie erzeugt niemals einen pauschalen
 Open-Fallback. Positiv bestätigte
-Opening-Safety verwendet weiterhin das achsenspezifisch konfigurierte
+Opening-Safety verwendet weiterhin das logisch konfigurierte
 Safety-Profil.
 
 Die installierbare Panel-UX erhält den offiziellen `hass`-Context und konsumiert
@@ -263,43 +263,44 @@ bevorzugt dedizierte boolesche Privacy-Contracts mit veröffentlichtem
 `*_privacy_candidate`-Slug, `derived.privacy` und explizitem `output_type`,
 ohne installationsspezifische Entity-IDs zu kennen.
 
-## 10. AP3 Apply-Grenze
+## 10. AP3 Apply-Grenze und Stabilisierung
 
-AP3 ersetzt keine Owner-Wahrheit und verändert die fachliche Engine nicht.
-`DecisionEngine` erzeugt weiterhin nur einen versionierten Apply-Entscheid.
-`CoverApplyExecutor` ist der einzige Adapter, der einen bereits freigegebenen
-Zielwert an Home Assistant übergeben kann.
+Die Entscheidung vom 07.09.2026 ist in AP3_STABILIZATION.md begründet.
+Der begrenzte Umbau trennt logische Zielentscheidung, tatsächlich beobachtete
+Bewegung und Dispatch. Öffentliche Hierarchie und Owner bleiben bestehen.
 
-```text
-Decision v3
-  -> Safety / Failure / Override / Restart / Cooldown
-  -> runtime_mode == live
-  -> apply_owner == blind_control
-  -> apply_enabled == true
-  -> CoverApplyExecutor (one writer adapter)
-```
+Owner-bindings → Input-Adapter (logische Position/Motion) → Decision v4 →
+Quality / Safety / Override / Ruhe-Baseline / Cooldown →
+live + blind_control + Apply an → einziger CoverApplyExecutor →
+physisches Gerätetarget (gegebenenfalls 100 - logical).
 
-Jedes Gate failt geschlossen. Shadow erzeugt einen vollständigen Trace, aber
-`write_path_reachable=false`. Ein Live-Modus mit Legacy-Owner bleibt ebenfalls
-blockiert. Die Owner-Auswahl ist die explizite Handover-Bestätigung: Sie darf
-erst gespeichert werden, nachdem der alte Writer im separaten Cutover-Fenster
-pausiert und dessen Stillstand geprüft wurde.
+Der Adapter überprüft unmittelbar vor dem Servicecall aktive Runtime,
+identische aktuelle Konfiguration und neueste unverbrauchte Snapshot-Freigabe.
+Stop widerruft die Runtime vor Listener-/Task-Cleanup dauerhaft. Alte queued
+Callbacks können weder Refresh noch Writer reaktivieren. Der Servicecall ist
+nicht blockierend bezüglich der physischen Bewegung; frische Opening-Safety
+kann eine laufende eigene Abwärtsfahrt sofort ersetzen.
 
-Der Coordinator etabliert nach jedem Setup zunächst ausschließlich die
-Coverpositions-Baseline. Die erste Auswertung kann deshalb nie fahren. Der
-Writing Guard beginnt unmittelbar vor dem einzigen blockierenden HA-Service-
-Aufruf, übernimmt Zwischenpositionen als eigene Bewegung und endet beim
-beobachteten Ziel. Eine Änderung außerhalb dieses Guards wird als fremder
-Override behandelt. Safety darf Override und Cooldown überstimmen; Failure,
-fehlende Readiness und das absolute Apply-Gate bleiben blockierend.
+Normale Automatik wartet nach Restart auf stabile Istposition in Ruhe.
+Positiv belegte Opening-Safety darf sofort aufwärts reagieren, braucht aber
+weiter frische Position, Availability und Readiness sowie alle Arming-Gates.
+Eigene Fahrt endet erst nach tatsächlicher Zielerreichung und bestätigter Ruhe.
+Timeout oder Servicefehler behalten Own-Write-Zuordnung und melden Fehler;
+sie erzeugen keinen Manual Override. Nur spätere belegte Fremdänderung tut dies.
 
-Die Vertragsstände sind `blind_control.decision.v3`,
-`blind_control.runtime.v2`, `blind_control.ux.v3` und
-`blind_control.automation_projection.v2`. Modus und Apply-Owner sind in der
-redigierten Diagnose sichtbar, jedoch ausschließlich im nativen OptionsFlow
-änderbar. Das Panel besitzt weiterhin keinen Command-Pfad.
+Cooldown beginnt bei Dispatch; identische Command-Historie sperrt Safety nicht.
+Pending wird bei jeder Gesamtentscheidung ersetzt, niemals später blind
+freigegeben. Kein alter TV-/PC-/Heat-Zielstapel. Unknown-Solar blockiert normale
+Aktuation auch ohne einzelne fehlende Pflichtfelder.
 
-Rename und Consumer-Migration sind keine Startup-Migration. Die pure
-Migrationshilfe ersetzt nur exakte Entity-Referenzen und kann dieselbe Änderung
-deterministisch umkehren. Die ausführbare Reihenfolge und das redigierte
-Consumer-Inventar stehen in [AP3_CUTOVER.md](AP3_CUTOVER.md).
+Vertragsstände: blind_control.decision.v4, blind_control.runtime.v3,
+blind_control.ux.v4, blind_control.automation_projection.v3, Config v6.
+fachlicher_target/effective_target/cover_position sind logisch;
+physical_target ist das Gerätetarget, movement_status die Bewegungsdiagnose.
+Panel bleibt ohne Cover-/Owner-/Apply-Command, native Options speichern Gates.
+
+Core-Contracts-Readiness ergab Variante B; direkte Bindings bleiben.
+CORE_CONTRACTS_MIGRATION markiert die tatsächliche Adaptergrenze.
+Kein rekursiver Rename-Helper mehr. Operative Consumer- und Rollback-Schritte
+einschließlich verpflichtendem Legacy-Disable plus HA-Neustart stehen in
+AP3_CUTOVER.md. Diese Architektur führt selbst keinen Cutover aus.

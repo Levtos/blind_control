@@ -1,9 +1,11 @@
 # Lastenheft Blind Control
 
-**Dokumentstatus:** v0.2 – fachlich grundsätzlich abgenommen, Ergänzungen für frühen Produktstart  
-**Stand:** 15. August 2026  
+**Dokumentstatus:** v0.3 – fachlich grundsätzlich abgenommen, Ergänzungen für frühen Produktstart
+**Stand:** 07. September 2026
 **Zielprodukt:** Home-Assistant-Integration `blind_control`  
 **Übergeordnete Entscheidung:** [Levtos/control#31](https://github.com/Levtos/control/issues/31)
+
+Die fachliche Fortschreibung vom 07.09.2026 ist in [AP3_STABILIZATION.md](AP3_STABILIZATION.md) begründet und ersetzt widersprechende frühere Entscheidungen.
 
 ## 1. Zweck des Dokuments
 
@@ -26,7 +28,7 @@ Das System muss:
 - vollständig konfigurierbare Profilpositionen besitzen,
 - eine vollwertige, in der UI steuerbare Achsen-Invertierfunktion besitzen,
 - zunächst ohne Aktorzugriff im Shadow-Modus gegen die alte Integration laufen,
-- erst nach Bennis `Live Verified` produktiver Apply-Owner werden.
+- erst nach Bennis separatem Fahrt-/Cutover-Gate produktiver Apply-Owner werden; die Legacy erst nach Live Verified entfernen.
 
 Blind Control ist ein deterministisches Regelsystem. Ein nicht erklärbares KI- oder Blackbox-Modell ist nicht Bestandteil des Zielbilds.
 
@@ -83,6 +85,8 @@ Insbesondere gilt für `waking`:
 - Blind Control berechnet keine eigene Vorweckzeit. Beginn und Ende von `waking` kommen ausschließlich aus dem kanonischen Core-State-/Wake-Contract.
 - Eine alte oder konkurrierende Weckquelle darf das Rollo nicht auslösen.
 - Technische Safety, ein nicht fahrbereiter Aktor und eine ausdrücklich deaktivierte Automatik bleiben auch während `waking` übergeordnet.
+
+private_time bleibt kanonischer Core-State-Input einschließlich vorgelagerter Zeitbegrenzung. Blind Control fügt keinen Waking-Sonderfall gegen diesen Zustand hinzu; Waking-Exklusivität betrifft die genannten Umwelt-/Privacy-Anforderungen.
 
 ## 5. Eingänge und Ownership
 
@@ -162,6 +166,8 @@ Mindestens vorzusehen:
 
 PlayStation erhält kein eigenes Glare-Profil. PlayStation, andere Konsolen und TV-/Streaming-Nutzung verwenden `glare_tv`, weil sie denselben Bildschirm nutzen. PC-Nutzung verwendet `glare_pc`.
 
+Cloud Cover wird durchgängig als 0–100 % geführt. Bei Solar-Aggregat unknown bleibt automatische Aktuation blockiert; Unsicherheit erzeugt keine neue Base-Daylight-Öffnung. Positive Opening-Safety bleibt unabhängig.
+
 ## 8. Solar Exposure
 
 ### 8.1 Zweck
@@ -238,8 +244,8 @@ Die Bewertung berücksichtigt mindestens:
 - thermischen Schutzbedarf,
 - Innen- und Außentemperatur,
 - Solar Exposure auf der Fensterfläche,
-- Tages- und Saisonkontext,
-- Temperatur- und Luxentwicklung,
+- kanonischen Tageskontext; keine eigene Monats-/Saisonmatrix in v1,
+- Luxentwicklung; Temperaturtrends in v1 nur optionale diagnostische Evidence,
 - Cloud Shadow,
 - Cooling Opportunity.
 
@@ -275,24 +281,21 @@ Cooling Opportunity wird zweistufig modelliert.
 
 ### 11.2 `cool_air_available`
 
-- Tatsächlich nutzbare kühlere Luft wird aus Innen-/Außentemperatur, Temperaturtrend und Luftbewegung abgeleitet.
+- Tatsächlich nutzbare kühlere Luft wird in v1 aus Innen-/Außentemperaturdifferenz und belegter Luftbewegung abgeleitet. Temperaturtrends sind optionale Diagnose für spätere v2-Arbeit; ohne definierte Einheit/Schwelle wird keine Gewichtung erfunden.
 - Ist `cool_air_available` aktiv und besteht keine schließende Anforderung, darf vollständig geöffnet werden.
 - Die Diagnose muss unterscheiden, ob Heat wegen Wetterumschwung oder wegen tatsächlich verfügbarer kühler Luft freigegeben wurde.
 
 ## 12. Cold Insulation
 
-Cold Insulation ist ein eigenständiger Umweltbedarf.
+Cold ist ein eigenständiger Umweltbedarf, getrennt von Heat. Tagsüber soll
+natürliches Licht einfallen, bei echter Dunkelheit darf isoliert werden.
 
-Sie darf aktiv werden, wenn mindestens folgende Sachlage belegt ist:
-
-- draußen ist es dunkel,
-- die Außentemperatur ist kalt beziehungsweise thermisch ungünstiger als innen,
-- es besteht kein sinnvoll nutzbarer solarer Wärmeeintrag,
-- technische Opening-Sicherheit erlaubt das Absenken.
-
-Die Zielposition ist vollständig konfigurierbar. Als initialer Vorschlag darf dieselbe Position wie bei Sleep verwendet werden; sie ist keine fest verdrahtete Geschäftsregel.
-
-Während `waking` wird Cold Insulation überstimmt. Eine spätere Funktion `passive_solar_gain`, die an kalten sonnigen Tagen gezielt öffnet, ist eine mögliche Erweiterung und nicht Teil der ersten Abnahme.
+Positive Aktivierung benötigt frischen outdoor_lux < cold_lux_threshold
+(Default 400 lx) sowie frische Außentemperatur <= cold_outdoor_threshold
+(Default 8 °C). Beide Schwellen sind konfigurierbar, auch negative Temperaturen.
+Bei >=400 lx gilt mit Defaultschwelle kein Cold, auch bei Minusgraden.
+Unknown/stale Lux, solar_not_on_window allein oder ein fallender Temperaturtrend
+dürfen Cold nicht aktivieren. Technische Safety bleibt übergeordnet.
 
 ## 13. Öffnungsgründe und Fallback
 
@@ -309,35 +312,34 @@ Das Fehlen eines aktiven Heat- oder Glare-Profils ist allein kein ausreichender 
 
 ## 14. Achsen-Invertierung und konfigurierbare Positionen
 
-Alle fachlichen Zielpositionen bleiben wie in der bisherigen Oberfläche manuell editierbar.
+Jeder Modus besitzt genau einen editierbaren **logischen** Wert 0–100 %:
+0 geschlossen, 100 offen. Alle Kandidaten, Gewinner und Safety arbeiten auf
+dieser Achse. Invertierung verändert weder Gewinner noch Priorität, Modus
+oder Suppression.
 
-Anforderungen:
+Erst an der Geräte-/Apply-Grenze gilt:
+physical_target = logical_target bei axis_inverted=false,
+physical_target = 100 - logical_target bei axis_inverted=true.
+Eingehende Geräteposition und Fahrtrichtung werden an der Input-Grenze
+konsistent zur logischen Achse normalisiert.
 
-- Wertebereich 0–100 %
-- getrennte Zielwerte für normale und invertierte Achse
-- Achseninvertierung als vollwertige Funktion pro Instanz
-- Achseninvertierung ist in den Einstellungen ein- und ausschaltbar und ihr aktueller Zustand ist in Übersicht und Diagnose sichtbar
-- bei aktiver Invertierung wird der ausdrücklich konfigurierte invertierte Zielwert verwendet; er wird nicht stillschweigend als mathematisches Komplement des normalen Werts errechnet
-- sichere Validierung und verständliche Fehlermeldung
-- Änderung eines Zielwerts oder der Achseninvertierung löst eine Neuberechnung aus
-- Konfigurationsänderungen dürfen nicht als manueller Cover-Override erkannt werden
-- Logik und Position bleiben getrennt: Ein Modus kann fachlich gewinnen, während sein Zielwert frei konfigurierbar bleibt
-
-Initial zu migrierende Live-Werte des Wohnzimmerprofils:
-
-| Profil | Normal | Invertiert |
+| Profil | Logischer Default | Invertiert, nur abgeleitet |
 | --- | ---: | ---: |
-| Fenster offen / Safety | 100 % | 0 % |
-| Privacy Bett | 40 % | 60 % |
-| Waking | 100 % | 0 % |
-| Sleep | 5 % | 60 % |
-| Privacy | 40 % | 60 % |
-| Heat Protection | 15 % | 55 % |
-| Glare TV | 60 % | 40 % |
-| Glare PC | 75 % | 25 % |
-| Open | 100 % | 0 % |
+| Fenster offen / Safety | 100 | 0 |
+| Privacy Bett | 40 | 60 |
+| Waking | 100 | 0 |
+| Sleep | 5 | 95 |
+| Privacy | 40 | 60 |
+| Heat Protection | 15 | 85 |
+| Glare TV | 60 | 40 |
+| Glare PC | 75 | 25 |
+| Open | 100 | 0 |
 
-Diese Werte sind Migrationsdefaults, keine unveränderlichen Anforderungen. Neue Profile wie Cold Insulation erhalten dieselbe Konfigurierbarkeit.
+Dies sind frei kalibrierbare Defaults. Beispielsweise 60→40, 30→70,
+75→25, 85→15, 50→50. Separate invertierte Eingabewerte entfallen.
+Bei Migration gewinnt der bisherige Normal-Wert; alte Profilpaare bleiben
+gesichert. Config v6 und Versionsrollback sind in MIGRATION.md beschrieben.
+Konfigurationsänderung/Recompute/Reload erzeugt keinen Benutzer-Override.
 
 ## 15. Opening und technische Safety
 
@@ -345,7 +347,9 @@ Opening-Schutz ist ein technischer Safety-Pfad und kein gewöhnlicher Policy-Kan
 
 Anforderungen:
 
-- Vollständig geöffnetes Fenster muss eine für Rollo und Fenster sichere Position erzwingen beziehungsweise eine unsichere Fahrt blockieren.
+- Bei open niemals logisch abwärts: Safety verlangt mindestens die tatsächliche Istposition und die konfigurierte Safety-Position (Default 100). open und tilted sind verschieden.
+- Istabweichung außerhalb Toleranz erlaubt erneute Safety-Fahrt trotz identischem früherem Command. Laufende oder vorgemerkte Abwärtsentscheidung wird bei open sofort ungültig.
+- Der kanonische Opening Owner aggregiert relevante Fenster mit OR; Blind Control baut keine zweite Kontaktfusion.
 - Kippstellung darf nur dann normalen Rollo-Betrieb erlauben, wenn der Opening-Contract sie ausdrücklich als sicher bewertet.
 - Unbekannte, stale oder widersprüchliche Opening-Daten führen zu einem dokumentierten konservativen Verhalten.
 - Fachlich gewünschtes Ziel und technisch tatsächlich freigegebenes Ziel bleiben getrennt sichtbar.
@@ -358,7 +362,9 @@ Ein manueller Override entsteht ausschließlich aus einem nachweisbaren Benutzer
 Anforderungen:
 
 - eigener Schreibvorgang ist durch einen Writing Guard erkennbar,
-- Position in Ruhe dient als Baseline,
+- tatsächliche Zielposition innerhalb Toleranz und stabile Ruhe für position_settle_seconds beendet erst die eigene Fahrt,
+- Bewegungstimeout meldet target_not_reached, nicht Benutzer-Override; Zwischenpositionen und Nachlauf bleiben zugeordnet,
+- Position in Ruhe dient als Baseline; Restart während Bewegung wartet auf stabile Ruhe,
 - `_last_target` allein ist nach einem Neustart kein ausreichender Nachweis,
 - Konfigurationsänderungen erzeugen keinen Override,
 - Overrides sind sichtbar, löschbar und diagnostizierbar,
@@ -375,7 +381,7 @@ Entscheidung und Aktorausführung werden getrennt.
 - Ein Apply-Cooldown ist kein Lux-Debounce und darf die Diagnose nicht verzögern.
 - Während eines Apply-Cooldowns wird immer das zuletzt berechnete aktuelle Ziel vorgemerkt; veraltete Zwischenziele werden nicht nachträglich gefahren.
 - Sicherheitsaktionen und ausdrücklich freigegebene manuelle Aktionen dürfen den normalen automatischen Cooldown umgehen.
-- Identische Zielpositionen erzeugen keine wiederholten Service-Aufrufe.
+- Liegt die aktuelle tatsächliche Position innerhalb Zieltoleranz, entfällt der Write. Ein identischer historischer Command ist kein Dedupe-Beweis; Safety darf wiederholen.
 - Nach Neustart wird kein Blindflug gefahren, bevor Inputs und Apply-Readiness ausreichend belegt sind.
 - Das System muss wiederholtes Hoch-/Runterfahren durch schwankende Inputs verhindern, ohne relevante Zustandsänderungen zu verschlucken.
 
@@ -432,7 +438,7 @@ Der Trace zeigt mindestens:
 Mindestens editierbar:
 
 - Profil aktiv/inaktiv
-- Zielposition normal/invertiert
+- ein logischer Zielwert je Profil; invertierter Wert nur abgeleitet
 - Achseninvertierung
 - Fensterazimut und -neigung
 - relevante fachliche Schwellen und Bänder
@@ -496,7 +502,7 @@ Die Umbenennung darf die produktive alte Blind Policy nicht unkontrolliert unter
 1. Blind Control läuft im Shadow zunächst mit der bestehenden Entity-ID.
 2. Bereits der frühe Shadow-Vertical-Slice muss Entity-Wechsel erkennen beziehungsweise nach kontrollierter Neukonfiguration wieder eindeutig dasselbe Gerät auflösen können.
 3. Vor der Umbenennung werden alle Consumer und gespeicherten Referenzen inventarisiert und die notwendigen Änderungen vorbereitet.
-4. In einem kurzen Cutover-Fenster wird der alte Apply-Pfad pausiert, die Entity umbenannt und jede betroffene Referenz aktualisiert beziehungsweise verifiziert.
+4. Im gesperrten Cutover-Fenster wird die Legacy vollständig deaktiviert und nach HA-Neustart der Null-Writer bestätigt; erst dann folgen Rename und Consumer-Migration nach AP3_CUTOVER.md.
 5. Readiness, Coverposition, Opening-Safety, Shadow-Entscheidung und Schreibschutz werden geprüft.
 6. Erst danach übernimmt Blind Control den produktiven Apply-Pfad.
 7. Für Rollback sind die alte Entity-ID und die notwendigen Rückänderungen dokumentiert.
@@ -578,7 +584,7 @@ Erwartung: Decision Trace aktualisiert sich unmittelbar; der Apply-Pfad fährt n
 ### A15 – Achseninvertierung
 
 Gegeben: dieselbe Regel wird mit normaler und invertierter Achse verwendet.  
-Erwartung: jeweils der konfigurierte Zielwert wird korrekt angewandt und diagnostiziert.
+Erwartung: identischer logischer Gewinner; nur der physische Wert ist bei Invertierung 100 - logical_target.
 
 ### A16 – Cover-Entity-Rename
 
@@ -675,7 +681,7 @@ Der Vertical Slice soll so früh wie möglich in Home Assistant installierbar se
 - `waking` als exklusiver Aufweckmodus bis `awake`
 - nur kanonischer Wake-Zustand
 - PlayStation/Konsolen verwenden TV-Glare
-- Positionen normal/invertiert vollständig editierbar
+- ein logischer Profilwert vollständig editierbar, Invertierung als 100 - x
 - Achseninvertierung als eigenständige UI- und Laufzeitfunktion
 - lokaler Außen-Luxsensor am Fensterrahmen
 - Fensterorientierung ungefähr 124° OSO, Neigung 90°
@@ -774,7 +780,7 @@ aktuelle oder zuletzt nachweislich sichere Position; ist dies nicht belastbar
 möglich, wird Apply blockiert. Es gibt keinen generischen Fallback auf 100 %.
 Vollständig öffnen ist während Failure nur aufgrund einer positiv belegten
 Safety-Anforderung zulässig; diese verwendet das konfigurierte
-Normal-/Invertiert-Profil der Safety-Position. `unknown`, `stale`,
+logischen Profilwert der Safety-Position; Geräteumrechnung erst am Adapter. `unknown`, `stale`,
 `unavailable` oder `conflict` einer Opening-Evidence erzeugen keine
 Öffnungsfahrt. Ein automatischer Öffnungskandidat darf die Quality-Prüfung
 nicht überspringen: Innen-/Außentemperatur, Activity/Belegung sowie die
@@ -824,7 +830,7 @@ Panel zeigt nur Binding-Status und verweist für die Bearbeitung auf den
 OptionsFlow. Entity-IDs gehören weder in Debug-Payloads noch in die öffentliche
 UX-Projektion.
 
-Für Automationen und Diagnose ist `blind_control.automation_projection.v2`
+Für Automationen und Diagnose ist `blind_control.automation_projection.v3`
 eine kleine stabile, redigierte read-only Contractprojektion mit Mastermodus,
 aktiver Kategorie/Variante, Failure-Status/-Grund/-Blockern, fachlichem und
 effektivem Ziel sowie Safety-/Apply-/Shadow-Status. AP2 veröffentlicht sie über
@@ -836,7 +842,7 @@ Services, keine Steuerung und keine Entity-Flut. AP3 ergänzt ausschließlich
 die technischen Attribute `runtime_mode` und `apply_owner`; die Entity bleibt
 read-only.
 
-Der AP2-OptionsFlow umfasst exakt 89 sichtbare Felder: 55 bereits mit Defaults
+Historische AP2-Feldzahl (durch Config v6 ersetzt): 89 sichtbare Felder, davon 55 mit Defaults
 versehene allgemeine/Positionswerte, eine private interne Open-Meteo-URL, 28
 aktuelle Input-Bindings, vier optionale Legacy-Vergleichsbindings und eine
 explizite Opening-Safety-Polarität. Von den
@@ -864,3 +870,5 @@ Explizite externe Bindings haben Vorrang. Lokaler Außenlux bleibt zwingende
 Echtzeitbeobachtung und ein fehlender Lux-Trend wird weiterhin intern aus
 frischen Beobachtungen abgeleitet. Core State und Weather State bleiben
 unverändert; der Provider ist hinter dem Evidence-Adapter austauschbar.
+
+Config-v6-Fortschreibung: 79 Felder im initialen ConfigFlow, 81 im OptionsFlow; je Profil nur ein logischer Wert, neue Cold-/Motion-/Cloud-Kalibrierung. Sie ersetzt die historischen AP2-Feldzahlen.

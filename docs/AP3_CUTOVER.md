@@ -1,82 +1,135 @@
 # AP3 Cutover- und Rollback-Runbook
 
-**Technischer Status:** `Installable / Shadow default / Not Live`
+**Stand:** 2026-09-07, Stabilisierung v0.6.0. **Status:** Testing / Shadow / Not Live.
+Installation und neue Live-Shadow-Evidence sind separate, noch auszuführende Gates.
+Die historische Evidence „Installed / Shadow / Not Live“ für v0.5.1 ist kein
+Nachweis für v0.6.0.
 
-Der Betriebsstatus bleibt `Installed / Shadow / Not Live`.
+Dieses Dokument führt nichts aus. Vor dem Fenster ist ein neues unabhängiges
+read-only Quality Gate aus frischem Kontext erforderlich. Danach gibt Benni
+das konkrete Fenster einschließlich der erforderlichen Neustarts frei.
+Live und Live Verified bleiben ausschließlich Bennis Gates.
 
-Dieses Runbook bereitet den produktiven Wechsel vor. Es führt selbst keinen
-Coverbefehl, HA-Reload, Registry-Rename oder Owner-Wechsel aus. Der Cutover
-benötigt Bennis separates Gate und anschließend eine unabhängige Sol-High-
-Abschlussprüfung.
+## 1. Lokales Änderungspaket und Consumer-Inventar
 
-## Redigiertes Consumer-Inventar
+OLD_ID wird unmittelbar vorher aus der tatsächlichen Entity Registry gelesen.
+NEW_ID = cover.living_thermal_blind. Dieselbe Registry-Entity und unveränderte
+Unique-ID müssen erhalten bleiben. OLD_ID, Unique-ID, ConfigEntries und Backups
+bleiben installationslokal; öffentliche Evidence enthält nur redigierte Ergebnisse.
 
-| Oberfläche | Abhängigkeit | Cutover-Aktion |
-| --- | --- | --- |
-| Blind-Control ConfigEntry/Options | Cover Availability und Position; später Actuatorgrenze | exakte Referenz auf dieselbe Registry-Entity aktualisieren |
-| Legacy-Policy | produktiver Writer und eigener Cover-Default | vor Rename pausieren; für Rollback installiert lassen |
-| HomeKit-Konfiguration | exponiert das physische Cover | Referenz atomar aktualisieren und Exposition prüfen |
-| Core-Devices-Import | Coverzustand, Position und abgeleitete technische Readiness | Source-Referenzen aktualisieren und Master neu prüfen |
-| Core-Contracts Source-Evidence | technische Source-Binding-Evidence | exakte Source-Referenz aktualisieren und Contracttests ausführen |
-| System-Readiness | konsumiert den Rollo-Master indirekt | nach Core-Devices-Aktualisierung vollständig verifizieren |
-| Bedtime-Skript | ruft den Legacy-Apply-Service auf | vor Owner-Wechsel entfernen/ersetzen; niemals parallel lassen |
-| Automationen, Skripte, Szenen, Helper und Dashboards | live read-only Suche ohne direkten Treffer; YAML-Flächen separat inventarisiert | unmittelbar vor Cutover erneut exportieren/suchen |
-| Recorder/History | History ist an die bisherige Entity-ID gebunden | Verlauf vor Rename sichern; keine automatische Historienkontinuität behaupten |
-| weitere aktive Repositories | produktive Suche umfasst Policy, Core Devices, Core Contracts und HA-Konfiguration | PRs/Commits vor dem Live-Fenster vorbereiten, nicht vorab deployen |
+Read-only am 07.09.2026: das physische Cover ist vorhanden, NEW_ID fehlt sowohl
+in der vollständigen Cover-Suche als auch im Registry-Einzelabruf. Das ist keine
+dauerhafte Reservierung. Vor Rename erneut prüfen, einschließlich deaktivierter
+Entities; bei Kollision abbrechen, niemals eine bestehende Entity überschreiben.
 
-Gespeicherte Strings folgen einem Entity-Registry-Rename nicht zuverlässig.
-Deshalb werden alle obigen Flächen explizit geprüft. Die kanonische Ziel-ID ist
-`cover.living_thermal_blind`; die aktuelle installationsspezifische ID bleibt
-in öffentlichen Nachweisen redigiert.
+| Consumer / Fundstelle | Vorher → nachher | Anwendung / Prüfung | Rollback |
+| --- | --- | --- | --- |
+| Blind Control ConfigEntry **und** Options | alle Cover-Position-/Availability-Bindings OLD_ID → NEW_ID; sonstige Owner unverändert | native Optionen speichern; Reload abwarten; tatsächliche Runtime prüfen | gesicherten vollständigen Stand über native Optionen wiederherstellen, Apply aus |
+| Legacy Policy ConfigEntry/Options und installierter Default | OLD_ID bleibt als rollbackfähiger Altstand gesichert | vollständig deaktiviert lassen; nicht an NEW_ID binden und parallel laden | erst nach Rückrename und Null-Writer mit ursprünglicher Referenz laden, zunächst Apply aus |
+| Einhornzentrale custom/homekit.yaml | beide Vorkommen in Include-Filter und Entity-Konfiguration OLD_ID → NEW_ID | YAML prüfen; dokumentierter HA-Neustart lädt Bridge neu; Exposition und Identität prüfen | beide Originalstellen wiederherstellen, beim Rückweg neu starten |
+| Einhornzentrale benni_core_devices/import.yaml | drei Cover-Referenzen in Zustands-/Positions-Sources und abgeleiteter Ausgabe OLD_ID → NEW_ID | Datei allein reicht **nicht**: Core-Devices-Import-Dry-Run, Diff kontrollieren, dann bestehender Import-Apply; persistierte Master-Konfiguration prüfen; Reload/Restart | exakten Master-/ConfigEntry-Export und Originaldatei wiederherstellen; Dry-Run/Import erneut prüfen |
+| System Readiness packages/system/templates/readiness.yaml | indirekter Master-Verbrauch bleibt | Rollo-/Opening-/Availability-/Positionsattribute und Gesamtergebnis prüfen; keinen Readiness-Helper manuell auf wahr setzen | alte Master-Bindings wiederherstellen, Readiness erneut berechnen |
+| Bedtime packages/system/manual_bio_scripts.yaml und zugehöriger Sleep-Contract-Test | Legacy-Apply-Serviceaufruf entfernen; kanonische Bio-State-Übergänge beibehalten | keinen neuen Blind-Control-Apply-Service erfinden: Runtime konsumiert Bio bereits; Änderung vorbereiten, Skripte beim Neustart laden; keine Testfahrt | Originalskript und Originaltest wiederherstellen, erst mit Legacy reaktivieren |
+| Core Contracts source_binding_evidence.py | historische Evidence enthält OLD_ID | historische Evidence **nicht** als Runtime-Binding migrieren; aktive Registry/Profile gesondert exportieren und nach OLD_ID suchen | nur tatsächlich geänderte aktive Einträge aus Snapshot zurücksetzen; historische Evidence unverändert |
+| Automationen / Skripte / Szenen | alle direkten und dynamischen Cover-/Legacy-Serviceverwendungen prüfen | read-only HA-Referenzgraph plus YAML und Templates; aktivierbare Apply-Consumer vorab stilllegen | gesicherte Konfiguration und Aktivierungszustände gezielt wiederherstellen |
+| Helper / Dashboards / Voice / externe Apps | persistierte Strings, Include-Filter und Karten prüfen | vollständige Exporte inkl. nicht angezeigter Dashboards/disabled Entities; keine automatische Stringmigration annehmen | exakte Exporte wiederherstellen |
+| Weitere aktive Levtos-Repositories | am 07.09.2026 alle nicht archivierten Repos untersucht | aktuelle Defaults erneut nach OLD_ID, NEW_ID, Legacy-Services und dynamischen Cover-Zielen suchen; vorbereitete Diffs versionieren, separat deployen | je Repo gesicherter Commit / exakter Rückdiff |
+| Recorder / History / Statistik | Entity-ID-Zuordnung kann betroffen sein | vollständiges HA-Backup einschließlich Recorder; History vor/nach Rename lesen; abgeleitete Statistik-/Utility-Meter-IDs getrennt inventarisieren | Backup bleibt verfügbar; keine SQL-Umschreibung, Löschung oder erfundene Historienkontinuität |
 
-## Preconditions
+Die Live-Suche ergab keine zusätzlichen direkten UI-Consumer, war aber wegen
+acht YAML-Automationen und sieben YAML-Skripten **partial**. Diese wurden im
+GitHub-YAML abgeglichen. Dynamische Templates und beliebige Storage-Inhalte
+sind dadurch nicht vollständig bewiesen. Deshalb ist der lokale Exportabgleich
+ein Eintrittsgate, kein behaupteter bereits erledigter Cutover-Schritt.
+Keine direkten .storage-Dateiedits bei laufendem HA.
 
-1. Dieses Release ist installiert und nach Restart weiterhin `shadow + legacy`.
-2. Die unabhängige Sol-High-Prüfung hat keine offenen kritischen/hohen Findings.
-3. Shadow ist `normal`, ohne Quality-Blocker; Opening, Readiness und Position
-   sind fresh.
-4. Fachliches und effektives Ziel sowie aktuelle Coverposition sind notiert.
-5. Alle Consumer-Änderungen und ihre Rückänderungen liegen lokal bereit.
-6. Benni gibt das konkrete Cutover-Fenster ausdrücklich frei.
+„Atomar“ bedeutet: alle Consumer ändern sich innerhalb eines gesperrten
+Null-Writer-Fensters. HA bietet keine gemeinsame Transaktion für Registry,
+YAML, ConfigEntries und externe Apps. Bis sämtliche Postconditions erfüllt
+sind, wird kein Writer freigegeben.
 
-## Atomarer Live-Cutover
+## 2. Preconditions
 
-1. Zeit, Ist-Position, Ziel, Opening- und Safety-Zustand protokollieren.
-2. Blind Control auf `shadow + legacy` und Apply aus bestätigen.
-3. Den Legacy-Apply-Pfad pausieren, die Integration aber installiert lassen.
-4. Prüfen, dass kein aktiver Writer und keine laufende Coverbewegung existiert.
-5. Das physische Cover in der Entity Registry auf
-   `cover.living_thermal_blind` umbenennen.
-6. Blind-Control-Binding sowie HomeKit-, Core-Devices-, Core-Contracts- und
-   übrige gespeicherte Consumer-Referenzen atomar aktualisieren.
-7. Nur die erforderlichen HA-Komponenten nach Bennis Gate neu laden; falls eine
-   Fläche einen Restart verlangt, den Cutover stoppen und separat freigeben.
-8. In Shadow Position, Availability, Readiness, Opening-Safety, Decision Trace
-   und Override-Baseline prüfen. Kein Apply darf ausgeführt worden sein.
-9. Blind Control zuerst mit Apply aus auf `live + blind_control` setzen. Der
-   Legacy-Writer muss weiterhin pausiert sein; damit existiert genau ein
-   designierter, aber noch gesperrter Writer.
-10. Ziel und Ist-Position erneut vergleichen. Erst nach Bennis explizitem
-    Fahrt-Gate Apply aktivieren und genau eine kontrollierte Bewegung zulassen.
-11. Zielerreichung, Writing Guard, fehlenden Self-Override, Cooldown und
-    Safety-Status prüfen. Erst danach setzt Benni `Live`.
+- Neues unabhängiges Abschlussreview ohne offene Critical-/High-Blocker.
+- v0.6.0 separat durch Benni installiert; bestätigtes shadow + legacy,
+  Apply **aus**, keine automatische Übernahme historischer Apply-Freigaben.
+- Frische Opening-/Positions-/Motion-/Readiness-Evidence. Cover steht
+  nachweislich in Ruhe; relevante Fenster sind für den Beginn geschlossen.
+- Opening-Owner-Pfad samt beiden Fensterseiten und Handover geprüft.
+  Source-Audit und vier synthetische Owner-Auswertungen bestanden;
+  das ist noch kein realer Kontakt-/Fahrttest.
+- Lokales Vorher-/Nachher-/Rollback-Paket für jede Tabellenzeile vorbereitet,
+  vollständiges HA-/Recorder-Backup verfügbar und Wiederherstellung bekannt.
+- Vollständige Suche einschließlich dynamischer Consumer abgeschlossen.
+  Während des Fensters keine HomeKit-, Dashboard-, Hand- oder Fremdautomation-
+  Befehle; deren Aktivierungszustände sind gesichert.
+- Benni bestätigt das Fenster, Neustarts und später gesondert die erste Fahrt.
 
-## Rollback
+## 3. Sequenz mit Abbruch und Rückweg
 
-1. Blind-Control-Apply sofort deaktivieren; danach `shadow + legacy` speichern.
-2. Bestätigen, dass Blind Control keinen erreichbaren Write-Pfad mehr meldet.
-3. Falls der Rename bereits erfolgte, Registry-ID und alle vorbereiteten
-   Consumer-Referenzen exakt rückwärts migrieren.
-4. Erforderliche Komponenten nur nach Bennis Gate neu laden und Position,
-   Opening sowie technische Readiness prüfen.
-5. Erst bei bestätigt null aktivem Blind-Control-Writer den Legacy-Apply-Pfad
-   wieder aktivieren.
-6. Zeit, Ist-Position, Safety, Ursache und rückgängig gemachte Referenzen
-   dokumentieren. Keine History oder alte Integration löschen.
+Jeder Schritt setzt den erfolgreichen vorherigen voraus. Bei fehlender
+Postcondition sofort abbrechen; kein „weiter und später reparieren“.
 
-## Nachlauf
+| Schritt | Aktion und Precondition | Postcondition | Abbruch / Rückweg |
+| --- | --- | --- | --- |
+| 1 Ausgang erfassen | Preconditions erfüllt; Zeit, Version, Registry-Identität, Ist/Ziel, Opening beider Seiten, Gates und Consumer-Revisionen lokal sichern | überprüfbarer Ausgangsstand | unvollständige Evidence: kein Fenster beginnen |
+| 2 Blind Control disarmen | shadow + legacy, Apply aus speichern; Options-Reload vollständig abwarten | neue Runtime shadow, write_path_reachable=false, keine Aktuation; persistiertes Apply aus | nicht bestätigt: Blind-Control-Entry deaktivieren; R0 |
+| 3 Legacy stilllegen | Fremdbefehle/Bedtime stillgelegt; Legacy Apply aus, dann **alle** Legacy-ConfigEntries über HA „Deaktivieren“ dauerhaft deaktivieren | Entries disabled, erfolgreich unloaded, Legacy-Services entfernt, Panel ohne Coordinator | Unloadfehler: kein Rename/Owner-Wechsel; R0 |
+| 4 Prozessgrenze / Null-Writer | Legacy dauerhaft disabled, BC shadow/Apply aus; genehmigten HA-Neustart durchführen | neuer HA-Prozess, Legacy weiterhin disabled/unloaded, keine Legacy-Services; BC shadow/Apply aus, Cover in Ruhe | Rest-Writer oder Bewegung: sperren, R0 |
+| 5 Registry-Rename | Null-Writer bestätigt, NEW_ID erneut frei | dieselbe Unique-ID unter NEW_ID, OLD_ID nicht mehr registriert | Kollision/Identitätswechsel: nichts überschreiben, R1 |
+| 6 Consumer migrieren | lokales Änderungspaket vollständig | alle tatsächlichen Referenzen gemäß Tabelle angepasst; kein Legacy-Aufruf aktiv | Teilfehler: Null-Writer beibehalten, R1 |
+| 7 Persistieren und laden | Core-Devices-Dry-Run/Diff korrekt, Import angewendet; YAML geprüft | genehmigter HA-Neustart lädt YAML/HomeKit/persistierte Masters; Legacy disabled; BC shadow/Apply aus | Source-/Configfehler: R1 |
+| 8 Shadow neu prüfen | Cover in Ruhe und Inputs frisch | logische Istposition, physisches Ziel, Opening-Polarität, beide Fensterseiten, Readiness, Failure, Baseline, Overrides und Diff plausibel; keine Aktuation | ungeklärte Differenz / fehlende Evidence: R1 |
+| 9 Owner benennen | Schritt 8 belegt; Legacy disabled | live + blind_control, Apply weiterhin **aus**; Reload abgeschlossen, kein Write erreichbar | unerwarteter Write/Reloadfehler: sofort BC deaktivieren; R2 |
+| 10 Fahrt-Gate | Benni prüft **aktuelle** Gesamtentscheidung, Achse, Fenster, Ziel und Istposition | gesonderte ausdrückliche Freigabe zur ersten beobachteten Bewegung | ohne Freigabe bleibt Apply aus |
+| 11 Erster realer Lauf | Apply bewusst aktivieren; Reload/Baseline abwarten | kontrollierte erste Bewegung unter Beobachtung; stets neueste Gesamtentscheidung | unerwartete Richtung, Gegenfahrt, Quality-/Motionfehler: Apply aus / BC deaktivieren; R2 |
+| 12 Technisch verifizieren | frische Ziel-/Motion-Evidence | tatsächliches Ziel innerhalb Toleranz **und** stabile Ruhe für position_settle_seconds; kein Self-Override, plausibler Cooldown und Safety | bloßes Service-Ergebnis oder Timer reicht nicht; Fehler: R2 |
+| 13 Benni setzt Live | technische Verifikation und Verhalten akzeptiert | Benni setzt Live; Live Verified folgt erst nach seinen realen Pflichtszenarien | keine Agenten-Selbstzertifizierung |
 
-`Tests Pass`, `Merged`, `Released`, `Installed`, `Live` und `Live Verified`
-sind getrennte Gates. Die Legacy-Integration bleibt bis `Live Verified`
-installiert und rollback-fähig. Repository-Archivierung und Alt-Issue-Abschluss
-erfolgen erst danach und sind nicht Teil dieses technischen Releases.
+Keine technische One-Shot-Pflicht: Apply bleibt ein laufender Regler;
+bei neuen Inputs darf eine neue gültige Entscheidung entstehen. Für Pause
+Apply aus oder Integration deaktivieren. Es gibt keine Bewegungshistorie,
+die nach einer Pause abgearbeitet wird.
+
+### Warum Disable allein für die Legacy nicht genügt
+
+Geprüfter Legacy-Stand: 9cbd1f0d7915849f9a3f4f60bf2fe7d88c483abd.
+async_unload_entry entfernt Entries, Listener, Services und View.
+BlindPolicyCoordinator.async_stop widerruft bereits erzeugte Tasks jedoch
+nicht mit einem Lifecycle-Gate; manuelle Methoden umgehen den einzelnen
+Apply-Schalter. Deshalb ist Schritt 4 **verpflichtend**. Erst ein neuer Prozess
+mit persistiert deaktivierter Legacy beweist, dass alte Coordinator-Referenzen,
+queued Callbacks und gestartete Service-Tasks nicht mehr existieren.
+Der Code bleibt installiert. Keine zusätzliche Legacy-Kompatibilitätsschicht.
+
+## 4. Deterministischer Rollback
+
+R0 ist der Rückweg vor Rename; R1 nach Rename; R2 nach Owner-/Apply-Freigabe.
+
+1. Für alle Rückwege zuerst Blind Control Apply aus und Entry deaktivieren.
+   Erfolgreichen Unload / widerrufene Runtime bestätigen. Legacy bleibt disabled.
+   Eine bereits physisch laufende Bewegung wird dadurch nicht rückgängig:
+   stabile Ruhe und sichere Fensterlage abwarten; bei unsicherer Bewegung
+   Bennis physische Sicherheitsintervention, keine automatische Gegenfahrt.
+2. Null-Writer belegen. Bei R0 entfällt nur die Rückmigration; bei R1/R2
+   erst Ziel-ID-Kollision für OLD_ID prüfen, dieselbe Registry-Entity zurückbenennen,
+   dann **exakte Backups** aller geänderten Consumer wiederherstellen.
+   Kein globales NEW_ID→OLD_ID-Ersetzen und keine History-Löschung.
+3. Core-Devices-Originalexport per bestehendem Dry-Run/Import wiederherstellen,
+   YAML/HomeKit/Skripte zurücksetzen. Beide Integrationen während des genehmigten
+   HA-Neustarts disarmt halten. OLD_ID/Unique-ID, Master, Readiness, tatsächliche
+   Position und beide Opening-Seiten erneut prüfen.
+4. Nur bei belegtem Null-Writer und sicherer Geräte-/Opening-Lage: Legacy
+   wieder aktivieren/laden, zunächst **Apply aus**. Erst Benni gibt deren
+   ursprünglichen Apply-Zustand wieder frei. Fremdconsumer aus gesicherten
+   Aktivierungszuständen restaurieren. BC bleibt deaktiviert oder separat
+   bestätigt shadow + legacy, Apply aus.
+5. Zeitpunkt, Ursache und Rückänderungen dokumentieren. Bei Restore-/Safety-
+   Fehlern bleibt Null-Writer bestehen. Das vorbereitete vollständige Backup
+   ist der letzte Rückweg; niemals einen Owner blind aktivieren.
+
+## 5. Getrennte Abschlussgates
+
+Tests Pass, Merged, Released, HACS sichtbar, Installed, Live und Live Verified
+bleiben getrennt. Legacy, Config- und Recorder-Backups bleiben bis Live Verified
+erhalten. Archivierung/Entfernung ist kein Teil dieses Releases.

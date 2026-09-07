@@ -19,13 +19,13 @@ const settings = () => ({
   binding_groups: [],
   observation_freshness_seconds: 120,
   binding_freshness: {},
-  profiles: { open: { normal: 100, inverted: 0 } },
+  profiles: { open: { logical: 100 } },
   calibration_defaults: { heat_outdoor_threshold: 30 },
 });
 
 test('poll during editing preserves the local profile draft', () => {
   const initial = rebaseDraft(null, null, settings());
-  initial.draftSettings.profiles.open.normal = 73;
+  initial.draftSettings.profiles.open.logical = 73;
 
   const poll = rebaseDraft(
     initial.draftSettings,
@@ -35,12 +35,12 @@ test('poll during editing preserves the local profile draft', () => {
 
   assert.equal(poll.adopted, false);
   assert.equal(poll.dirty, true);
-  assert.equal(poll.draftSettings.profiles.open.normal, 73);
+  assert.equal(poll.draftSettings.profiles.open.logical, 73);
 });
 
 test('real Svelte deep-state proxy is detached before transport cloning', () => {
   const proxied = svelteProxy(settings());
-  proxied.profiles.open.normal = 72;
+  proxied.profiles.open.logical = 72;
   proxied.binding_groups.push({
     key: 'solar',
     label: 'Solar',
@@ -52,7 +52,7 @@ test('real Svelte deep-state proxy is detached before transport cloning', () => 
   assert.throws(() => structuredClone(proxied), { name: 'DataCloneError' });
   const detached = cloneSettings(proxied);
 
-  assert.equal(detached.profiles.open.normal, 72);
+  assert.equal(detached.profiles.open.logical, 72);
   assert.equal(detached.binding_groups[0].key, 'solar');
   assert.notEqual(detached, proxied);
   assert.notEqual(detached.profiles, proxied.profiles);
@@ -76,7 +76,7 @@ test('a clean draft adopts an external server settings change', () => {
 
 test('a successful save establishes a clean confirmed baseline', () => {
   const initial = rebaseDraft(null, null, settings());
-  initial.draftSettings.profiles.open.normal = 61;
+  initial.draftSettings.profiles.open.logical = 61;
   const confirmed = structuredClone(initial.draftSettings);
 
   const saved = settleSave(
@@ -88,12 +88,12 @@ test('a successful save establishes a clean confirmed baseline', () => {
 
   assert.equal(saved.saved, true);
   assert.equal(poll.dirty, false);
-  assert.equal(poll.draftSettings.profiles.open.normal, 61);
+  assert.equal(poll.draftSettings.profiles.open.logical, 61);
 });
 
 test('a failed save deliberately retains the local draft', () => {
   const initial = rebaseDraft(null, null, settings());
-  initial.draftSettings.profiles.open.normal = 44;
+  initial.draftSettings.profiles.open.logical = 44;
 
   const failed = settleSave(
     initial.draftSettings,
@@ -102,5 +102,5 @@ test('a failed save deliberately retains the local draft', () => {
   );
 
   assert.equal(failed.saved, false);
-  assert.equal(failed.draftSettings.profiles.open.normal, 44);
+  assert.equal(failed.draftSettings.profiles.open.logical, 44);
 });

@@ -53,7 +53,7 @@ export type FailureDecision = {
   quality_blockers: { key: string; quality: string; reason: string }[];
 };
 
-export type PositionProfile = { normal: number; inverted: number };
+export type PositionProfile = { logical: number };
 
 export type BindingFreshness = {
   max_age_seconds: number | null;
@@ -102,7 +102,7 @@ export type UxSettings = {
 };
 
 export type UxSnapshot = {
-  version: 'blind_control.ux.v3';
+  version: 'blind_control.ux.v4';
   evaluated_at: string;
   overview: {
     master_mode: MasterMode;
@@ -115,6 +115,8 @@ export type UxSnapshot = {
     effective_target: number | null;
     opening_state: string;
     cover_position: number | null;
+    physical_target: number | null;
+    movement_status: string;
     household: {
       bio_state: string | null;
       activity_state: string | null;
@@ -192,7 +194,7 @@ export type UxSnapshot = {
   };
   settings: UxSettings;
   automation_projection: {
-    version: 'blind_control.automation_projection.v2';
+    version: 'blind_control.automation_projection.v3';
     master_mode: MasterMode;
     winner_category: string | null;
     winner_variant: string | null;

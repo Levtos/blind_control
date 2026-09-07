@@ -11,8 +11,8 @@ from .open_meteo import (
 )
 from .shadow import ShadowSnapshot
 
-UX_CONTRACT_VERSION = "blind_control.ux.v3"
-AUTOMATION_PROJECTION_VERSION = "blind_control.automation_projection.v2"
+UX_CONTRACT_VERSION = "blind_control.ux.v4"
+AUTOMATION_PROJECTION_VERSION = "blind_control.automation_projection.v3"
 
 
 def build_ux_snapshot(
@@ -72,6 +72,8 @@ def build_ux_snapshot(
             "effective_target": trace.effective_target,
             "opening_state": trace.safety.opening_state,
             "cover_position": input_value("cover_position"),
+            "physical_target": snapshot.physical_target,
+            "movement_status": snapshot.movement_status,
             "household": {
                 key: input_value(key)
                 for key in (
@@ -137,7 +139,13 @@ def build_ux_snapshot(
                 "heat_confidence_threshold": config.heat_confidence_threshold,
                 "glare_confidence_threshold": config.glare_confidence_threshold,
                 "cloud_shadow_lux_drop": config.cloud_shadow_lux_drop,
-                "cloud_shadow_ratio": config.cloud_shadow_ratio,
+                "cloud_cover_threshold": config.cloud_cover_threshold,
+                "model_lux_ratio": config.model_lux_ratio,
+                "minimum_incidence_factor": config.minimum_incidence_factor,
+                "model_lux_per_watt": config.model_lux_per_watt,
+                "cold_lux_threshold": config.cold_lux_threshold,
+                "position_settle_seconds": config.position_settle_seconds,
+                "movement_timeout_seconds": config.movement_timeout_seconds,
                 "cool_air_delta": config.cool_air_delta,
                 "storm_required_signals": config.storm_required_signals,
                 "diffuse_lux_threshold": config.diffuse_lux_threshold,
@@ -175,6 +183,8 @@ def build_automation_projection(snapshot: ShadowSnapshot) -> dict[str, object]:
         "winner_variant": winner.variant if winner else None,
         "fachlicher_target": trace.fachlicher_target,
         "effective_target": trace.effective_target,
+        "physical_target": snapshot.physical_target,
+        "movement_status": snapshot.movement_status,
         "failure_status": trace.failure.status,
         "failure_reason": trace.failure.reason,
         "failure_quality_blockers": [

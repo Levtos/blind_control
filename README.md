@@ -55,8 +55,8 @@ technical release and runbook; it is not a live cutover.
   contract-based installation-local prefill sets only resolved required or
   conditional owner bindings, while user choices and intentionally empty
   optional slots remain untouched; the panel shows only redacted readiness
-  states for the AP2 89-field contract (including the private Open-Meteo API
-  URL); AP3 adds two OptionsFlow-only runtime/owner controls, for 91 fields in
+  states for the v6 79-field contract (including the private Open-Meteo API
+  URL); AP3 adds two OptionsFlow-only runtime/owner controls, for 81 fields in
   OptionsFlow while initial setup remains forced to safe Shadow defaults
 - an isolated internal Open-Meteo coordinator performs one read-only request
   for current DNI and diffuse radiation every 900 seconds; it is configured
@@ -93,3 +93,14 @@ technical release and runbook; it is not a live cutover.
 `Live`, `Live Verified`, Cutover, Rename, Release, and Merge are separate
 gates. The currently installed AP2 Shadow runtime does not make this Draft
 follow-up live and does not change the old productive policy.
+
+
+## AP3-Stabilisierung v0.6.0
+
+Testing / Shadow / Not Live. Ein logischer Profilwert ersetzt die getrennten
+Achsenprofile; die Migration verwendet bisherige Normal-Werte und erhält die
+alten Paare. Cold braucht frischen Lux unter konfigurierbaren 400 lx.
+Safety, Runtime-Stop und evidenzbasierter Bewegungsabschluss sind abgesichert.
+Vor Installation Config-Backup; vor Cutover neues unabhängiges Quality Gate.
+Details: [Entscheidung](docs/AP3_STABILIZATION.md),
+[Config-Migration](docs/MIGRATION.md), [Cutover/Rollback](docs/AP3_CUTOVER.md).

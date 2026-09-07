@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from .open_meteo import normalize_open_meteo_url
 
-CONFIG_VERSION = 5
+CONFIG_VERSION = 6
 
 RUNTIME_MODES = ("shadow", "live")
 APPLY_OWNERS = ("legacy", "blind_control")
@@ -268,40 +268,43 @@ def default_binding_freshness(
 
 @dataclass(frozen=True, slots=True)
 class PositionProfile:
-    """Explicit normal and inverted-axis target positions."""
+    """One logical target; the device-axis complement is never editable."""
 
-    normal: float
-    inverted: float
+    logical: float
 
     def __post_init__(self) -> None:
-        for value in (self.normal, self.inverted):
-            if not 0 <= value <= 100:
-                raise ValueError("position values must be between 0 and 100")
+        if (
+            isinstance(self.logical, bool)
+            or not isinstance(self.logical, (int, float))
+            or not 0 <= self.logical <= 100
+        ):
+            raise ValueError("logical position must be numeric and between 0 and 100")
 
-    def target(self, axis_inverted: bool) -> float:
-        return self.inverted if axis_inverted else self.normal
+    @property
+    def inverted(self) -> float:
+        return 100 - self.logical
 
     def as_dict(self) -> dict[str, float]:
-        return {"normal": self.normal, "inverted": self.inverted}
+        return {"logical": self.logical}
 
 
 DEFAULT_PROFILES: tuple[tuple[str, PositionProfile], ...] = (
-    ("window_safety", PositionProfile(100, 0)),
-    ("privacy_bed", PositionProfile(40, 60)),
-    ("waking", PositionProfile(100, 0)),
-    ("sleep", PositionProfile(5, 60)),
-    ("away", PositionProfile(5, 60)),
-    ("private_time", PositionProfile(40, 60)),
-    ("privacy", PositionProfile(40, 60)),
-    ("heat_protection", PositionProfile(15, 55)),
-    ("glare_general", PositionProfile(60, 40)),
-    ("glare_tv", PositionProfile(60, 40)),
-    ("glare_pc", PositionProfile(75, 25)),
-    ("cold_insulation", PositionProfile(5, 60)),
-    ("storm_approaching", PositionProfile(100, 0)),
-    ("cool_air_available", PositionProfile(100, 0)),
-    ("open", PositionProfile(100, 0)),
-    ("manual_override", PositionProfile(50, 50)),
+    ("window_safety", PositionProfile(100)),
+    ("privacy_bed", PositionProfile(40)),
+    ("waking", PositionProfile(100)),
+    ("sleep", PositionProfile(5)),
+    ("away", PositionProfile(5)),
+    ("private_time", PositionProfile(40)),
+    ("privacy", PositionProfile(40)),
+    ("heat_protection", PositionProfile(15)),
+    ("glare_general", PositionProfile(60)),
+    ("glare_tv", PositionProfile(60)),
+    ("glare_pc", PositionProfile(75)),
+    ("cold_insulation", PositionProfile(5)),
+    ("storm_approaching", PositionProfile(100)),
+    ("cool_air_available", PositionProfile(100)),
+    ("open", PositionProfile(100)),
+    ("manual_override", PositionProfile(50)),
 )
 
 DEFAULT_PROFILE_NAMES = tuple(name for name, _ in DEFAULT_PROFILES)
@@ -319,10 +322,7 @@ def _profile_items(value: object) -> tuple[tuple[str, PositionProfile], ...]:
             raise ValueError(f"unknown profile: {name}")
         if not isinstance(raw, Mapping):
             raise ValueError(f"profile {name} must be a mapping")
-        defaults[name] = PositionProfile(
-            _position(raw.get("normal")),
-            _position(raw.get("inverted")),
-        )
+        defaults[name] = PositionProfile(_position(raw.get("logical", raw.get("normal"))))
     return tuple((name, defaults[name]) for name in DEFAULT_PROFILE_NAMES)
 
 
@@ -442,6 +442,7 @@ class BlindControlConfig:
     """All runtime-calibratable values for the deterministic shadow engine."""
 
     profiles: tuple[tuple[str, PositionProfile], ...] = DEFAULT_PROFILES
+    legacy_profile_values: tuple[tuple[str, float, float], ...] = ()
     window_azimuth: float = 124.0
     window_tilt: float = 90.0
     axis_inverted: bool = False
@@ -463,10 +464,16 @@ class BlindControlConfig:
     heat_confidence_threshold: float = 0.55
     glare_confidence_threshold: float = 0.35
     cloud_shadow_lux_drop: float = 1000.0
-    cloud_shadow_ratio: float = 0.75
+    cloud_cover_threshold: float = 75.0
+    model_lux_ratio: float = 0.75
+    minimum_incidence_factor: float = 0.05
+    model_lux_per_watt: float = 120.0
     diffuse_lux_threshold: float = 2500.0
     night_lux_threshold: float = 50.0
     cold_outdoor_threshold: float = 8.0
+    cold_lux_threshold: float = 400.0
+    position_settle_seconds: float = 2.0
+    movement_timeout_seconds: float = 120.0
     cool_air_delta: float = 2.0
     storm_precipitation_trend_threshold: float = 0.0
     storm_wind_trend_threshold: float = 0.0
@@ -478,14 +485,14 @@ class BlindControlConfig:
     def __post_init__(self) -> None:
         _number(self.window_azimuth, name="window_azimuth", minimum=0, maximum=360)
         _number(self.window_tilt, name="window_tilt", minimum=0, maximum=180)
+        for name in ("heat_outdoor_threshold", "heat_indoor_threshold", "cold_outdoor_threshold"):
+            _number(getattr(self, name), name=name, minimum=-100, maximum=100)
         for name in (
-            "heat_outdoor_threshold",
-            "heat_indoor_threshold",
             "heat_radiation_threshold",
             "cloud_shadow_lux_drop",
             "diffuse_lux_threshold",
             "night_lux_threshold",
-            "cold_outdoor_threshold",
+            "cold_lux_threshold",
             "cool_air_delta",
             "storm_precipitation_trend_threshold",
             "storm_wind_trend_threshold",
@@ -507,7 +514,21 @@ class BlindControlConfig:
             minimum=0,
             maximum=1,
         )
-        _number(self.cloud_shadow_ratio, name="cloud_shadow_ratio", minimum=0, maximum=1)
+        _number(
+            self.minimum_incidence_factor, name="minimum_incidence_factor", minimum=0.001, maximum=1
+        )
+        _number(self.model_lux_per_watt, name="model_lux_per_watt", minimum=0.1, maximum=10000)
+        _number(self.model_lux_ratio, name="model_lux_ratio", minimum=0, maximum=1)
+        _number(
+            self.position_settle_seconds, name="position_settle_seconds", minimum=0.1, maximum=3600
+        )
+        _number(
+            self.movement_timeout_seconds,
+            name="movement_timeout_seconds",
+            minimum=self.position_settle_seconds,
+            maximum=3600,
+        )
+        _number(self.cloud_cover_threshold, name="cloud_cover_threshold", minimum=0, maximum=100)
         if not 1 <= self.storm_required_signals <= 5:
             raise ValueError("storm_required_signals must be between 1 and 5")
         if self.opening_safety_polarity not in OPENING_SAFETY_POLARITIES:
@@ -535,7 +556,11 @@ class BlindControlConfig:
         raise KeyError(name)
 
     def target(self, profile_name: str) -> float:
-        return self.profile(profile_name).target(self.axis_inverted)
+        return self.profile(profile_name).logical
+
+    def device_position(self, logical: float) -> float:
+        """Involutive transform, also used for observed device positions."""
+        return 100 - logical if self.axis_inverted else logical
 
     def binding_policy(self, key: str, *, legacy: bool = False) -> BindingFreshness:
         """Resolve one policy while preserving the field's minimum age floor."""
@@ -585,6 +610,8 @@ class BlindControlConfig:
         """Load persisted config without accepting unsafe or unknown profiles."""
 
         raw = raw or {}
+        if int(raw.get("config_version", 5)) > CONFIG_VERSION:
+            raise ValueError("unsupported future config version")
         observation_freshness_seconds = _number(
             raw.get("observation_freshness_seconds", 120),
             name="observation_freshness_seconds",
@@ -594,6 +621,7 @@ class BlindControlConfig:
         profiles = raw.get("profiles")
         return cls(
             profiles=_profile_items(profiles),
+            legacy_profile_values=_legacy_profile_values(raw),
             window_azimuth=_number(
                 raw.get("window_azimuth", 124),
                 name="window_azimuth",
@@ -638,10 +666,18 @@ class BlindControlConfig:
             heat_confidence_threshold=float(raw.get("heat_confidence_threshold", 0.55)),
             glare_confidence_threshold=float(raw.get("glare_confidence_threshold", 0.35)),
             cloud_shadow_lux_drop=float(raw.get("cloud_shadow_lux_drop", 1000)),
-            cloud_shadow_ratio=float(raw.get("cloud_shadow_ratio", 0.75)),
+            cloud_cover_threshold=float(
+                raw.get("cloud_cover_threshold", float(raw.get("cloud_shadow_ratio", 0.75)) * 100)
+            ),
+            model_lux_ratio=float(raw.get("model_lux_ratio", raw.get("cloud_shadow_ratio", 0.75))),
+            minimum_incidence_factor=float(raw.get("minimum_incidence_factor", 0.05)),
+            model_lux_per_watt=float(raw.get("model_lux_per_watt", 120)),
             diffuse_lux_threshold=float(raw.get("diffuse_lux_threshold", 2500)),
             night_lux_threshold=float(raw.get("night_lux_threshold", 50)),
             cold_outdoor_threshold=float(raw.get("cold_outdoor_threshold", 8)),
+            cold_lux_threshold=float(raw.get("cold_lux_threshold", 400)),
+            position_settle_seconds=float(raw.get("position_settle_seconds", 2)),
+            movement_timeout_seconds=float(raw.get("movement_timeout_seconds", 120)),
             cool_air_delta=float(raw.get("cool_air_delta", 2)),
             storm_precipitation_trend_threshold=float(
                 raw.get("storm_precipitation_trend_threshold", 0)
@@ -657,6 +693,10 @@ class BlindControlConfig:
         return {
             "config_version": CONFIG_VERSION,
             "profiles": {name: profile.as_dict() for name, profile in self.profiles},
+            "legacy_profile_values": {
+                name: {"normal": normal, "inverted": inverted}
+                for name, normal, inverted in self.legacy_profile_values
+            },
             "window_azimuth": self.window_azimuth,
             "window_tilt": self.window_tilt,
             "axis_inverted": self.axis_inverted,
@@ -677,10 +717,16 @@ class BlindControlConfig:
             "heat_confidence_threshold": self.heat_confidence_threshold,
             "glare_confidence_threshold": self.glare_confidence_threshold,
             "cloud_shadow_lux_drop": self.cloud_shadow_lux_drop,
-            "cloud_shadow_ratio": self.cloud_shadow_ratio,
+            "cloud_cover_threshold": self.cloud_cover_threshold,
+            "model_lux_ratio": self.model_lux_ratio,
+            "minimum_incidence_factor": self.minimum_incidence_factor,
+            "model_lux_per_watt": self.model_lux_per_watt,
             "diffuse_lux_threshold": self.diffuse_lux_threshold,
             "night_lux_threshold": self.night_lux_threshold,
             "cold_outdoor_threshold": self.cold_outdoor_threshold,
+            "cold_lux_threshold": self.cold_lux_threshold,
+            "position_settle_seconds": self.position_settle_seconds,
+            "movement_timeout_seconds": self.movement_timeout_seconds,
             "cool_air_delta": self.cool_air_delta,
             "storm_precipitation_trend_threshold": self.storm_precipitation_trend_threshold,
             "storm_wind_trend_threshold": self.storm_wind_trend_threshold,
@@ -731,3 +777,21 @@ def binding_status(config: BlindControlConfig, key: str, *, legacy: bool = False
             return "internal_provider_active"
         return "provider_unavailable"
     return "optional_bound" if configured else "optional_intentionally_empty"
+
+
+def _legacy_profile_values(raw: Mapping[str, object]) -> tuple[tuple[str, float, float], ...]:
+    """Keep old explicit calibration for deliberate release rollback, never apply it."""
+    values = raw.get("legacy_profile_values", {})
+    if "legacy_profile_values" not in raw and int(raw.get("config_version", 5)) < 6:
+        values = raw.get("profiles", {})
+    if not isinstance(values, Mapping):
+        raise ValueError("legacy profile values must be a mapping")
+    result = []
+    for name, item in values.items():
+        if name not in DEFAULT_PROFILE_NAMES or not isinstance(item, Mapping):
+            raise ValueError("invalid legacy profile")
+        if "normal" in item and "inverted" in item:
+            normal = _number(item["normal"], name="legacy normal", minimum=0, maximum=100)
+            inverted = _number(item["inverted"], name="legacy inverted", minimum=0, maximum=100)
+            result.append((name, normal, inverted))
+    return tuple(result)

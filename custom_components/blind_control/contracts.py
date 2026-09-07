@@ -227,6 +227,7 @@ class BlindControlInputs:
     cover_available: InputObservation[bool] = field(default_factory=_missing)
     cover_ready: InputObservation[bool] = field(default_factory=_missing)
     cover_position: InputObservation[float] = field(default_factory=_missing)
+    cover_motion: InputObservation[str] = field(default_factory=_missing)
 
     outdoor_lux: InputObservation[float] = field(default_factory=_missing)
     lux_trend: InputObservation[float] = field(default_factory=_missing)

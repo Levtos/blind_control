@@ -144,13 +144,14 @@ class ApplyExecutorTests(unittest.IsolatedAsyncioTestCase):
 
         applied = await executor.async_apply(snapshot, now=20)
         runtime.observe_cover_position(100, now=21)
-        stable = runtime.evaluate(replace(ready_inputs(), cover_position=fresh(100.0)), now=22)
-        stable_result = await executor.async_apply(stable, now=22)
+        runtime.observe_cover_position(100, now=23)
+        stable = runtime.evaluate(replace(ready_inputs(), cover_position=fresh(100.0)), now=24)
+        stable_result = await executor.async_apply(stable, now=24)
 
         self.assertEqual(len(hass.services.calls), 1)
         self.assertEqual(hass.services.calls[0][0:2], ("cover", "set_cover_position"))
         self.assertEqual(hass.services.calls[0][2]["position"], 100.0)
-        self.assertTrue(hass.services.calls[0][3])
+        self.assertFalse(hass.services.calls[0][3])
         self.assertTrue(applied.actuation_executed)
         self.assertEqual(applied.trace.apply.status, "applied")
         self.assertFalse(runtime.override.active)
@@ -168,7 +169,10 @@ class ApplyExecutorTests(unittest.IsolatedAsyncioTestCase):
         await CoverApplyExecutor(hass, config, runtime).async_apply(snapshot, now=20)
         runtime.observe_cover_position(70, now=21)
         runtime.observe_cover_position(100, now=22)
-        runtime.observe_cover_position(80, now=23)
+        runtime.observe_cover_position(100, now=24)
+        runtime.observe_cover_position(80, now=25)
+        self.assertFalse(runtime.override.active)
+        runtime.observe_cover_position(80, now=27)
 
         self.assertTrue(runtime.override.active)
         self.assertEqual(runtime.override.baseline, 100)
@@ -179,6 +183,7 @@ class ApplyExecutorTests(unittest.IsolatedAsyncioTestCase):
         runtime = ShadowRuntime(config)
         runtime.on_restart(42)
         runtime.observe_cover_position(60, now=10)
+        runtime.observe_cover_position(60, now=12)
         hass = FakeHass()
         executor = CoverApplyExecutor(hass, config, runtime)
 
@@ -195,7 +200,7 @@ class ApplyExecutorTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(applied.actuation_executed)
         self.assertEqual(len(hass.services.calls), 1)
 
-    async def test_failed_write_is_retryable_and_keeps_guard_closed(self) -> None:
+    async def test_failed_write_retains_attribution_and_blocks_automatic_retry(self) -> None:
         config = config_for("live", "blind_control")
         runtime = ShadowRuntime(config)
         runtime.on_restart(42)
@@ -208,10 +213,9 @@ class ApplyExecutorTests(unittest.IsolatedAsyncioTestCase):
         runtime.observe_cover_position(60, now=21)
 
         self.assertEqual(failed.trace.apply.status, "error")
-        self.assertTrue(runtime.override.active)
-        runtime.clear_override()
+        self.assertFalse(runtime.override.active)
         retry = runtime.evaluate(ready_inputs(), now=22)
-        self.assertEqual(retry.trace.apply.status, "live_ready")
+        self.assertEqual(retry.trace.apply.status, "blocked")
 
     async def test_cooldown_dispatches_only_the_latest_target(self) -> None:
         config = config_for("live", "blind_control")
@@ -222,6 +226,8 @@ class ApplyExecutorTests(unittest.IsolatedAsyncioTestCase):
 
         first = runtime.evaluate(ready_inputs(), now=20)
         await executor.async_apply(first, now=20)
+        runtime.observe_cover_position(100, now=21)
+        runtime.observe_cover_position(100, now=23)
         heat = runtime.evaluate(
             ready_inputs(
                 indoor_temperature=fresh(27.0),

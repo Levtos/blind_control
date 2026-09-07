@@ -809,7 +809,7 @@ class CoordinatorTests(unittest.TestCase):
             registry.time_callbacks[0](None)
             await hass.tasks[-1]
             self.assertIs(entry.runtime_data.snapshot, coordinator.snapshot)
-            self.assertEqual(entry.runtime_data.ux_snapshot["version"], "blind_control.ux.v3")
+            self.assertEqual(entry.runtime_data.ux_snapshot["version"], "blind_control.ux.v4")
             self.assertEqual(len(published), 2)
             self.assertFalse(coordinator.snapshot.actuation_executed)
             self.assertFalse(coordinator.snapshot.write_path_reachable)

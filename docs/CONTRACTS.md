@@ -200,7 +200,7 @@ eine neue freie Automatik abzuleiten.
 Failure wird nur bei fehlender belastbarer Entscheidungsgrundlage gesetzt; ein
 bekannter neutraler Context bleibt `normal`. Bei Failure wird eine frische,
 nachweislich sichere aktuelle oder letzte Position gehalten, sonst Apply
-blockiert. Nur positive Opening-Safety darf das konfigurierte, achsenspezifische
+blockiert. Nur positive Opening-Safety darf das logisch konfigurierte
 Safety-Open-Profil freigeben. Opening-Quality `unknown`, `stale`,
 `unavailable` oder `conflict` führt nie zu einer Öffnungsfahrt. Ebenso darf
 `base_daylight` bei `missing`, `unknown`, `unavailable`, `stale` oder
@@ -369,38 +369,56 @@ produktseitig fest codiert.
 
 | Contract | Inhalt | Schreibgrenze |
 | --- | --- | --- |
-| `blind_control.decision.v3` | v2-Hierarchie plus `runtime_mode`, `apply_owner`, freigegebenes Ziel und Ausführungsstatus | pure Entscheidung |
-| `blind_control.runtime.v2` | Shadow-/Live-Snapshot, Actuation- und Reachability-Evidence | unveränderlicher Snapshot |
-| `blind_control.ux.v3` | redigierte technische Modus-/Owner-Projektion | kein Command-Pfad |
-| `blind_control.automation_projection.v2` | stabile read-only Statusattribute inklusive Modus und Owner | keine steuernde Entity |
+| blind_control.decision.v4 | Hierarchie, logische Kandidaten/Ziele, Quality/Safety/Apply | pure Entscheidung |
+| blind_control.runtime.v3 | unveränderlicher Snapshot, physical_target, movement_status | kein eigener Writer |
+| blind_control.ux.v4 | redigierte Projektion und ein logischer Profilwert | kein Command-Pfad |
+| blind_control.automation_projection.v3 | read-only Statusattribute inklusive Modus, Owner und Bewegung | keine steuernde Entity |
 
-`runtime_mode` ist `shadow|live`; `apply_owner` ist
-`legacy|blind_control`. Die beiden AP3-Felder erscheinen ausschließlich nach der Installation im
-OptionsFlow. Der initiale ConfigFlow bleibt bei den 89 AP2-Feldern und erzwingt
-`shadow + legacy`; der AP3-OptionsFlow umfasst damit 91 sichtbare Felder.
+Config v6: je Profil {logical}; alte Normal-Werte sind Migrationsbasis,
+alte Paare bleiben als legacy_profile_values erhalten. Eingehende
+Geräteposition/Fahrtrichtung wird logisch normalisiert; ausgehendes fertig
+bestimmtes Ziel wird allein am Adapter gegebenenfalls zu 100 - logical.
+Invertierung verändert keine fachliche Arbitration.
 
-Ein ausführbarer automatischer Zielwert benötigt gleichzeitig:
+Cloud Cover ist 0–100 %, Werte außerhalb werden conflict und unbrauchbar.
+cloud_cover_threshold Default 75 %, alte cloud_shadow_ratio mal 100.
+model_lux_ratio ist separat ein dimensionsloses Helligkeitsverhältnis.
+Solar-Aggregat unknown blockiert normale Aktuation ohne neuen Open-Fallback.
 
-1. belastbare Inputs und keinen Failure;
-2. Safety-Freigabe oder positiv belegtes Safety-Ziel;
-3. etablierte Restart-Baseline;
-4. keinen aktiven manuellen Override, außer Safety überstimmt ihn;
-5. `automation_enabled=true` und `apply_enabled=true`;
-6. `runtime_mode=live` und `apply_owner=blind_control`;
-7. Cooldown-Freigabe beziehungsweise Safety-Bypass;
-8. ein tatsächliches Cover-Binding als Actuatorgrenze.
+Cold benötigt frischen Lux < cold_lux_threshold (Default 400) und frische
+Außentemperatur <= cold_outdoor_threshold (Default 8). Off-Window allein
+reicht nicht. Temperaturtrendfelder bleiben v1-Diagnose / mögliche v2-Arbeit,
+ohne erfundene Einheit, Schwelle oder Gewichtung.
+private_time bleibt Core-State-Wahrheit; kein zusätzlicher Waking-Filter.
 
-`ApplyDecision.status` unterscheidet mindestens `blocked`, `manual_hold`,
-`cooldown`, `stable`, `shadow_ready`, `live_ready`, `safety_ready`, `applied`
-und `error`. Nur `live_ready|safety_ready` erreichen den isolierten Adapter;
-der Adapter prüft die drei Konfigurationsgates erneut. Identische Ziele werden
-nicht erneut gesendet. Im Cooldown bleibt ausschließlich das neueste Ziel
-vorgemerkt. Ein fehlgeschlagener Aufruf schließt den Writing Guard und macht
-das aktuelle Ziel kontrolliert erneut prüfbar.
+Ein auswertbarer automatischer Zielwert braucht gleichzeitig:
+belastbare Inputs, Safety, Readiness, stabile Restart-Baseline, keinen
+blockierenden Override, Automation/Apply an, live + blind_control, Ruhe-/
+Zielstabilität, Cooldown und ein Cover-Binding. Positive Opening-Safety
+darf Override, Waking, normale Ruhe-Baseline und Cooldown überstimmen;
+frische Position, Readiness und Arming bleiben zwingend.
+Bei open ist das logische Safety-Ziel mindestens Istposition, nie abwärts.
 
-Die öffentliche Projektion enthält weder Actuator-Binding noch Service-Daten.
-Die kritischen Felder `runtime_mode`, `apply_owner` und `apply_enabled` sind
-nicht über den Panel-WebSocket änderbar, sondern nur über den nativen
-OptionsFlow. `apply_owner=blind_control` ist eine operative Bestätigung, dass
-der Legacy-Writer zuvor pausiert wurde; Blind Control verändert den fremden
-Owner nicht selbst.
+ApplyDecision.status: blocked, manual_hold, cooldown, stable, shadow_ready,
+live_ready, safety_ready, applied, error. Nur live_ready/safety_ready mit
+unverbrauchter aktueller Freigabe erreichen den Adapter. Er überprüft Runtime-
+Lebensdauer, Konfigurationsidentität und live/owner/apply unmittelbar erneut.
+Gestoppte Runtimes bleiben widerrufen. Ein Snapshot ist höchstens einmal nutzbar.
+
+movement_status unterscheidet baseline_pending, idle, settling, external_moving,
+own_moving, own_settling, target_not_reached, command_error und position_unavailable.
+Eigene Fahrt endet nur am tatsächlichen Ziel innerhalb Toleranz und in
+bestätigter Ruhe. Ein Timeout ersetzt keinen Beleg. Ein Servicefehler ist kein
+Beweis, dass kein Befehl beim Gerät ankam; Attribution bleibt erhalten.
+applied bestätigt Dispatch, nicht Zielerreichung oder Live Verified.
+
+Nur aktuelle Istnähe verhindert einen identischen Write. Cooldown startet bei
+Dispatch; die aktuelle Gesamtentscheidung ersetzt Pending. Safety darf nach
+erneuter Istabweichung dasselbe Ziel anfordern oder eine Abwärtsfahrt ersetzen.
+
+Private Bindings/URLs erscheinen nicht öffentlich. runtime_mode, apply_owner
+und apply_enabled bleiben native OptionsFlow-Felder. apply_owner=blind_control
+ist operative Bestätigung, kein automatischer fremder Writer-Lock:
+AP3_CUTOVER.md verlangt vollständig deaktivierte Legacy plus HA-Prozessneustart.
+Core Contracts wird noch nicht angebunden; Readiness-Audit und spätere Rollen
+stehen in AP3_STABILIZATION.md / MIGRATION.md.
