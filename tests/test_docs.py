@@ -116,7 +116,7 @@ class DocumentationTests(unittest.TestCase):
             "master_mode",
             "active_branches[]",
             "automation_projection.v1",
-            'selector({"entity": {}})',
+            "HA-EntitySelector",
             "failure.quality_blockers[]",
             "Status-Sensorentität",
             "blind_control.decision.v4",
@@ -358,7 +358,8 @@ class DocumentationTests(unittest.TestCase):
             self.assertIn(term, app)
         self.assertNotIn("input_bindings", app)
         self.assertNotIn("legacy_bindings", app)
-        self.assertIn('selector({"entity": {}})', config_flow)
+        self.assertIn("class _OptionalEntitySelector(EntitySelector)", config_flow)
+        self.assertIn("return super().__call__(data)", config_flow)
         self.assertIn("section(", config_flow)
         self.assertIn('getattr(self.hass, "add_job"', coordinator)
         self.assertIn("_schedule_refresh_in_event_loop", coordinator)

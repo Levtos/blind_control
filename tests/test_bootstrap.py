@@ -33,6 +33,16 @@ class _FakeSelector:
         self.config = config
 
 
+class _FakeEntitySelector(_FakeSelector):
+    def __init__(self, config=None):
+        super().__init__({"entity": config or {}})
+
+    def __call__(self, data):
+        if not isinstance(data, str) or "." not in data:
+            raise ValueError("invalid entity identifier")
+        return data
+
+
 class _SchemaKey:
     def __init__(self, key, required, options=None):
         self.key = key
@@ -462,6 +472,7 @@ def _home_assistant_imports():
     event = _FakeEventModule()
     selector_module = types.ModuleType("homeassistant.helpers.selector")
     selector_module.selector = lambda config: _FakeSelector(config)
+    selector_module.EntitySelector = _FakeEntitySelector
     helpers.selector = selector_module
     helpers.event = event
     components = types.ModuleType("homeassistant.components")
@@ -1407,6 +1418,19 @@ class BootstrapTests(unittest.TestCase):
             )
             self.assertNotIn("bio_state", cleared["input_bindings"])
             self.assertEqual(cleared["binding_intents"]["bio_state"], "intentionally_empty")
+            picker = _schema_value(core_state_section.schema, "bio_state")
+            for empty in (None, ""):
+                self.assertIsNone(picker(empty))
+                validated_clear = loaded._mapping_from_form(
+                    {"core_state_bindings": {"bio_state": picker(empty)}}, existing
+                )
+                self.assertNotIn("bio_state", validated_clear["input_bindings"])
+                self.assertEqual(
+                    validated_clear["binding_intents"]["bio_state"], "intentionally_empty"
+                )
+            self.assertEqual(picker("sensor.valid"), "sensor.valid")
+            with self.assertRaises(ValueError):
+                picker("invalid")
             options_flow = loaded.BlindControlOptionsFlow(
                 _FakeConfigEntry("entry-1", data=result["data"])
             )
