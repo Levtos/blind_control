@@ -24,10 +24,19 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Check out pinned Consumer API contract for conformance tests
+        uses: actions/checkout@v4
+        with:
+          repository: Levtos/benni-core-contracts
+          ref: def02cdf6db4daf24bb97ee36678eac090b9f863
+          path: .test-deps/core-contracts
+
       - name: Install test tools
         run: python -m pip install pytest ruff
 
       - name: Run bootstrap tests
+        env:
+          BLIND_CONTROL_CORE_TEST_PATH: .test-deps/core-contracts
         run: python -m pytest -q
 
       - name: Check Python compilation

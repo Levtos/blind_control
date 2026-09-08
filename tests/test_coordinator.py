@@ -44,6 +44,7 @@ class FakeStates:
 
 class FakeHass:
     def __init__(self, states):
+        self.config_entries = types.SimpleNamespace(async_entries=lambda domain: [])
         self.states = FakeStates(states)
         self.tasks = []
         self.jobs = []

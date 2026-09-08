@@ -30,3 +30,11 @@ export async function updateOptions(hass: HassContext, settings: UxSettings): Pr
     options,
   });
 }
+
+export async function setOperation(hass: HassContext, revision: string, mode: 'shadow' | 'live', owner: 'legacy' | 'blind_control', apply: boolean, confirmed: boolean): Promise<void> {
+  await hass.connection.sendMessagePromise({
+    type: 'blind_control/set_operation', expected_revision: revision,
+    operation: { runtime_mode: mode, apply_owner: owner, apply_enabled: apply },
+    confirm_null_writer: confirmed,
+  });
+}

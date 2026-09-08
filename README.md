@@ -27,8 +27,18 @@ then add **Blind Control** from **Settings → Devices & services**.
 Fresh and upgraded entries default to `runtime_mode=shadow` and
 `apply_owner=legacy`. The isolated writer is reachable only when Benni has
 paused the old writer and deliberately combines `live`, `blind_control`, and
-the Apply gate in the native OptionsFlow. Safety, restart readiness, manual
+the Apply gate in **Blind Control → Overview → Operation**. The native OptionsFlow
+remains available. Safety, restart readiness, manual
 override, target stability and cooldown remain additional mandatory gates.
+
+v0.7.0 adds the primary internal Core Contracts Consumer API for existing
+Opening, Room Climate and Weather/Environment schemas, with explicit compatible
+fallbacks for unselected or not yet implemented platform roles. Selected contracts
+fail closed on missing or invalid evidence. The operator overview explains actual
+position, current intent and inactive rules; diagnostics remain separate.
+See [AP3_OPERATOR.md](docs/AP3_OPERATOR.md) for configuration, remaining role gaps,
+staged Apply OFF/ON and the Legacy interlock. **Testing / Not Live** remains the
+release status; installation and the real writer cutover belong to Benni.
 
 ## AP2 and AP3 boundary
 

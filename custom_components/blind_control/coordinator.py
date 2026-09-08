@@ -37,6 +37,7 @@ from .contracts import (
     InputQuality,
     LegacyEvidence,
 )
+from .core_inputs import CoreInputs
 from .open_meteo import OPEN_METEO_PROVIDER
 from .shadow import ShadowRuntime, ShadowSnapshot
 from .ux_contract import build_ux_snapshot
@@ -103,8 +104,8 @@ def build_inputs_from_states(
     """Build the complete input contract from configured HA state objects."""
 
     now = now or datetime.now(UTC)
-    # CORE_CONTRACTS_MIGRATION: replace this owner-bound entity adapter with
-    # declared roles only after the full profile contract matrix is activated.
+    # Compatibility fallback for unselected/missing platform schemas.
+    # CoreInputs replaces selected fields through the primary Consumer API.
     configured = dict(config.input_bindings)
     provider_observations = provider_observations or {}
     values = {}
@@ -205,6 +206,12 @@ class ShadowCoordinator:
         self._restart_baseline_established = False
         self._previous_lux_sample: tuple[float, datetime] | None = None
         self._derived_lux_trend: InputObservation[float] | None = None
+        self.core_inputs = CoreInputs(
+            hass,
+            config,
+            f"blind_control:{getattr(entry, 'entry_id', 'default')}",
+            self._schedule_refresh,
+        )
 
     @property
     def entity_ids(self) -> tuple[str, ...]:
@@ -254,6 +261,7 @@ class ShadowCoordinator:
         """Remove observation listeners without invoking any HA service."""
 
         self.shadow.stop()
+        self.core_inputs.stop()
         for unsubscribe in self._unsubscribers:
             if callable(unsubscribe):
                 unsubscribe()
@@ -273,18 +281,17 @@ class ShadowCoordinator:
             for entity_id in self.entity_ids
             if getattr(self.hass, "states", None) is not None
         }
-        inputs = self._with_derived_lux_trend(
-            build_inputs_from_states(
-                states,
-                self.config,
+        inputs = build_inputs_from_states(
+            states,
+            self.config,
+            now=now,
+            provider_observations=_radiation_provider_observations(
+                self.radiation_provider,
                 now=now,
-                provider_observations=_radiation_provider_observations(
-                    self.radiation_provider,
-                    now=now,
-                ),
-            )
+            ),
         )
         legacy = build_legacy_evidence_from_states(states, self.config, now=now)
+        inputs = self._with_derived_lux_trend(self.core_inputs.apply(inputs))
         position = _number_value(inputs.cover_position)
         if not self._restart_baseline_established:
             self.shadow.on_restart(None)
@@ -315,6 +322,7 @@ class ShadowCoordinator:
             provider_status=_radiation_provider_status(self.radiation_provider, now=now),
         )
         runtime_data = getattr(self.entry, "runtime_data", None)
+        self.ux_snapshot["diagnosis"]["core_contracts"] = dict(self.core_inputs.status)
         if runtime_data is not None:
             runtime_data.snapshot = snapshot
             runtime_data.ux_snapshot = self.ux_snapshot

@@ -346,10 +346,11 @@ class DocumentationTests(unittest.TestCase):
         for term in ('"cover_position"', '"household"', '"master_mode"', '"active_branches"'):
             self.assertIn(term, ux)
         for term in (
-            "Native Entity-Selectoren",
+            "Core Contracts",
             "binding_groups",
             "optional_intentionally_empty",
-            "FACHLICHER ENTSCHEIDUNGSBAUM",
+            "<Overview {snapshot}",
+            "<Operation {snapshot}",
             "TECHNISCHE EBENE",
             "HAUSHALT & KONTEXT",
             "snapshot.overview.household",

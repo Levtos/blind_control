@@ -1,13 +1,13 @@
 # AP3 Cutover- und Rollback-Runbook
 
-**Stand:** v0.6.3. **Status:** Testing / Not Live.
+**Stand:** v0.7.0. **Status:** Testing / Not Live.
 Benni meldet v0.6.2 installiert im Shadow, Position 100 %, idle. Nach technischer
-v0.6.3-Lieferung ist das nächste reale Gate sein kontrollierter Writer-Cutover.
+v0.7.0-Lieferung ist das nächste reale Gate sein kontrollierter Writer-Cutover.
 Keine automatisch vorgeschaltete weitere theoretische Shadow-Runde.
 Dieses Dokument führt nichts aus; Installation, Neustarts, reale Tests, Live und
 Live Verified bleiben ausschließlich Bennis Gates.
 
-## Aktueller Writer-Cutover über normale HA-Optionen
+## Aktueller Writer-Cutover über Blind Control → Übersicht → Betrieb
 
 Dieser Ablauf benötigt keinen Entity-Rename. Der frühere kombinierte
 Rename-/Consumer-Plan unten bleibt für ein separat vorbereitetes Rename-Fenster
@@ -16,8 +16,8 @@ Legacy-Serviceconsumer bleiben bei deaktivierter Legacy unwirksam; sie dürfen
 keine zweite Writer-Freigabe erzeugen. Bio-/Sleep-Entscheidungen konsumiert BC
 bereits aus den kanonischen Ownern.
 
-1. Benni sichert den Ausgang und installiert v0.6.3 über HACS. In
-   **Einstellungen → Geräte & Dienste → Blind Control → Konfigurieren**
+1. Benni sichert den Ausgang und installiert v0.7.0 über HACS. In
+   **Blind Control → Übersicht → Betrieb**
    `runtime_mode=shadow`, `apply_owner=legacy`, **Apply AUS** speichern.
    Options-Reload abwarten; Übersicht bestätigt genau diese geladenen Werte,
    `write_path_reachable=false`, Position/Motion und konkrete Blocker.
@@ -27,12 +27,12 @@ bereits aus den kanonischen Ownern.
 3. Null-Writer bestätigen: Legacy disabled/unloaded, alte Services nicht mehr
    verfügbar, BC Shadow/Apply AUS, Cover in Ruhe. Bei Rest-Writer, Bewegung oder
    unklarer Evidence abbrechen; nicht durch Owner-Umschalten weitergehen.
-4. In denselben nativen Optionen **live + blind_control, Apply weiterhin AUS**
+4. In demselben Betriebsbereich **live + blind_control, Apply weiterhin AUS**
    speichern. Neue Runtime abwarten: Owner/Modus korrekt, Apply AUS, kein Write,
    gültige Position/Motion, bestätigte Ruhebaseline, Readiness und Opening.
    `low_light` ist gültig; unknown/stale/conflict oder unklare Safety blockieren.
 5. Benni kontrolliert aktuelles Ziel, Achse und Fenster. Erst dann **Apply AN**
-   in denselben Optionen speichern. Reload/Baseline abwarten und reale Fahrt
+   nach ausdrücklicher Null-Writer-Bestätigung im Panel speichern. Reload/Baseline abwarten und reale Fahrt
    beobachten. Apply ist Dauerautomatik, keine Einzelbefehl-Queue. Nur aktuelle
    Entscheidungen fahren; Safety kann sofort aufwärts eingreifen.
 6. Reale Zielposition innerhalb Toleranz und stabile Ruhe bestätigen; Opening

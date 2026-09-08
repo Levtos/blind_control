@@ -9,10 +9,12 @@ import voluptuous as vol
 
 from .config import BlindControlConfig
 from .const import DOMAIN
+from .operation import legacy_writer_blocker, revision, runtime_matches, staged_config
 from .ux_contract import build_ux_snapshot
 
 GET_SNAPSHOT = "blind_control/get_snapshot"
 UPDATE_OPTIONS = "blind_control/update_options"
+SET_OPERATION = "blind_control/set_operation"
 _REGISTERED_ATTRIBUTE = "_blind_control_shadow_websocket_registered"
 
 GET_SNAPSHOT_SCHEMA = {
@@ -22,6 +24,13 @@ GET_SNAPSHOT_SCHEMA = {
 UPDATE_OPTIONS_SCHEMA = {
     vol.Required("type"): UPDATE_OPTIONS,
     vol.Required("options"): dict,
+    vol.Optional("entry_id"): str,
+}
+SET_OPERATION_SCHEMA = {
+    vol.Required("type"): SET_OPERATION,
+    vol.Required("operation"): dict,
+    vol.Required("expected_revision"): str,
+    vol.Optional("confirm_null_writer", default=False): bool,
     vol.Optional("entry_id"): str,
 }
 
@@ -55,7 +64,15 @@ def register_websocket_commands(hass: object) -> None:
                 )
                 return
             projection = build_ux_snapshot(snapshot, config)
-        connection.send_result(msg["id"], projection)
+        current = _entry_config(entry)
+        loaded = getattr(runtime_data, "config", None)
+        active = getattr(getattr(runtime_data, "shadow", None), "active", False)
+        operation = {
+            "revision": revision(current),
+            "pending": not active or not runtime_matches(current, loaded),
+            "legacy_blocker": legacy_writer_blocker(hass),
+        }
+        connection.send_result(msg["id"], {**projection, "operation": operation})
 
     @websocket_api.websocket_command(UPDATE_OPTIONS_SCHEMA)
     @websocket_api.require_admin
@@ -78,8 +95,39 @@ def register_websocket_commands(hass: object) -> None:
         hass.config_entries.async_update_entry(entry, options=config.to_mapping())
         connection.send_result(msg["id"], {"ok": True})
 
+    @websocket_api.websocket_command(SET_OPERATION_SCHEMA)
+    @websocket_api.require_admin
+    @websocket_api.async_response
+    async def _set_operation(hass, connection, msg) -> None:
+        entry = _entry_for_message(hass, msg)
+        runtime = getattr(entry, "runtime_data", None)
+        shadow = getattr(runtime, "shadow", None)
+        if shadow is None or not shadow.active:
+            connection.send_error(msg["id"], "not_loaded", "Betriebswechsel wird noch geladen")
+            return
+        try:
+            current = _entry_config(entry)
+            if not runtime_matches(current, getattr(runtime, "config", None)):
+                raise ValueError("runtime_reload_pending")
+            config = staged_config(
+                current,
+                msg["operation"],
+                expected_revision=msg["expected_revision"],
+                confirmed=msg.get("confirm_null_writer"),
+                blocker=legacy_writer_blocker(hass),
+            )
+            # Revoke old approvals synchronously before persisting/reloading.
+            if config.to_mapping() != current.to_mapping():
+                shadow.stop()
+                hass.config_entries.async_update_entry(entry, options=config.to_mapping())
+        except (TypeError, ValueError, KeyError) as error:
+            connection.send_error(msg["id"], "invalid_operation", str(error))
+            return
+        connection.send_result(msg["id"], {"ok": True})
+
     websocket_api.async_register_command(hass, _get_snapshot)
     websocket_api.async_register_command(hass, _update_options)
+    websocket_api.async_register_command(hass, _set_operation)
     setattr(hass, _REGISTERED_ATTRIBUTE, True)
 
 
@@ -87,6 +135,11 @@ def _merge_options(current: BlindControlConfig, options: Mapping[str, Any]) -> d
     """Merge non-binding UX edits; entity selection stays in native OptionsFlow."""
 
     merged = current.to_mapping()
+    if current.apply_enabled and any(
+        key in options and options[key] != merged[key]
+        for key in ("core_contracts", "core_contract_profile")
+    ):
+        raise ValueError("disable_apply_before_contract_change")
     for key, value in options.items():
         if key in {
             "input_bindings",

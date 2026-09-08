@@ -108,11 +108,13 @@ Vollständige Schritte, notwendige Neustarts, Vorher/Nachher und exakte Rückweg
 keine pauschale inverse Textersetzung. Legacy bleibt installiert, während des
 Cutovers vollständig deaktiviert und durch Prozessneustart entkoppelt.
 
-## Core Contracts – spätere Binding-Migration
+## Core Contracts – verbleibende Plattform-Gaps nach v0.7.0
 
-Readiness-Ergebnis: [AP3_STABILIZATION.md](AP3_STABILIZATION.md).
-Für AP3 gelten direkte, explizit gespeicherte Bindings. Suchmarker:
-CORE_CONTRACTS_MIGRATION in coordinator.py:build_inputs_from_states.
+Ab v0.7.0 gelten [AP3_OPERATOR.md](AP3_OPERATOR.md) und der Consumer-API-Pfad für
+Opening, Raumklima und Weather/Environment. Config v6 wird additiv erweitert:
+`core_contract_profile=benni`, `core_contracts={}`. Bestehende Auswahl/Profile/
+Freshness/Gates bleiben erhalten; ohne gewählte Contract-ID bleibt der explizite
+kompatible Owner-Fallback. Keine automatische Auswahl oder Registry-Migration.
 
 | Direkte Grenze | Später benötigter kanonischer Inhalt | Voraussetzung |
 | --- | --- | --- |
@@ -122,6 +124,6 @@ CORE_CONTRACTS_MIGRATION in coordinator.py:build_inputs_from_states.
 | Lux, Sun, Cloud, Temperaturen, Wetter | eindeutige Einheiten und Feldqualitäten | aktivierte Quellen und TTL/LKG-Vertrag |
 | optionale interne Modellstrahlung | kanonische Rollen statt privatem Provider | Quelle vorhanden; externe Precedence erhalten |
 
-Migration erst nach fachlich belegtem aktivem Inhalt, vollständigen Rollen,
-Revision/LKG-/Subscription-/Unsubscribe-Tests und erneutem Shadow-Diff.
+Weitere Rollen erst nach fachlich belegtem aktivem Inhalt und geprüfter
+Consumer-Semantik migrieren. Dies ist kein zusätzliches pauschales Cutover-Gate.
 Keine produktiven Registry-Inhalte werden in diesem Auftrag verändert.

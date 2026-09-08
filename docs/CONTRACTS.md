@@ -462,9 +462,10 @@ Nur aktuelle Istnähe verhindert einen identischen Write. Cooldown startet bei
 Handler-Erfolg; die aktuelle Gesamtentscheidung ersetzt Pending. Safety darf nach
 erneuter Istabweichung dasselbe Ziel anfordern oder eine Abwärtsfahrt ersetzen.
 
-Private Bindings/URLs erscheinen nicht öffentlich. runtime_mode, apply_owner
-und apply_enabled bleiben native OptionsFlow-Felder. apply_owner=blind_control
-ist operative Bestätigung, kein automatischer fremder Writer-Lock:
+Private Bindings/URLs erscheinen nicht öffentlich. Ab v0.7.0 sind runtime_mode,
+apply_owner und apply_enabled zusätzlich im administrativen Panel bedienbar.
+Staging, Revisionsprüfung und Legacy-Interlock: [AP3_OPERATOR.md](AP3_OPERATOR.md).
+apply_owner=blind_control ist kein globaler fremder Writer-Lock:
 AP3_CUTOVER.md verlangt vollständig deaktivierte Legacy plus HA-Prozessneustart.
 
 Runtime/UX ergänzen `baseline_position` und `baseline_ready` aus dem tatsächlichen
@@ -473,8 +474,9 @@ Fremd-Override-Nachweises. Baseline ready bedeutet initialisiert, nicht automati
 fahrbereit: Quality, aktuelle Position/Motion, Recovery und übrige Gates gelten.
 Die Übersicht zeigt bestätigte Optionswerte, Apply-Schalter, tatsächliche Baseline,
 Schreibpfad und den konkreten Apply-Grund. Keine private Config wird projiziert.
-Core Contracts wird noch nicht angebunden; Readiness-Audit und spätere Rollen
-stehen in AP3_STABILIZATION.md / MIGRATION.md.
+Core Contracts ist ab v0.7.0 für vorhandene v1-Schemas primär angebunden;
+die verbindliche Feldmatrix, Quality-Grenze und offenen Rollen stehen in
+[AP3_OPERATOR.md](AP3_OPERATOR.md). Frühere Verschiebungsentscheidungen sind damit ersetzt.
 
 Runtime environment und UX diagnosis.environment zeigen je heat/glare/cold
 active, pending (boolean oder null) und since (monotone Startzeit oder null).

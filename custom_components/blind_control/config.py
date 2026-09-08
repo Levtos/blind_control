@@ -450,6 +450,8 @@ class BlindControlConfig:
     apply_enabled: bool = True
     runtime_mode: str = "shadow"
     apply_owner: str = "legacy"
+    core_contract_profile: str = "benni"
+    core_contracts: tuple[tuple[str, str], ...] = ()
     open_meteo_api_url: str = ""
     opening_safety_polarity: str = "unspecified"
     input_bindings: tuple[tuple[str, str], ...] = ()
@@ -488,6 +490,19 @@ class BlindControlConfig:
     position_tolerance: float = 3.0
 
     def __post_init__(self) -> None:
+        if self.core_contract_profile not in {"benni", "eltern"}:
+            raise ValueError("unsupported core contract profile")
+        if len(dict(self.core_contracts)) != len(self.core_contracts):
+            raise ValueError("duplicate core contract selection")
+        for schema, contract_id in self.core_contracts:
+            if schema not in {"opening", "room_climate", "weather_environment"}:
+                raise ValueError("unsupported core contract schema")
+            if (
+                not isinstance(contract_id, str)
+                or not contract_id.strip()
+                or len(contract_id) > 160
+            ):
+                raise ValueError("invalid core contract selection")
         _number(self.window_azimuth, name="window_azimuth", minimum=0, maximum=360)
         _number(self.window_tilt, name="window_tilt", minimum=0, maximum=180)
         for name in ("heat_outdoor_threshold", "heat_indoor_threshold", "cold_outdoor_threshold"):
@@ -666,6 +681,8 @@ class BlindControlConfig:
             apply_enabled=_bool(raw.get("apply_enabled", True), "apply_enabled"),
             runtime_mode=str(raw.get("runtime_mode", "shadow")),
             apply_owner=str(raw.get("apply_owner", "legacy")),
+            core_contract_profile=str(raw.get("core_contract_profile", "benni")),
+            core_contracts=tuple(sorted(dict(raw.get("core_contracts", {})).items())),
             open_meteo_api_url=(
                 normalize_open_meteo_url(raw["open_meteo_api_url"])
                 if raw.get("open_meteo_api_url")
@@ -743,6 +760,8 @@ class BlindControlConfig:
             "apply_enabled": self.apply_enabled,
             "runtime_mode": self.runtime_mode,
             "apply_owner": self.apply_owner,
+            "core_contract_profile": self.core_contract_profile,
+            "core_contracts": dict(self.core_contracts),
             "open_meteo_api_url": self.open_meteo_api_url,
             "opening_safety_polarity": self.opening_safety_polarity,
             "input_bindings": dict(self.input_bindings),
