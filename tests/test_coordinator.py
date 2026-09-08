@@ -751,6 +751,87 @@ class CoordinatorTests(unittest.TestCase):
         self.assertTrue(observation.usable)
         self.assertTrue(observation.value)
 
+    def test_cover_ready_weather_only_projection_is_usable(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {"input_bindings": {"cover_ready": "binary_sensor.ready"}}
+        )
+        observation = build_inputs_from_states(
+            {
+                "binary_sensor.ready": FakeState(
+                    "on",
+                    attributes={
+                        "cover_available": True,
+                        "current_position": 100,
+                        "cover_running": False,
+                        "policy_context_ready": True,
+                        "source_quality": "degraded",
+                        "degraded": True,
+                        "degraded_reason": ["weather_contract_degraded"],
+                        "missing_sources": "",
+                        "master_missing_sources": [],
+                    },
+                    updated_at=self.now,
+                )
+            },
+            config,
+            now=self.now,
+        ).cover_ready
+        self.assertTrue(observation.usable)
+        self.assertTrue(observation.value)
+
+    def test_cover_ready_weather_projection_cannot_hide_technical_errors(self) -> None:
+        config = BlindControlConfig.from_mapping(
+            {"input_bindings": {"cover_ready": "binary_sensor.ready"}}
+        )
+        base = {
+            "cover_available": True,
+            "current_position": 100,
+            "policy_context_ready": True,
+            "source_quality": "degraded",
+            "degraded": True,
+            "degraded_reason": ["weather_contract_degraded"],
+            "missing_sources": "",
+            "master_missing_sources": [],
+        }
+        for change in (
+            {"cover_available": False},
+            {"policy_context_ready": False},
+            {"current_position": None},
+            {"current_position": True},
+            {"current_position": 101},
+            {"current_position": float("nan")},
+            {"source_quality": "conflict"},
+            {"quality_status": "stale"},
+            {"quality": "unavailable"},
+            {"cover_ready_quality": "stale"},
+            {"readiness_quality": "conflict"},
+            {"restored": True},
+            {"missing_sources": "cover"},
+            {"master_missing_sources": ["position"]},
+            {"degraded_reason": []},
+            {"degraded_reason": ["weather_contract_degraded", "cover_unavailable"]},
+            {"degraded_reason": [{"unexpected": "format"}]},
+        ):
+            with self.subTest(change=change):
+                observation = build_inputs_from_states(
+                    {
+                        "binary_sensor.ready": FakeState(
+                            "on", attributes={**base, **change}, updated_at=self.now
+                        )
+                    },
+                    config,
+                    now=self.now,
+                ).cover_ready
+                self.assertFalse(observation.usable)
+        for state in ("off", "unknown", "unavailable"):
+            with self.subTest(state=state):
+                observation = build_inputs_from_states(
+                    {"binary_sensor.ready": FakeState(state, attributes=base, updated_at=self.now)},
+                    config,
+                    now=self.now,
+                ).cover_ready
+                self.assertFalse(observation.usable and observation.value)
+
     def test_owner_published_quality_is_not_hidden_by_a_recent_ha_timestamp(self) -> None:
         config = BlindControlConfig.from_mapping(
             {"input_bindings": {"outdoor_temperature": "sensor.owner_weather"}}
