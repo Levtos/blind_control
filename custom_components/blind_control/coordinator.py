@@ -71,6 +71,13 @@ _NUMERIC_KEYS = frozenset(
     }
 )
 _STATE_UNAVAILABLE = frozenset({"unknown", "unavailable"})
+_COVER_STATES = frozenset({"open", "closed", "opening", "closing", "stopped"})
+_DEVICE_TIMESTAMP_KEYS = (
+    "device_timestamp",
+    "source_timestamp",
+    "measurement_timestamp",
+    "observed_at",
+)
 _CANONICAL_DAY_STATES = frozenset(
     {
         "early_night",
@@ -115,14 +122,13 @@ def build_inputs_from_states(
         )
     position = values["cover_position"]
     cover = states.get(configured.get("cover_position", ""))
-    motion = str(getattr(cover, "state", "unknown")).lower()
     # HA motion states are semantic, not derivatives of the numeric device axis.
-    values["cover_motion"] = replace(
-        position,
-        value=motion,
-        quality=position.quality
-        if motion in {"open", "closed", "opening", "closing", "stopped"}
-        else InputQuality.UNKNOWN,
+    values["cover_motion"] = _observation_for_entity(
+        "cover_motion",
+        configured.get("cover_position"),
+        cover,
+        config.binding_policy("cover_position"),
+        now,
     )
     if position.usable:
         number = float(position.value)
@@ -526,6 +532,17 @@ def _observation_for_entity(
             reason="restored_state_is_not_fresh_owner_evidence",
             updated_at=_updated_at(key, state),
         )
+    if (
+        key in {"cover_position", "cover_motion"}
+        and (key == "cover_motion" or _entity_domain(state) == "cover")
+        and str(raw_state).lower() not in _COVER_STATES
+    ):
+        return InputObservation(
+            source=entity_id,
+            quality=InputQuality.UNKNOWN,
+            reason="cover_state_not_semantic",
+            updated_at=_updated_at(key, state),
+        )
     raw_value = _attribute_value(key, state, raw_state)
     try:
         value, adapter_reason = _convert_value(
@@ -555,6 +572,26 @@ def _observation_for_entity(
             updated_at=_updated_at(key, state),
         )
     updated_at = _updated_at(key, state)
+    if key in {"cover_position", "cover_motion"} and _entity_domain(state) == "cover":
+        # A stationary HA state is retained device state, not a periodic sample.
+        # Explicit source timestamps remain authoritative even when unusable.
+        explicit_time = any(name in attributes for name in _DEVICE_TIMESTAMP_KEYS)
+        if explicit_time and _device_timestamp(state) is None:
+            return InputObservation(
+                source=entity_id, quality=InputQuality.DEGRADED, reason="device_timestamp_invalid"
+            )
+        if updated_at is not None and updated_at > now:
+            return InputObservation(
+                source=entity_id,
+                quality=InputQuality.CONFLICT,
+                reason="cover_timestamp_in_future",
+                updated_at=updated_at,
+            )
+        freshness = replace(freshness, owner="cover_device", require_timestamp=True)
+        if not explicit_time and (
+            key == "cover_motion" or str(raw_state).lower() in {"open", "closed", "stopped"}
+        ):
+            freshness = replace(freshness, max_age_seconds=None)
     quality, reason = _freshness(
         updated_at,
         now,
@@ -624,6 +661,8 @@ def _convert_value(
         return _convert_day_context(raw_state)
     if key == "cover_available":
         return _convert_cover_availability(raw_state)
+    if key == "cover_motion":
+        return str(raw_state).lower(), "semantic_cover_motion_contract"
     if key == "opening_safe_for_blind":
         if opening_safety_polarity == "unspecified":
             raise ValueError("opening safety polarity is not configured")
@@ -648,6 +687,8 @@ def _convert_value(
     if key in _BOOLEAN_KEYS:
         return _canonical_bool(value), "canonical_boolean_contract"
     if key in _NUMERIC_KEYS:
+        if key == "cover_position" and isinstance(value, bool):
+            raise ValueError("boolean is not a cover position")
         result = float(value)
         if not math.isfinite(result):
             raise ValueError("numeric state is not finite")
@@ -1047,8 +1088,10 @@ def _quality_marker_value(value: object) -> object:
 
 
 def _updated_at(key: str, state: object) -> datetime | None:
-    if key == "cover_position":
-        return _device_timestamp(state) or _ha_updated_at(state)
+    if key in {"cover_position", "cover_motion"}:
+        attributes = getattr(state, "attributes", {}) or {}
+        if any(name in attributes for name in _DEVICE_TIMESTAMP_KEYS):
+            return _device_timestamp(state)
     return _ha_updated_at(state)
 
 
@@ -1061,16 +1104,14 @@ def _device_timestamp(state: object) -> datetime | None:
     """Read an explicit source/device timestamp when the owner publishes one."""
 
     attributes = getattr(state, "attributes", {}) or {}
-    for name in ("device_timestamp", "source_timestamp", "measurement_timestamp", "observed_at"):
+    for name in _DEVICE_TIMESTAMP_KEYS:
         if name in attributes:
-            timestamp = _as_utc_datetime(attributes[name])
-            if timestamp is not None:
-                return timestamp
+            return _as_utc_datetime(attributes[name])
     return None
 
 
 def _timestamp_reason(key: str, state: object) -> str:
-    if key != "cover_position":
+    if key not in {"cover_position", "cover_motion"}:
         return "ha_state_timestamp_contract"
     if _device_timestamp(state) is not None:
         return "device_timestamp_contract"

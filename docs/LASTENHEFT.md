@@ -861,6 +861,12 @@ den Zustand nicht als `unavailable` markiert. Die Position kommt ausschließlich
 aus `current_position`; ein Source-Timestamp hat Vorrang, der normale
 HA-Zeitstempel eines Standard-Covers ist als Freshness-Evidence zulässig.
 Restore-Evidence bleibt degradiert und kann keinen Override begründen.
+v0.6.2 konkretisiert: eine gültige ruhende Standard-Coverposition ohne expliziten
+Device-Timestamp verliert ihre Baseline nicht allein durch einen alten
+HA-Änderungszeitpunkt. Bewegte Position und explizite Device-Evidence behalten
+ihre Altersprüfung; negative, ungültige oder restored Evidence bleibt blockierend.
+Motion hat eigene semantische Quality, ersetzt aber niemals die numerische
+Position. Timestamp-Precedence und genaue Grenzen: CONTRACTS.md Abschnitt 7.1.
 
 ### 28.5 Bindings und stabile Diagnoseprojektion
 

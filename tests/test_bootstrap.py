@@ -539,6 +539,54 @@ def _home_assistant_imports():
 
 
 class BootstrapTests(unittest.TestCase):
+    def test_v061_persisted_temperature_floor_survives_options_and_entry_load(self) -> None:
+        with _home_assistant_imports():
+            module = importlib.import_module("custom_components.blind_control")
+            flow_module = importlib.import_module("custom_components.blind_control.config_flow")
+            hass = _FakeHomeAssistant()
+            hass.config = types.SimpleNamespace(time_zone="UTC")
+            entry = _FakeConfigEntry(
+                "fixture",
+                data={"config_version": 6},
+                options={
+                    "observation_freshness_seconds": 120,
+                    "input_bindings": {"outdoor_temperature": "weather.fixture"},
+                    "binding_freshness": {
+                        "outdoor_temperature": {
+                            "max_age_seconds": 120,
+                            "require_timestamp": True,
+                        }
+                    },
+                },
+            )
+            hass._state_values["weather.fixture"] = types.SimpleNamespace(
+                entity_id="weather.fixture",
+                state="cloudy",
+                attributes={"temperature": 12},
+                last_updated=datetime.now(UTC) - timedelta(seconds=600),
+            )
+
+            async def scenario():
+                self.assertTrue(await module.async_setup_entry(hass, entry))
+                runtime = entry.runtime_data
+                self.assertEqual(
+                    runtime.config.binding_policy("outdoor_temperature").max_age_seconds, 1800
+                )
+                self.assertEqual(runtime.snapshot.inputs["outdoor_temperature"]["quality"], "fresh")
+                options = flow_module.BlindControlOptionsFlow(entry)
+                options.hass = hass
+                saved = await options.async_step_init({"observation_freshness_seconds": 120})
+                self.assertEqual(saved["type"], "create_entry")
+                self.assertEqual(
+                    saved["data"]["binding_freshness"]["outdoor_temperature"]["max_age_seconds"],
+                    1800,
+                )
+                self.assertEqual(saved["data"]["runtime_mode"], "shadow")
+                self.assertEqual(saved["data"]["apply_owner"], "legacy")
+                self.assertTrue(await module.async_unload_entry(hass, entry))
+
+            asyncio.run(scenario())
+
     def test_manifest_is_native_config_entry_bootstrap(self) -> None:
         manifest = json.loads((PACKAGE / "manifest.json").read_text(encoding="utf-8"))
 
