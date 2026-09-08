@@ -191,3 +191,47 @@ Validierung, Config-v6-Kompatibilität und exakter Versionsrollback:
 frischem Kontext erforderlich.** Erst nach dessen PASS installiert Benni
 v0.6.1 und erhebt neue Shadow-Evidence. Keine Selbstzertifizierung durch diesen
 Implementierungsdurchgang; das spätere Cutover-/Live-Gate bleibt separat.
+
+## Fokussierter Hardening-Nachtrag v0.6.2 – 08.09.2026
+
+Ausgang exakt v0.6.1/main `9987f198346422a9e39da06db6db6c62b65e19a5`.
+Nur der reproduzierte Standard-Cover-Contractfehler wird korrigiert.
+
+| Finding | Ergebnis gegen unverändertes v0.6.1 | Behandlung |
+| --- | --- | --- |
+| A: Outdoor-Temperatur nach etwa 120 s stale | Config v6 mit global/Binding 120 s und 600 s altem Weather-Temperaturwert ergibt effektive 1800 s und fresh. Default, from_mapping, Roundtrip, Options und ConfigEntry verwenden binding_policy / _effective_max_age. | **not reproduced in v0.6.1 source; requires fresh HA runtime evidence**. Kein Produktfix, keine neue TTL. |
+| B: 299 lx / 5.88° / 88.07° / DNI 0 / Diffus 2.1 | Bei Standardfenstergeometrie unknown, reason insufficient_radiation_or_lux_evidence_with_known_geometry; Failure solar_aggregate_unknown. | **expected behavior**. Solar, optionale Evidence, Provider 900/1200 s und Fail-Closed bleiben unverändert. |
+| C: ruhendes Cover open / Position 100 / HA-State acht Stunden alt | Position stale → kopierte Motion-Quality stale → observe_cover_position(None) → position_unavailable / keine Baseline. | **reproduced bug**. Kleine Korrektur ausschließlich an der vorhandenen Adaptergrenze. |
+
+### Entscheidung und Grenze
+
+HA `last_updated` ändert sich nur bei verändertem State oder Attribut,
+nicht bei jedem Bericht. Deshalb darf sein Alter eine unveränderte stationäre
+Position nicht allein entwerten. Primärquellen:
+[HA State Object](https://www.home-assistant.io/docs/configuration/state_object/)
+und [Cover-Entity-Vertrag](https://developers.home-assistant.io/docs/core/entity/cover/).
+
+Für nicht restored Standard-Cover mit gültigem numerischem current_position,
+semantischem Ruhezustand open/closed/stopped und ohne negative Evidence gilt
+die stationäre Baseline ohne HA-Alterslimit. Kein Ersatzwert und keine riesige TTL.
+Vorhandener HA-Zeitstempel bleibt erforderlich. Während opening/closing bleibt
+die numerische Position Telemetrie mit vorhandener TTL. Motion bleibt ein
+semantischer State mit eigener Quality, nicht die kopierte Qualität einer Zahl.
+
+Explizite Device-/Source-Zeit-Evidence hat Vorrang, auch wenn sie stale oder
+ungültig ist. Kein Fallthrough auf frischere nachrangige Evidence. Reihenfolge
+und fail-closed Regeln stehen in CONTRACTS.md 7.1. Keine neue Owner-/Registry-
+oder Core-Contracts-Ersatzlogik. Ein gültiger HA-State beweist keinen unabhängig
+gemessenen physischen Zustand, wenn die Geräteintegration falsche Werte liefert;
+reale Geräteplausibilität bleibt Shadow-Gate.
+
+Restart, eigene Fahrt und Recovery benötigen weiterhin gültige Position plus
+Motion und das bestehende Ruhefenster. Keine alten Ziele werden nachgeholt.
+Opening OPEN kann weiterhin nur logisch aufwärts wirken und bleibt über
+Cooldown, Override, Waking und normalen Movement-Gates.
+
+Regressionen: tests/test_cover_evidence.py und ConfigEntry-/Options-Fall in
+tests/test_bootstrap.py. Bestehende v0.6.1-Safety-/Recovery-Tests bleiben erhalten.
+Config bleibt v6 ohne neue Felder. **Testing / Shadow / Not Live.**
+Offen: Bennis v0.6.2-Installation, frische read-only Shadow-Evidence,
+Opening-OPEN- und Movement-/Baseline-Reproduktion; erst danach Cutoverplanung.

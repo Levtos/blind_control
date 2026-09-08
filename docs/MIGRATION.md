@@ -2,6 +2,23 @@
 
 **Stand:** Config v6 / AP3-Stabilisierung 2026-09-07. Testing / Shadow / Not Live.
 
+## v0.6.1 → v0.6.2: Standard-Cover-Evidence
+
+Keine Config-/Options-Migration und keine neuen Felder. Gespeicherte v6-Werte,
+Bindings, Achse und Gates laden unverändert. Die vorhandene Positions-TTL
+begrenzt weiter explizite Device-Zeit-Evidence und bewegte Positions-Telemetrie;
+eine gültige stationäre Standard-Coverposition ohne solche Zeit-Evidence wird
+nicht mehr allein durch einen alten HA-Änderungszeitpunkt stale.
+Motion wird unabhängig von numerischer Positionsqualität gelesen.
+Negative Evidence und normale Restart-/Recovery-/Safety-Gates bleiben wirksam.
+Details: CONTRACTS.md Abschnitt 7.1 und AP3_STABILIZATION.md, Nachtrag v0.6.2.
+
+Versionsrollback auf v0.6.1 ist mit denselben v6-Daten möglich; dabei kehrt die
+alte 120-s-Alterung stationärer Position zurück. Vor Installation wie üblich
+Original-Config sichern. Keine Installation/Reloads durch diesen Patch.
+Bennis neue Installation, read-only Shadow-Evidence, Opening-OPEN- und
+Movement-/Baseline-Reproduktion bleiben vor weiterer Cutoverplanung erforderlich.
+
 ## Additive v0.6.0 → v0.6.1-Konfiguration
 
 Config bleibt v6. Bestehende Profile, Achse, Gates, Bindings, Freshness,

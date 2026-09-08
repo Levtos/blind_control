@@ -138,7 +138,7 @@ Lux-Trend benötigt zwei verschiedene frische Lux-Zeitpunkte.
 
 AP2 konkretisiert die Freshness feldweise: stabile Core-State-Contracts sind
 nicht allein wegen eines alten `last_updated`-Werts stale; zeitkritische
-Telemetrie und die Coverposition verwenden eine eigene Maximalalter-Policy und
+Telemetrie und zeitbezogene Cover-Evidence verwenden eine eigene Maximalalter-Policy und
 benötigen die geforderte Timestamp-Evidence. Fehlende erforderliche Zeit-
 Evidence bleibt `stale`. Jede Bindung führt Owner, `max_age_seconds` und
 `require_timestamp` im effektiven Options-/UX-Contract.
@@ -229,10 +229,32 @@ dürfen ein Kipp-Safety-Signal auswerten.
 
 Ein Standard-Cover ist bei den Zuständen `open`, `closed`, `opening`, `closing`
 oder `stopped` verfügbar; `unknown`/`unavailable` bleiben nicht nutzbar.
-`cover_position` liest `current_position`. Ein expliziter Source-/Device-
-Timestamp hat Vorrang, andernfalls ist der HA-Zeitstempel des Standard-Covers
-zulässig. `restored` bleibt degradiert; fehlende Positions-Evidence blockiert
-Apply und erfindet keine Position.
+`cover_position` liest ausschließlich das numerische `current_position`.
+Ab v0.6.2 ist ein gültiges ruhendes Standard-Cover (`open`, `closed`, `stopped`)
+ohne expliziten Device-Timestamp eine stationäre technische Baseline:
+sein HA-Zeitstempel muss vorhanden sein, wird aber nicht nach 120 s verworfen.
+`last_updated` bezeichnet eine Änderung, keinen periodischen Gerätebericht.
+Während `opening`/`closing` bleibt die Positions-Telemetrie altersbegrenzt.
+
+Timestamp-Precedence: erstes vorhandenes Attribut aus `device_timestamp`,
+`source_timestamp`, `measurement_timestamp`, `observed_at`; nur wenn keines
+vorhanden ist, HA `last_updated` beziehungsweise `last_changed`.
+Explizit stale Zeit-Evidence bleibt stale; ungültige explizite Evidence wird
+degraded, zukünftige Cover-Timestamps conflict. Kein Rückfall auf einen
+frischeren HA- oder nachrangigen Timestamp. Die vorhandene Binding-TTL
+(Default 120 s) bleibt für explizite Zeit-Evidence und bewegte Position gültig.
+
+`cover_motion` liest denselben semantischen HA-Cover-State mit eigener Quality;
+fehlende/ungültige numerische Position löscht keine bekannte Motion. Ohne
+explizite Zeit-Evidence altert Motion nicht allein mit dem HA-Änderungszeitpunkt.
+Negative allgemeine Owner-Quality, restored und ungültige Cover-States bleiben
+für beide blockierend; explizite Device-Timestamps gelten auch für Motion.
+Motion allein erlaubt keine Baseline oder Fahrt: der Coordinator benötigt
+weiterhin **Position und Motion usable**, danach die vorhandene Ruhe-/Settling-
+Evidence. `unknown`/`unavailable`, fehlende Position, boolesche/nicht endliche
+Werte und Werte außerhalb 0–100 bleiben unbrauchbar; Bereichsfehler sind conflict.
+Axis Inversion transformiert nur Zahlen, niemals Motion-Strings.
+Keine Position wird aus `open` oder `closed` erfunden, kein neuer Device-Owner.
 
 ### 7.2 Kleine Automations-/Diagnoseprojektion
 
@@ -287,7 +309,7 @@ Modellstrahlungsfelder und enthalten keine URL oder Koordinaten.
 | `opening_state` | required technical | Opening Domain Owner, `closed|open|tilted` | Zustand | Timestamp erforderlich, nicht altersbegrenzt |
 | `cover_available` | required technical | Standard-Cover-HA-Verfügbarkeit; `open|closed` sind verfügbar | boolean | Timestamp erforderlich, nicht altersbegrenzt |
 | `cover_ready` | required technical | bestehender technischer Readiness-Owner | boolean | Timestamp erforderlich, nicht altersbegrenzt |
-| `cover_position` | required technical | Standard-Cover `current_position` | % | 120 s, Source- oder HA-Timestamp |
+| `cover_position` | required technical | Standard-Cover `current_position` | % | explizite/bewegte Telemetrie 120 s; stationäre HA-Baseline gemäß 7.1 nicht altersbegrenzt |
 | `opening_safe_for_blind` | conditional | Opening-Safety-Owner; nur mit expliziter positiver oder negativer Polarität | boolean safe | Timestamp erforderlich, nicht altersbegrenzt |
 | `lux_trend` | optional | eigener Owner oder intern aus zwei frischen Luxpunkten abgeleitet | lx/Beobachtung | 900 s bei Binding |
 | `expected_direct_radiation` | optional | externes Binding vor internem Providerfeld `current.direct_normal_irradiance_instant` | W/m² | 1200 s |
@@ -331,7 +353,8 @@ Eine belastbare Owner-Quality (`healthy`, `available`, `operational` oder
 `fresh`) darf einen stabilen Messwert nicht allein wegen unverändertem HA-
 Zeitstempel stale machen. Das gilt nicht für sicherheitskritische Opening-,
 Readiness- und Cover-Positionsfelder; dort bleibt die geforderte Zeit-Evidence
-maßgeblich. Ein explizit `stale`, `unknown`, `unavailable`, `degraded` oder
+maßgeblich, für stationäre Standard-Cover mit der v0.6.2-Semantik aus 7.1.
+Ein explizit `stale`, `unknown`, `unavailable`, `degraded` oder
 `conflict` gemeldeter Owner bleibt blockierend.
 
 Die Discovery ist eine deterministische, installationslokale Suggestion und
