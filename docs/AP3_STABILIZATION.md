@@ -4,6 +4,18 @@
 Diese Entscheidung ersetzt widersprechende ältere AP1/AP2/AP3-Texte.
 Historische GitHub-Kommentare bleiben unverändert.
 
+## Options-Rückweg v0.7.2
+
+Beim realen Rücksetzen temporärer Test-Bindings wurde ein weiterer Fehler
+reproduziert: Der Mapper unterstützt explizit leere Bindings, der vorgeschaltete
+HA-EntitySelector wies `null`/Leerstring jedoch als ungültige Entity zurück.
+Omission erhält bestehende Bindings und ist deshalb kein Ersatz für Löschen.
+Der private optionale EntitySelector behält HA-Picker und Entity-/UUID-Validierung
+für nicht leere Werte; ausschließlich `null`/Leerstring werden als bewusst leer
+zum bestehenden Mapper durchgereicht. Intentionally-empty verhindert erneute
+Discovery. Keine direkten Storage-Edits und kein zusätzlicher Binding-Transport.
+v0.7.1 war bereits stabil veröffentlicht; der unveränderliche Tag wird nicht ersetzt.
+
 ## Live-Readiness-Korrektur v0.7.1
 
 Die reale Readiness-Projektion lieferte `on`, positive Cover-Verfügbarkeit,

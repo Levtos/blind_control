@@ -216,7 +216,11 @@ WebSocket- oder Clipboard-Payloads.
 ### 7.1 Binding- und OptionsFlow-Contract
 
 Bindings werden im nativen Home-Assistant-OptionsFlow ausschließlich über
-`selector({"entity": {}})` verarbeitet. Die Sections heißen Core State,
+den HA-EntitySelector verarbeitet. Ab v0.7.2 akzeptiert dessen privater optionaler
+Adapter zusätzlich explizites `null`/Leerstring zum Leeren eines Slots.
+Nicht leere Werte behalten HA-Entity-/UUID-Validierung; der Picker bleibt
+unverändert. Omission erhält bestehende Bindings, explizites Leeren setzt
+`intentionally_empty`. Die Sections heißen Core State,
 Opening/Safety/Cover, Solar, Temperatur/Wetter und Legacy-Vergleich. Leere
 optionale Werte werden beim Persistieren entfernt. Der WebSocket-Optionspfad
 ist admin-geschützt, akzeptiert aber keine Binding-Mappings; dafür ist allein

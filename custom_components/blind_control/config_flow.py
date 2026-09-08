@@ -8,7 +8,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, OptionsFlow
 from homeassistant.data_entry_flow import section
-from homeassistant.helpers.selector import selector
+from homeassistant.helpers.selector import EntitySelector, selector
 
 from .binding_suggestions import BindingSuggestions, discover_binding_suggestions
 from .config import (
@@ -26,6 +26,15 @@ from .config import (
 )
 from .const import DOMAIN
 from .open_meteo import OpenMeteoUrlError, suggested_open_meteo_url
+
+
+class _OptionalEntitySelector(EntitySelector):
+    """Keep HA's entity picker and validation, allowing an explicit cleared slot."""
+
+    def __call__(self, data):
+        if data is None or data == "":
+            return None
+        return super().__call__(data)
 
 
 def _config_schema(
@@ -172,7 +181,7 @@ def _config_schema(
                 if key in bindings or _should_prefill_binding(key, legacy):
                     field_kwargs["default"] = suggested_value
                     section_defaults[key] = suggested_value
-            binding_fields[vol.Optional(key, **field_kwargs)] = selector({"entity": {}})
+            binding_fields[vol.Optional(key, **field_kwargs)] = _OptionalEntitySelector()
         if section_key == "opening_safety_cover_bindings":
             polarity = (
                 config.opening_safety_polarity
