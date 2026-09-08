@@ -4,6 +4,44 @@
 Diese Entscheidung ersetzt widersprechende ältere AP1/AP2/AP3-Texte.
 Historische GitHub-Kommentare bleiben unverändert.
 
+## Aktueller Nachtrag v0.6.3 – Solar und kontrollierter Writer-Cutover
+
+Benni meldet v0.6.2 installiert im Shadow, Position 100 %, idle und keinen
+position_unavailable-Fehler. Sein Auftrag in #3 supersediert die frühere
+Low-Light-Bewertung B und die automatische Forderung nach einer weiteren
+theoretischen Shadow-Runde. Das nächste reale Gate nach dieser technischen
+Lieferung ist Bennis kontrollierter Writer-Cutover gemäß AP3_CUTOVER.md.
+Testing / Not Live; keine Installation oder HA-Aktion durch den Agenten.
+
+Ursache Solar: der abschließende Klassifikationszweig vermischte valide geringe
+Energie mit fehlender Evidence. Er liefert jetzt `low_light`, ohne neue Schwelle,
+Solarengine oder Provideränderung. Fehlende/stale/conflicting Pflicht-Evidence
+bleibt UNKNOWN; der frühere Lux-Nachthinweis ohne Sonnenhöhe entfällt. Pflichtwerte
+werden vor night geprüft und auf physikalische Zahlenbereiche begrenzt.
+Heat/Glare, Cloud Shadow, Hysterese und Cold-Lux/Temperatur bleiben unverändert.
+
+Input-Audit: bestehende feldspezifische Floors und negative Owner-Quality werden
+beibehalten. Alte persistierte 120-s-Bindings werden für Sonne/Lux, Temperaturen,
+Cloud und Strahlung mit realer Grenzüberschreitung regressiert; kein weiterer
+reproduzierter False-Stale-Fehler und keine pauschale TTL-Erhöhung. Stationäre
+Coversemantik aus v0.6.2 bleibt einschließlich negativer Device-Evidence erhalten.
+
+Native Optionen konnten Modus/Owner/Apply bereits speichern. Neue Regression
+prüft die drei Cutover-Zustände und Rückkehr zu Shadow durch OptionsFlow und
+ConfigEntry-Load. Die UI ergänzt Apply AN/AUS, konkrete Apply-Begründung,
+Schreibpfad und tatsächliche Ruhebaseline. Das bisherige override.baseline ist
+bei inaktivem Override leer und deshalb kein Runtime-Baseline-Nachweis.
+Additive Runtime-/UX-Felder projizieren den Tracker; keine neue State Machine.
+
+Kein softwareseitiges Fremdwriter-Lock behauptet: vollständiges Legacy-Disable
+plus Prozessneustart und Null-Writer-Prüfung sind vor Arming zwingend. Safety,
+Recovery, Override, Lifecycle-Revozierung und ein einziger Adapter bleiben.
+Low light ist keine Fahrtfreigabe; normale aktuelle Arbitration und alle Gates
+entscheiden. Service-Erfolg bleibt von realer Position/Ruhe getrennt.
+
+Die nachfolgenden versionsbezogenen Nachträge bleiben historische Provenienz;
+bei Widerspruch gilt dieser aktuelle Nachtrag.
+
 ## Architekturentscheidung
 
 Lokale Reparatur A hätte Command-Historie, Geräteachse, Override-Timer und

@@ -40,6 +40,8 @@ class ShadowSnapshot:
     write_path_reachable: bool = False
     physical_target: float | None = None
     movement_status: str = "baseline_pending"
+    baseline_position: float | None = None
+    baseline_ready: bool = False
     movement_error: str | None = None
     recovery_status: str = "none"
     environment: dict[str, object] = field(default_factory=dict)
@@ -61,6 +63,8 @@ class ShadowSnapshot:
             "write_path_reachable": self.write_path_reachable,
             "physical_target": self.physical_target,
             "movement_status": self.movement_status,
+            "baseline_position": self.baseline_position,
+            "baseline_ready": self.baseline_ready,
             "movement_error": self.movement_error,
             "recovery_status": self.recovery_status,
             "environment": self.environment,
@@ -157,6 +161,8 @@ class ShadowRuntime:
             if trace.effective_target is not None
             else None,
             movement_status=self.override_tracker.motion_status,
+            baseline_position=self.override_tracker.baseline,
+            baseline_ready=self.override_tracker.initialized,
             movement_error=self.override_tracker.movement_error,
             recovery_status=self.override_tracker.recovery_status,
             environment=self.environment_state.as_dict(),

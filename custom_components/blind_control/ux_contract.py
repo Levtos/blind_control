@@ -74,6 +74,8 @@ def build_ux_snapshot(
             "cover_position": input_value("cover_position"),
             "physical_target": snapshot.physical_target,
             "movement_status": snapshot.movement_status,
+            "baseline_position": snapshot.baseline_position,
+            "baseline_ready": snapshot.baseline_ready,
             "movement_error": snapshot.movement_error,
             "recovery_status": snapshot.recovery_status,
             "household": {

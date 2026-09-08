@@ -58,6 +58,7 @@
 
   const labels: Record<string, string> = {
     normal: 'Regulär',
+    low_light: 'Geringe Solarenergie',
     cold_lux_enter_threshold: 'Cold: Eintritt unter (lx)',
     cold_lux_exit_threshold: 'Cold: Austritt über (lx)',
     environment_hysteresis_ratio: 'Solar/Confidence: Haltefaktor (0–1)',
@@ -331,6 +332,10 @@
           <div><dt>Manual Override</dt><dd>{snapshot.overview.override.active ? 'aktiv' : 'inaktiv'}</dd></div>
           <div><dt>Betriebsmodus</dt><dd>{snapshot.settings.runtime_mode}</dd></div>
           <div><dt>Apply-Owner</dt><dd>{snapshot.settings.apply_owner}</dd></div>
+          <div><dt>Apply-Schalter</dt><dd>{snapshot.settings.apply_enabled ? 'AN' : 'AUS'}</dd></div>
+          <div><dt>Ruhebaseline</dt><dd>{snapshot.overview.baseline_ready ? positionLabel(snapshot.overview.baseline_position) : 'noch nicht bestätigt'}</dd></div>
+          <div><dt>Schreibpfad erreichbar</dt><dd>{householdLabel(snapshot.overview.write_path_reachable)}</dd></div>
+          <div><dt>Apply-Grund</dt><dd>{recordValue(snapshot.overview.technical.apply, 'reason')}</dd></div>
         </dl>
         <p class="eyebrow">HAUSHALT & KONTEXT</p>
         <dl class="facts">
@@ -446,7 +451,7 @@
           <label class="toggle"><input type="checkbox" checked={editableSettings.automation_enabled} onchange={(event) => updateBoolean('automation_enabled', event)} /> Automatik aktiv</label>
           <label class="toggle"><input type="checkbox" checked={editableSettings.apply_enabled} disabled /> Apply-Gate aktiv (OptionsFlow)</label>
         </div>
-        <p class="hint">Betriebsmodus, Apply-Owner und Apply-Gate sind sicherheitskritisch und ausschließlich im nativen OptionsFlow änderbar.</p>
+        <p class="hint">Betriebsmodus, Apply-Owner und Apply-Gate: HA Einstellungen → Geräte & Dienste → Blind Control → Konfigurieren. Vor live + blind_control Legacy deaktivieren, HA neu starten und Null-Writer bestätigen. Apply zunächst AUS speichern, geladene Runtime prüfen; erst danach bewusst AN.</p>
       </article>
 
       <article class="card span-2">

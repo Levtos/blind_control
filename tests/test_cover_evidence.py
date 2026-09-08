@@ -88,7 +88,7 @@ def test_a_persisted_120_seconds_keeps_temperature_fresh_through_roundtrip(raw):
         assert result.outdoor_temperature.usable and result.outdoor_temperature.value == 12
 
 
-def test_b_low_light_known_geometry_is_expected_solar_unknown():
+def test_b_low_light_known_geometry_is_valid_under_v063_contract():
     result = ShadowRuntime().evaluate(
         ready_inputs(
             outdoor_lux=fresh(299),
@@ -99,11 +99,9 @@ def test_b_low_light_known_geometry_is_expected_solar_unknown():
         ),
         now=0,
     )
-    assert result.trace.solar.state is SolarExposureState.UNKNOWN
-    assert result.trace.solar.reason == "insufficient_radiation_or_lux_evidence_with_known_geometry"
-    assert "solar_aggregate_unknown" in [
-        item.reason for item in result.trace.failure.quality_blockers
-    ]
+    assert result.trace.solar.state is SolarExposureState.LOW_LIGHT
+    assert result.trace.solar.reason == "valid_geometry_and_low_observed_solar_energy"
+    assert not result.trace.failure.active
     assert not result.write_path_reachable
 
 

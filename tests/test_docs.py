@@ -269,8 +269,10 @@ class DocumentationTests(unittest.TestCase):
             "cover.living_thermal_blind",
             "Null-Writer",
             "Rollback",
-            "read-only Quality Gate aus frischem Kontext",
-            "Installed / Shadow / Not Live",
+            "Aktueller Writer-Cutover",
+            "Apply weiterhin AUS",
+            "HA-Prozessneustart",
+            "Testing / Not Live",
         ):
             self.assertIn(term, source)
 

@@ -117,6 +117,8 @@ export type UxSnapshot = {
     cover_position: number | null;
     physical_target: number | null;
     movement_status: string;
+    baseline_position: number | null;
+    baseline_ready: boolean;
     movement_error?: string | null;
     recovery_status?: string;
     household: {

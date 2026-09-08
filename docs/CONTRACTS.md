@@ -409,6 +409,17 @@ cloud_cover_threshold Default 75 %, alte cloud_shadow_ratio mal 100.
 model_lux_ratio ist separat ein dimensionsloses Helligkeitsverhältnis.
 Solar-Aggregat unknown blockiert normale Aktuation ohne neuen Open-Fallback.
 
+Ab v0.6.3 ist `low_light` ein zusätzlicher valider Solarzustand. Bei vorhandenen,
+freshen Pflichtwerten (Sonnenhöhe -90..90°, Azimut 0..360°, Lux >= 0, endlich)
+und bekannter Geometrie wird der verbleibende niedrige Energie-Fall nicht mehr
+`unknown`. Beispiel 299 lx / 5.88° / 88.07° / DNI 0 / Diffus 2.1 ergibt low_light.
+Die bestehenden Klassifikationen night, solar_not_on_window, cloud_shadow,
+direct_sun und diffuse_bright behalten ihre Bedeutung und Reihenfolge.
+Pflicht-Evidence wird vor jeder Klassifikation geprüft; missing/stale/conflict
+bleibt unknown, auch bei niedrigen Lux oder Sonnenhöhe unter dem Horizont.
+Optionale Evidence bleibt ersetzbar. Low light erlaubt die normale aktuelle
+Arbitration, besitzt keinen eigenen Kandidaten und hebt keine technischen Gates auf.
+
 Cold benötigt zum Eintritt frischen Lux < cold_lux_enter_threshold (Default 400) und frische
 Außentemperatur <= cold_outdoor_threshold (Default 8). Off-Window allein
 reicht nicht. Bereits aktives Cold hält bis Lux > cold_lux_exit_threshold
@@ -455,6 +466,13 @@ Private Bindings/URLs erscheinen nicht öffentlich. runtime_mode, apply_owner
 und apply_enabled bleiben native OptionsFlow-Felder. apply_owner=blind_control
 ist operative Bestätigung, kein automatischer fremder Writer-Lock:
 AP3_CUTOVER.md verlangt vollständig deaktivierte Legacy plus HA-Prozessneustart.
+
+Runtime/UX ergänzen `baseline_position` und `baseline_ready` aus dem tatsächlichen
+OverrideTracker. Die `override.baseline` ist dagegen nur Teil eines aktiven
+Fremd-Override-Nachweises. Baseline ready bedeutet initialisiert, nicht automatisch
+fahrbereit: Quality, aktuelle Position/Motion, Recovery und übrige Gates gelten.
+Die Übersicht zeigt bestätigte Optionswerte, Apply-Schalter, tatsächliche Baseline,
+Schreibpfad und den konkreten Apply-Grund. Keine private Config wird projiziert.
 Core Contracts wird noch nicht angebunden; Readiness-Audit und spätere Rollen
 stehen in AP3_STABILIZATION.md / MIGRATION.md.
 
