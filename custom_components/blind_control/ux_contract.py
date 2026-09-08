@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .config import BINDING_GROUPS, BlindControlConfig, binding_requirement, binding_status
 from .contracts import redact_diagnostic_value
+from .core_inputs import FIELDS
 from .open_meteo import (
     OPEN_METEO_MODEL,
     OPEN_METEO_PROVIDER,
@@ -62,6 +63,17 @@ def build_ux_snapshot(
         "version": UX_CONTRACT_VERSION,
         "evaluated_at": snapshot.evaluated_at.isoformat(),
         "overview": {
+            "environment_values": {
+                key: input_value(key)
+                if input_values.get(key, {}).get("quality") == "fresh"
+                else None
+                for key in (
+                    "outdoor_lux",
+                    "outdoor_temperature",
+                    "indoor_temperature",
+                    "cover_motion",
+                )
+            },
             "master_mode": trace.master_mode.value,
             "winner": winner,
             "active_branches": active_branches,
@@ -71,7 +83,9 @@ def build_ux_snapshot(
             "fachlicher_target": trace.fachlicher_target,
             "effective_target": trace.effective_target,
             "opening_state": trace.safety.opening_state,
-            "cover_position": input_value("cover_position"),
+            "cover_position": input_value("cover_position")
+            if input_values.get("cover_position", {}).get("quality") == "fresh"
+            else None,
             "physical_target": snapshot.physical_target,
             "movement_status": snapshot.movement_status,
             "baseline_position": snapshot.baseline_position,
@@ -125,6 +139,8 @@ def build_ux_snapshot(
             },
         },
         "settings": {
+            "core_contracts": dict(config.core_contracts),
+            "core_contract_profile": config.core_contract_profile,
             "axis_inverted": config.axis_inverted,
             "window_azimuth": config.window_azimuth,
             "window_tilt": config.window_tilt,
@@ -231,6 +247,8 @@ def _binding_groups(
         projected_fields = []
         for field in fields:
             status = binding_status(config, field, legacy=legacy)
+            if not legacy and any(field in FIELDS[schema] for schema, _ in config.core_contracts):
+                status = "core_contract_selected"
             if (
                 not legacy
                 and field in {"expected_direct_radiation", "expected_diffuse_radiation"}

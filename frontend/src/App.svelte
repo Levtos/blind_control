@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Operation from './Operation.svelte';
+  import Overview from './Overview.svelte';
   import type {
     Candidate,
     DecisionBranch,
@@ -18,10 +20,12 @@
   let {
     snapshot,
     onSaveSettings,
+    onOperation,
     saving = false,
   }: {
     snapshot: UxSnapshot;
     onSaveSettings?: (settings: UxSettings) => Promise<UxSettings>;
+    onOperation?: (mode: 'shadow' | 'live', owner: 'legacy' | 'blind_control', apply: boolean, confirmed: boolean) => Promise<void>;
     saving?: boolean;
   } = $props();
 
@@ -58,6 +62,11 @@
 
   const labels: Record<string, string> = {
     normal: 'Regulär',
+    core_contract_selected: 'Consumer API gewählt · Quality in Diagnose',
+    compatibility_fallback_unselected: 'Keine zentrale Auswahl · kompatibler Owner-Fallback',
+    opening: 'Opening / Fenster',
+    room_climate: 'Raumklima',
+    weather_environment: 'Wetter / Außenumgebung',
     low_light: 'Geringe Solarenergie',
     cold_lux_enter_threshold: 'Cold: Eintritt unter (lx)',
     cold_lux_exit_threshold: 'Cold: Austritt über (lx)',
@@ -254,9 +263,9 @@
 <div class="panel-root">
   <header class="app-header">
     <div>
-      <p class="eyebrow">BLIND CONTROL · {snapshot.settings.runtime_mode.toUpperCase()} · {snapshot.settings.apply_owner === 'blind_control' ? 'OWNER ARMED' : 'LEGACY OWNER'}</p>
+      <p class="eyebrow">BLIND CONTROL · {snapshot.settings.runtime_mode.toUpperCase()} · {snapshot.settings.apply_owner === 'blind_control' ? 'BLIND CONTROL' : 'LEGACY'}</p>
       <h1>Wohnzimmer-Rollo</h1>
-      <p class="subtitle">Versionierter Entscheidungs-, Safety- und Shadow-Vertrag</p>
+      <p class="subtitle">Aktuelle Entscheidung und kontrollierter Betrieb</p>
     </div>
     <div class="header-status">
       <span class={`status-dot ${statusTone(snapshot.overview.apply_status)}`}></span>
@@ -285,101 +294,23 @@
 
   {#if activeTab === 'overview'}
     <section class="content-grid" aria-label="Übersicht">
-      <article class="hero-card card">
-        <div class="card-heading">
-          <div>
-            <p class="eyebrow">MASTERMODUS</p>
-            <h2>{labelFor(snapshot.overview.master_mode)}</h2>
-          </div>
-          <span class={`badge ${statusTone(snapshot.overview.master_mode)}`}>{statusLabel(snapshot.overview.master_mode)}</span>
-        </div>
-        <div class="target-row">
-          <span class="target-value">{positionLabel(snapshot.overview.effective_target)}</span>
-          <span class="muted">effektives beziehungsweise gehaltenes Ziel</span>
-        </div>
-        <div class="metric-strip">
-          <div><span>Gewinner</span><strong>{branchLabel(snapshot.overview.winner)}</strong></div>
-          <div><span>Fachliches Ziel</span><strong>{positionLabel(snapshot.overview.fachlicher_target)}</strong></div>
-          <div><span>Safety</span><strong>{statusLabel(snapshot.overview.safety_status)}</strong></div>
-        </div>
-        {#if snapshot.overview.failure.status !== 'none'}
-          <p class="callout failure-callout">
-            Failure · {snapshot.overview.failure.reason?.replaceAll('_', ' ') ?? 'unbekannter Grund'} ·
-            {snapshot.overview.failure.hold_target === null
-              ? 'Apply blockiert'
-              : `Position halten: ${positionLabel(snapshot.overview.failure.hold_target)}`}
-            {#if snapshot.overview.failure.quality_blockers.length}
-              · Fehlende belastbare Evidence: {failureBlockersLabel(snapshot.overview.failure.quality_blockers)}
-            {/if}
-          </p>
-        {/if}
-      </article>
-
-      <article class="card status-card">
-        <div class="card-heading">
-          <div><p class="eyebrow">TECHNISCHE EBENE</p><h2>Safety & Apply</h2></div>
-          <span class={`badge ${statusTone(snapshot.overview.apply_status)}`}>{statusLabel(snapshot.overview.apply_status)}</span>
-        </div>
-        <dl class="facts">
-          <div><dt>Opening</dt><dd>{statusLabel(snapshot.overview.technical.opening_state)}</dd></div>
-          <div><dt>Safety</dt><dd class={statusTone(recordValue(snapshot.overview.technical.safety, 'status'))}>{recordValue(snapshot.overview.technical.safety, 'status')}</dd></div>
-          <div><dt>Apply</dt><dd class={statusTone(recordValue(snapshot.overview.technical.apply, 'status'))}>{recordValue(snapshot.overview.technical.apply, 'status')}</dd></div>
-          <div><dt>Istposition (logisch)</dt><dd>{positionLabel(snapshot.overview.cover_position)}</dd></div>
-          <div><dt>Geräteziel</dt><dd>{positionLabel(snapshot.overview.physical_target)}</dd></div>
-            <div><dt>Bewegung</dt><dd>{statusLabel(snapshot.overview.movement_status)}</dd></div>
-            <div><dt>Letzter Bewegungsfehler</dt><dd>{statusLabel(snapshot.overview.movement_error ?? 'none')} · {statusLabel(snapshot.overview.recovery_status ?? 'none')}</dd></div>
-          <div><dt>Cover bereit</dt><dd>{householdLabel(snapshot.overview.technical.cover_ready)}</dd></div>
-          <div><dt>Manual Override</dt><dd>{snapshot.overview.override.active ? 'aktiv' : 'inaktiv'}</dd></div>
-          <div><dt>Betriebsmodus</dt><dd>{snapshot.settings.runtime_mode}</dd></div>
-          <div><dt>Apply-Owner</dt><dd>{snapshot.settings.apply_owner}</dd></div>
-          <div><dt>Apply-Schalter</dt><dd>{snapshot.settings.apply_enabled ? 'AN' : 'AUS'}</dd></div>
-          <div><dt>Ruhebaseline</dt><dd>{snapshot.overview.baseline_ready ? positionLabel(snapshot.overview.baseline_position) : 'noch nicht bestätigt'}</dd></div>
-          <div><dt>Schreibpfad erreichbar</dt><dd>{householdLabel(snapshot.overview.write_path_reachable)}</dd></div>
-          <div><dt>Apply-Grund</dt><dd>{recordValue(snapshot.overview.technical.apply, 'reason')}</dd></div>
-        </dl>
-        <p class="eyebrow">HAUSHALT & KONTEXT</p>
-        <dl class="facts">
-          {#each Object.entries(snapshot.overview.household) as [key, value]}
-            <div><dt>{labelFor(key)}</dt><dd>{contextValue(value)}</dd></div>
-          {/each}
-        </dl>
-        <p class="callout">Safety und Apply sind technisch getrennt; der Mastermodus bleibt fachlich lesbar.</p>
-      </article>
-
-      <article class="card span-2">
-        <div class="card-heading">
-          <div><p class="eyebrow">FACHLICHER ENTSCHEIDUNGSBAUM</p><h2>Kategorie → Variante → Nebenäste</h2></div>
-          <span class="muted">{activeBranches.length} aktiv oder pausiert</span>
-        </div>
-        {#if snapshot.overview.winner}
-          <div class="winner-tree">
-            <span>Gewinner</span>
-            <strong>{labelFor(snapshot.overview.master_mode)} → {branchLabel(snapshot.overview.winner)}</strong>
-            <span>{positionLabel(snapshot.overview.winner.target_position)}</span>
-          </div>
-        {:else}
-          <p class="empty-state">Keine fachlich belastbare Gewinneranforderung vorhanden.</p>
-        {/if}
-        <div class="candidate-grid">
-          {#each supportingBranches as branch}
-            <div class={candidateClass(branch)}>
-              <div class="candidate-top"><strong>{branchLabel(branch)}</strong><span>{positionLabel(branch.target_position)}</span></div>
-              <p>Aktiver Nebenast · {branch.reason.replaceAll('_', ' ')}</p>
-              <small>{branch.quality} · {branch.source}</small>
-            </div>
-          {/each}
-          {#each pausedBranches as branch}
-            <div class={candidateClass(branch)}>
-              <div class="candidate-top"><strong>{branchLabel(branch)}</strong><span>pausiert</span></div>
-              <p>{branch.suppressed_by ? `unterdrückt durch ${labelFor(branch.suppressed_by)}` : branch.reason.replaceAll('_', ' ')}</p>
-              <small>{branch.quality} · {branch.source}</small>
-            </div>
-          {/each}
-        </div>
-      </article>
+      <Overview {snapshot} />
+      <div class="span-2"><Operation {snapshot} {onOperation} /></div>
     </section>
   {:else if activeTab === 'diagnosis'}
     <section class="diagnosis-layout" aria-label="Diagnose">
+      <article class="card span-2">
+        <p class="eyebrow">TECHNISCHE EBENE</p><h2>Baseline, Bewegung und Kontext</h2>
+        <dl class="facts">
+          <div><dt>Bewegung</dt><dd>{snapshot.overview.movement_status}</dd></div>
+          <div><dt>Recovery</dt><dd>{snapshot.overview.recovery_status ?? '—'} · {snapshot.overview.movement_error ?? 'kein Fehler'}</dd></div>
+          <div><dt>Ruhebaseline</dt><dd>{positionLabel(snapshot.overview.baseline_position)}</dd></div>
+          <div><dt>Manual Override</dt><dd>{snapshot.overview.override.active ? 'aktiv' : 'inaktiv'}</dd></div>
+          <div><dt>Core Contracts</dt><dd>{JSON.stringify(snapshot.diagnosis.core_contracts ?? {})}</dd></div>
+        </dl>
+        <h3>HAUSHALT & KONTEXT</h3>
+        <dl class="facts">{#each Object.entries(snapshot.overview.household) as [key, value]}<div><dt>{labelFor(key)}</dt><dd>{contextValue(value)}</dd></div>{/each}</dl>
+      </article>
       <article class="card">
         <div class="card-heading"><div><p class="eyebrow">DECISION TRACE</p><h2>Hierarchie und flache Diagnose</h2></div><span class="badge">{snapshot.version}</span></div>
         <div class="winner-tree">
@@ -449,9 +380,19 @@
           <label>Neigung (°)<input type="number" min="0" max="180" value={editableSettings.window_tilt} onchange={(event) => updateNumber('window_tilt', event)} /></label>
           <label class="toggle"><input type="checkbox" checked={editableSettings.axis_inverted} onchange={(event) => updateBoolean('axis_inverted', event)} /> Achse invertiert</label>
           <label class="toggle"><input type="checkbox" checked={editableSettings.automation_enabled} onchange={(event) => updateBoolean('automation_enabled', event)} /> Automatik aktiv</label>
-          <label class="toggle"><input type="checkbox" checked={editableSettings.apply_enabled} disabled /> Apply-Gate aktiv (OptionsFlow)</label>
         </div>
-        <p class="hint">Betriebsmodus, Apply-Owner und Apply-Gate: HA Einstellungen → Geräte & Dienste → Blind Control → Konfigurieren. Vor live + blind_control Legacy deaktivieren, HA neu starten und Null-Writer bestätigen. Apply zunächst AUS speichern, geladene Runtime prüfen; erst danach bewusst AN.</p>
+<p class="hint">Betriebsmodus, Writer und Apply stehen unter Übersicht → Betrieb zur Verfügung.</p>
+      </article>
+
+      <article class="card">
+        <p class="eyebrow">GEMEINSAME INPUTS</p><h2>Core Contracts · primärer Pfad</h2>
+        <p class="hint">Vorhandene Contract-ID aus der Registry auswählen. Leer bedeutet expliziter kompatibler Owner-Fallback. Ein ausgewählter defekter Contract blockiert; er fällt nicht lokal zurück. Änderungen nur mit Apply AUS.</p>
+        <label>Profil<select value={editableSettings.core_contract_profile} disabled={snapshot.settings.apply_enabled} onchange={(event) => { if (draftSettings) draftSettings.core_contract_profile = event.currentTarget.value as 'benni' | 'eltern'; }}><option value="benni">Benni</option><option value="eltern">Eltern</option></select></label>
+        {#each ['opening', 'room_climate', 'weather_environment'] as schema}
+          <label>{labelFor(schema)} · Contract-ID<input type="text" disabled={snapshot.settings.apply_enabled} value={editableSettings.core_contracts[schema] ?? ''} onchange={(event) => { if (draftSettings) { const value = event.currentTarget.value.trim(); if (value) draftSettings.core_contracts[schema] = value; else delete draftSettings.core_contracts[schema]; } }} /></label>
+          <p class="hint">{labelFor(snapshot.diagnosis.core_contracts?.[schema] ?? 'compatibility_fallback_unselected')}</p>
+        {/each}
+        <p class="hint">Plattform-Gaps: Bio, Activity, Day/Context und weitere Solar-/Wetterfelder. Bis zu passenden zentralen Rollen bleiben ihre bisherigen Owner-Bindings erhalten.</p>
       </article>
 
       <article class="card span-2">
@@ -482,7 +423,7 @@
       </article>
 
       <article class="card span-2">
-        <div class="card-heading"><div><p class="eyebrow">OWNER-BINDINGS</p><h2>Native Entity-Selectoren</h2></div><span class="muted">OptionsFlow</span></div>
+        <div class="card-heading"><div><p class="eyebrow">DOMÄNE & ÜBERGANG</p><h2>Lokales Cover und kompatible Fallbacks</h2></div><span class="muted">OptionsFlow</span></div>
         <p class="hint">Bearbeitung erfolgt ausschließlich über Blind Control → Konfigurieren im nativen Home-Assistant-OptionsFlow. Entity-IDs werden im Panel nicht angezeigt oder entgegengenommen.</p>
         <div class="binding-grid">
           {#each editableSettings.binding_groups as group}

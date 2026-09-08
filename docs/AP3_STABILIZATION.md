@@ -4,7 +4,16 @@
 Diese Entscheidung ersetzt widersprechende ältere AP1/AP2/AP3-Texte.
 Historische GitHub-Kommentare bleiben unverändert.
 
-## Aktueller Nachtrag v0.6.3 – Solar und kontrollierter Writer-Cutover
+## Aktueller Nachtrag v0.7.0 – Operator und primäre Consumer API
+
+[AP3_OPERATOR.md](AP3_OPERATOR.md) ist der aktuelle verbindliche Vertrag:
+Core Contracts für vorhandene Schemas, sichtbare Fallback-Gaps und direktes
+administratives Panel-Staging. Die frühere Variante B und ausschließlich native
+Betriebsfreigabe sind damit abgelöst. Solar-/Cover-/Movement-/Safety-Verträge
+aus v0.6.3 bleiben bestehen. Keine automatische zusätzliche Shadow-Runde;
+nach Installation folgt Bennis kontrollierter Writer-Cutover.
+
+## Historischer Nachtrag v0.6.3 – Solar und kontrollierter Writer-Cutover
 
 Benni meldet v0.6.2 installiert im Shadow, Position 100 %, idle und keinen
 position_unavailable-Fehler. Sein Auftrag in #3 supersediert die frühere

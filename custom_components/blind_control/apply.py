@@ -8,6 +8,7 @@ from dataclasses import replace
 
 from .config import BlindControlConfig
 from .contracts import ApplyDecision
+from .operation import legacy_writer_blocker
 from .shadow import ShadowRuntime, ShadowSnapshot
 
 _LOGGER = logging.getLogger(__name__)
@@ -53,6 +54,20 @@ class CoverApplyExecutor:
         ):
             return snapshot
         target = decision.approved_target
+        blocker = legacy_writer_blocker(self.hass)
+        if blocker:
+            return _replace_apply(
+                snapshot,
+                replace(
+                    decision,
+                    status="blocked",
+                    reason=blocker,
+                    approved_target=None,
+                    write_path_reachable=False,
+                ),
+                actuation_executed=False,
+                write_path_reachable=False,
+            )
         entity_id = dict(self.config.input_bindings).get("cover_position")
         if target is None or not _is_cover_entity_id(entity_id):
             return _replace_apply(

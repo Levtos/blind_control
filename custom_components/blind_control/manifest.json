@@ -1,7 +1,8 @@
 {
   "domain": "blind_control",
   "name": "Blind Control",
-  "version": "0.6.3",
+  "version": "0.7.0",
+  "after_dependencies": ["benni_core_contracts"],
   "documentation": "https://github.com/Levtos/blind_control",
   "issue_tracker": "https://github.com/Levtos/blind_control/issues",
   "codeowners": [

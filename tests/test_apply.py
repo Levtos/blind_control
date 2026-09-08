@@ -56,6 +56,9 @@ def ready_inputs(**changes) -> BlindControlInputs:
 
 
 class FakeServices:
+    def has_service(self, domain, service):
+        return False
+
     def __init__(self, *, fail: bool = False) -> None:
         self.fail = fail
         self.calls: list[tuple[str, str, dict[str, object], bool]] = []
@@ -85,6 +88,9 @@ class FakeServices:
 class FakeHass:
     def __init__(self, *, fail: bool = False) -> None:
         self.services = FakeServices(fail=fail)
+        from types import SimpleNamespace
+
+        self.config_entries = SimpleNamespace(async_entries=lambda domain: [])
 
 
 def config_for(mode: str, owner: str, *, apply_enabled: bool = True) -> BlindControlConfig:

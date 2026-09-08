@@ -1,7 +1,7 @@
 <script lang="ts">
   import App from './App.svelte';
   import type { UxSettings, UxSnapshot } from './lib/contracts';
-  import { fetchSnapshot, updateOptions } from './lib/transport';
+  import { fetchSnapshot, updateOptions, setOperation } from './lib/transport';
   import type { HassContext } from './lib/transport';
 
   let { hass }: { hass: HassContext } = $props();
@@ -37,6 +37,12 @@
     }
   }
 
+  async function changeOperation(mode: 'shadow' | 'live', owner: 'legacy' | 'blind_control', apply: boolean, confirmed: boolean): Promise<void> {
+    if (!snapshot?.operation || error) throw new Error('Aktuelle Betriebsdaten fehlen');
+    await setOperation(hass, snapshot.operation.revision, mode, owner, apply, confirmed);
+    await refresh();
+  }
+
   $effect(() => {
     void refresh();
     const timer = window.setInterval(() => void refresh(), 5000);
@@ -45,7 +51,8 @@
 </script>
 
 {#if snapshot}
-  <App {snapshot} onSaveSettings={saveSettings} {saving} />
+  {#if error}<p class="callout error" role="alert">Verbindung unterbrochen — Anzeige möglicherweise veraltet. Bedienung gesperrt.</p>{/if}
+  <App {snapshot} onSaveSettings={error ? undefined : saveSettings} onOperation={error ? undefined : changeOperation} {saving} />
 {:else if loading}
   <main class="transport-state">
     <p class="eyebrow">BLIND CONTROL · SHADOW</p>

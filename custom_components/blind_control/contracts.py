@@ -31,7 +31,7 @@ class MasterMode(StrEnum):
     FAILURE = "failure"
 
 
-_SAFE_DIAGNOSTIC_SOURCES = frozenset({"unbound", "legacy_mapping"})
+_SAFE_DIAGNOSTIC_SOURCES = frozenset({"unbound", "legacy_mapping", "core_contracts"})
 
 
 def redact_source(source: object) -> object:

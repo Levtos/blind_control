@@ -66,6 +66,7 @@ export type BindingField = BindingFreshness & {
   configured: boolean;
   requirement: 'required' | 'conditional' | 'optional';
   status:
+    | 'core_contract_selected'
     | 'required_resolved'
     | 'required_unresolved'
     | 'conditional_resolved'
@@ -86,6 +87,8 @@ export type BindingGroup = {
 };
 
 export type UxSettings = {
+  core_contracts: Record<string, string>;
+  core_contract_profile: 'benni' | 'eltern';
   axis_inverted: boolean;
   window_azimuth: number;
   window_tilt: number;
@@ -102,9 +105,11 @@ export type UxSettings = {
 };
 
 export type UxSnapshot = {
+  operation?: { revision: string; pending: boolean; legacy_blocker: string | null };
   version: 'blind_control.ux.v4';
   evaluated_at: string;
   overview: {
+    environment_values: Record<string, number | string | null>;
     master_mode: MasterMode;
     winner: DecisionWinner | null;
     active_branches: DecisionBranch[];
@@ -158,6 +163,7 @@ export type UxSnapshot = {
     write_path_reachable: boolean;
   };
   diagnosis: {
+    core_contracts?: Record<string, string>;
     environment?: Record<string, { active: boolean; pending: boolean | null; since: number | null }>;
     hierarchy: {
       master_mode: MasterMode;

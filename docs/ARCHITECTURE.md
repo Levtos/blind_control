@@ -304,10 +304,12 @@ Vertragsstände: blind_control.decision.v4, blind_control.runtime.v3,
 blind_control.ux.v4, blind_control.automation_projection.v3, Config v6.
 fachlicher_target/effective_target/cover_position sind logisch;
 physical_target ist das Gerätetarget, movement_status die Bewegungsdiagnose.
-Panel bleibt ohne Cover-/Owner-/Apply-Command, native Options speichern Gates.
+Panel bleibt ohne Cover-Command. Ab v0.7.0 speichert der administrative
+Staging-Endpunkt Betriebs-Gates mit Revisionsprüfung und synchronem Widerruf.
 
-Core-Contracts-Readiness ergab Variante B; direkte Bindings bleiben.
-CORE_CONTRACTS_MIGRATION markiert die tatsächliche Adaptergrenze.
+Die frühere Core-Contracts-Variante B ist ab v0.7.0 durch den primären
+Consumer-API-Adapter für vorhandene Schemas ersetzt. Nicht belegte Rollen behalten
+explizite Fallbacks. [AP3_OPERATOR.md](AP3_OPERATOR.md) definiert die aktuelle Grenze.
 Kein rekursiver Rename-Helper mehr. Operative Consumer- und Rollback-Schritte
 einschließlich verpflichtendem Legacy-Disable plus HA-Neustart stehen in
 AP3_CUTOVER.md. Diese Architektur führt selbst keinen Cutover aus.

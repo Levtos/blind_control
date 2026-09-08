@@ -1,6 +1,8 @@
 /* Vite embeds this stylesheet in the panel bundle. */
 :host {
   display: block;
+  width: 100%;
+  min-height: 100%;
   min-width: 320px;
   color-scheme: dark;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -15,7 +17,7 @@ button, input { font: inherit; }
 
 button { cursor: pointer; }
 
-.panel-root { max-width: 1180px; margin: 0 auto; padding: 32px; }
+.panel-root { width: 100%; max-width: 1240px; margin-inline: auto; padding: 32px; }
 .transport-state { margin: 14vh auto; max-width: 680px; padding: 32px; }
 .error-state { border: 1px solid #765b30; border-radius: 12px; background: #30291f; }
 .app-header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 28px; }
@@ -37,8 +39,18 @@ h3 { font-size: 14px; margin: 22px 0 12px; }
 .tab:hover, .tab.active { color: #edf1f7; border-bottom-color: #6fb3ff; }
 .content-grid, .diagnosis-layout, .settings-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .diagnosis-layout, .settings-layout { grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr); }
-.card { background: #1a1f28; border: 1px solid #2c3442; border-radius: 12px; padding: 22px; box-shadow: 0 12px 30px #080a0f30; }
+.card { min-width: 0; align-self: start; background: #1a1f28; border: 1px solid #2c3442; border-radius: 12px; padding: 22px; box-shadow: 0 12px 30px #080a0f30; }
 .span-2 { grid-column: span 2; }
+.decision-reason { font-size: 20px; line-height: 1.5; }
+.rule-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 22px; }
+.rule { border-top: 1px solid #384356; padding-top: 16px; }
+.rule p { color: #b7c3d6; line-height: 1.5; margin: 8px 0 0; }
+.operation-card .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.operation-card .toggle { margin-block: 18px; font-size: 14px; line-height: 1.5; }
+.stop-button { margin-top: 14px; }
+select { color: #edf1f7; background: #12171e; padding: 10px; border: 1px solid #3a4657; border-radius: 8px; font: inherit; }
+button:disabled { cursor: not-allowed; opacity: .55; }
+select:focus-visible { outline: 3px solid #6fb3ff; outline-offset: 2px; }
 .hero-card { background: linear-gradient(140deg, #202a38, #1a1f28 60%); }
 .card-heading, .candidate-top, .metric-strip, .profile-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .badge { background: #273243; border: 1px solid #40516a; border-radius: 999px; color: #c9d5e7; font-size: 11px; font-weight: 700; letter-spacing: .08em; padding: 5px 9px; text-transform: uppercase; }
@@ -47,13 +59,13 @@ h3 { font-size: 14px; margin: 22px 0 12px; }
 .badge.error { background: #4b2529; border-color: #87444b; color: #ffaaaa; }
 .target-row { margin: 30px 0 24px; display: flex; align-items: baseline; gap: 12px; }
 .target-value { font-size: clamp(48px, 9vw, 76px); font-weight: 700; letter-spacing: -.07em; }
-.metric-strip { border-top: 1px solid #354051; padding-top: 16px; align-items: flex-start; }
+.metric-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; border-top: 1px solid #354051; padding-top: 16px; align-items: flex-start; }
 .metric-strip div { display: grid; gap: 5px; min-width: 0; }
 .metric-strip span, dt, .profile-header { color: #92a0b5; font-size: 12px; }
 .metric-strip strong { color: #edf1f7; font-size: 13px; overflow-wrap: anywhere; }
 .facts { display: grid; gap: 13px; margin: 25px 0 20px; }
 .facts div { display: flex; justify-content: space-between; gap: 18px; border-bottom: 1px solid #2c3442; padding-bottom: 10px; }
-dd { margin: 0; color: #d7e0ed; text-align: right; }
+dd { margin: 0; color: #d7e0ed; text-align: right; overflow-wrap: anywhere; }
 .callout { background: #252c38; border-left: 3px solid #6fb3ff; color: #c9d5e7; font-size: 13px; margin: 0; padding: 11px 13px; }
 .candidate-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 20px; }
 .candidate { background: #202630; border: 1px solid #303b4d; border-radius: 8px; padding: 13px; min-width: 0; }
@@ -101,6 +113,8 @@ input[type='text'] { background: #12171e; border: 1px solid #3a4657; border-radi
 .profile-header { border-bottom-color: #465469; font-weight: 700; padding-top: 0; }
 
 @media (max-width: 820px) {
+  .rule-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .operation-card .facts { grid-template-columns: 1fr; }
   .panel-root { padding: 22px 16px; }
   .app-header { display: grid; }
   .content-grid, .diagnosis-layout, .settings-layout { grid-template-columns: 1fr; }
@@ -109,6 +123,7 @@ input[type='text'] { background: #12171e; border: 1px solid #3a4657; border-radi
 }
 
 @media (max-width: 520px) {
+  .rule-grid { grid-template-columns: 1fr; }
   .candidate-grid, .form-grid, .calibration-grid, .binding-grid { grid-template-columns: 1fr; }
   .metric-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .metric-strip div:last-child { grid-column: span 2; }
