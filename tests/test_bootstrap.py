@@ -587,6 +587,43 @@ class BootstrapTests(unittest.TestCase):
 
             asyncio.run(scenario())
 
+    def test_native_options_persist_all_three_cutover_states_into_runtime(self) -> None:
+        with _home_assistant_imports():
+            module = importlib.import_module("custom_components.blind_control")
+            flow_module = importlib.import_module("custom_components.blind_control.config_flow")
+            hass = _FakeHomeAssistant()
+            hass.config = types.SimpleNamespace(time_zone="UTC")
+            entry = _FakeConfigEntry("fixture", data={"config_version": 6})
+
+            async def scenario():
+                for mode, owner, enabled in (
+                    ("shadow", "legacy", False),
+                    ("live", "blind_control", False),
+                    ("live", "blind_control", True),
+                    ("shadow", "legacy", False),
+                ):
+                    flow = flow_module.BlindControlOptionsFlow(entry)
+                    flow.hass = hass
+                    form = await flow.async_step_init()
+                    for key in ("runtime_mode", "apply_owner", "apply_enabled"):
+                        self.assertIn(key, form["data_schema"].schema)
+                    saved = await flow.async_step_init(
+                        {"runtime_mode": mode, "apply_owner": owner, "apply_enabled": enabled}
+                    )
+                    self.assertEqual(saved["type"], "create_entry")
+                    entry.options = saved["data"]
+                    self.assertTrue(await module.async_setup_entry(hass, entry))
+                    runtime = entry.runtime_data
+                    self.assertEqual(runtime.config.runtime_mode, mode)
+                    self.assertEqual(runtime.config.apply_owner, owner)
+                    self.assertEqual(runtime.config.apply_enabled, enabled)
+                    # Arming cannot bypass absent technical evidence.
+                    self.assertFalse(runtime.snapshot.write_path_reachable)
+                    self.assertFalse(runtime.snapshot.actuation_executed)
+                    self.assertTrue(await module.async_unload_entry(hass, entry))
+
+            asyncio.run(scenario())
+
     def test_manifest_is_native_config_entry_bootstrap(self) -> None:
         manifest = json.loads((PACKAGE / "manifest.json").read_text(encoding="utf-8"))
 

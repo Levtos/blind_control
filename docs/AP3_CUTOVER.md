@@ -1,16 +1,59 @@
 # AP3 Cutover- und Rollback-Runbook
 
-**Stand:** 2026-09-07, Hardening v0.6.1. **Status:** Testing / Shadow / Not Live.
-Installation und neue Live-Shadow-Evidence sind separate, noch auszuführende Gates.
-Die historische Evidence „Installed / Shadow / Not Live“ für v0.5.1 ist kein
-Nachweis für v0.6.1.
+**Stand:** v0.6.3. **Status:** Testing / Not Live.
+Benni meldet v0.6.2 installiert im Shadow, Position 100 %, idle. Nach technischer
+v0.6.3-Lieferung ist das nächste reale Gate sein kontrollierter Writer-Cutover.
+Keine automatisch vorgeschaltete weitere theoretische Shadow-Runde.
+Dieses Dokument führt nichts aus; Installation, Neustarts, reale Tests, Live und
+Live Verified bleiben ausschließlich Bennis Gates.
 
-Dieses Dokument führt nichts aus. Vor dem Fenster ist ein neues unabhängiges
-read-only Quality Gate aus frischem Kontext mit PASS erforderlich.
-Erst danach installiert Benni v0.6.1 und sammelt neue Shadow-Evidence.
-Nach deren Abnahme gibt Benni das konkrete Fenster einschließlich der
-erforderlichen Neustarts frei.
-Live und Live Verified bleiben ausschließlich Bennis Gates.
+## Aktueller Writer-Cutover über normale HA-Optionen
+
+Dieser Ablauf benötigt keinen Entity-Rename. Der frühere kombinierte
+Rename-/Consumer-Plan unten bleibt für ein separat vorbereitetes Rename-Fenster
+erhalten. Ohne Rename bleiben aktuelle Cover-Bindings unverändert. Direkte
+Legacy-Serviceconsumer bleiben bei deaktivierter Legacy unwirksam; sie dürfen
+keine zweite Writer-Freigabe erzeugen. Bio-/Sleep-Entscheidungen konsumiert BC
+bereits aus den kanonischen Ownern.
+
+1. Benni sichert den Ausgang und installiert v0.6.3 über HACS. In
+   **Einstellungen → Geräte & Dienste → Blind Control → Konfigurieren**
+   `runtime_mode=shadow`, `apply_owner=legacy`, **Apply AUS** speichern.
+   Options-Reload abwarten; Übersicht bestätigt genau diese geladenen Werte,
+   `write_path_reachable=false`, Position/Motion und konkrete Blocker.
+2. Fremde Coverbefehle während des Fensters ausschließen. Alle Legacy-Entries
+   dauerhaft über HA deaktivieren, Integration installiert lassen. Erforderlichen
+   HA-Prozessneustart durchführen; Disable allein beseitigt alte Tasks nicht.
+3. Null-Writer bestätigen: Legacy disabled/unloaded, alte Services nicht mehr
+   verfügbar, BC Shadow/Apply AUS, Cover in Ruhe. Bei Rest-Writer, Bewegung oder
+   unklarer Evidence abbrechen; nicht durch Owner-Umschalten weitergehen.
+4. In denselben nativen Optionen **live + blind_control, Apply weiterhin AUS**
+   speichern. Neue Runtime abwarten: Owner/Modus korrekt, Apply AUS, kein Write,
+   gültige Position/Motion, bestätigte Ruhebaseline, Readiness und Opening.
+   `low_light` ist gültig; unknown/stale/conflict oder unklare Safety blockieren.
+5. Benni kontrolliert aktuelles Ziel, Achse und Fenster. Erst dann **Apply AN**
+   in denselben Optionen speichern. Reload/Baseline abwarten und reale Fahrt
+   beobachten. Apply ist Dauerautomatik, keine Einzelbefehl-Queue. Nur aktuelle
+   Entscheidungen fahren; Safety kann sofort aufwärts eingreifen.
+6. Reale Zielposition innerhalb Toleranz und stabile Ruhe bestätigen; Opening
+   OPEN darf niemals logisch abwärts wirken. Eigenfahrt darf keinen Override
+   auslösen. Fehler, unerwartete Richtung oder fehlende Evidence: Apply AUS,
+   nötigenfalls BC deaktivieren. Erst Benni entscheidet Live/Live Verified.
+
+**Rückweg ohne Rename:** zuerst BC Apply AUS und deaktivieren, erfolgreichen
+Unload/Null-Writer und sichere Ruhe bestätigen. Legacy bleibt bis dahin disabled.
+Danach Legacy mit ursprünglicher Konfiguration laden, zunächst Apply AUS;
+Benni gibt erst nach Positions-/Opening-Prüfung wieder frei. Ohne Rename gibt
+es keine Rückmigration von Entity-IDs. Ein Options-Reload startet eine neue
+Baseline; eine bereits laufende physische Fahrt endet nicht durch Unload.
+Kein HA-Schritt wird vom Implementierungsagenten ausgeführt.
+
+## Separat vorbereiteter kombinierter Rename-/Consumer-Plan
+
+Die folgenden zusätzlichen Preconditions gelten nur, wenn Benni auch den
+Rename beauftragt. Sie sind keine neue allgemeine Shadow-Runde für den obigen
+Writer-Cutover. Bei Rename bleiben Backups, konkrete Consumeränderungen und
+deren inverser Rückweg zwingend.
 
 ## 1. Lokales Änderungspaket und Consumer-Inventar
 
@@ -52,8 +95,8 @@ sind, wird kein Writer freigegeben.
 
 ## 2. Preconditions
 
-- Neues unabhängiges Abschlussreview ohne offene Critical-/High-Blocker.
-- v0.6.1 nach Review-PASS separat durch Benni installiert; bestätigtes shadow + legacy,
+- Technische Release-/Test-Evidence geprüft, keine ungeklärten technischen Blocker.
+- Aktuelle Version separat durch Benni installiert; bestätigtes shadow + legacy,
   Apply **aus**, keine automatische Übernahme historischer Apply-Freigaben.
 - Frische Opening-/Positions-/Motion-/Readiness-Evidence. Cover steht
   nachweislich in Ruhe; relevante Fenster sind für den Beginn geschlossen.

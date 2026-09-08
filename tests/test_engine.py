@@ -851,8 +851,8 @@ class SolarAndLifecycleTests(unittest.TestCase):
         exposure = calculate_solar_exposure(inputs, BlindControlConfig.defaults())
 
         self.assertNotEqual(exposure.state, SolarExposureState.NIGHT)
-        self.assertEqual(exposure.state, SolarExposureState.UNKNOWN)
-        self.assertIn("insufficient_radiation", exposure.reason)
+        self.assertEqual(exposure.state, SolarExposureState.LOW_LIGHT)
+        self.assertEqual(exposure.reason, "valid_geometry_and_low_observed_solar_energy")
 
     def test_override_lifecycle_distinguishes_owned_external_restart_and_config(self) -> None:
         runtime = ShadowRuntime()

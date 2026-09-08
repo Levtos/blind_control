@@ -8,6 +8,7 @@ from .config import BlindControlConfig
 from .contracts import (
     BlindControlInputs,
     InputObservation,
+    InputQuality,
     QualityBlocker,
     SolarExposure,
     SolarExposureState,
@@ -58,7 +59,25 @@ def calculate_solar_exposure(
     diffuse = inputs.expected_diffuse_radiation
     cloud = inputs.cloud_cover
 
-    if elevation.usable and float(elevation.value) <= 0:
+    blockers = tuple(
+        blocker
+        for key in ("sun_elevation", "sun_azimuth", "outdoor_lux")
+        if (blocker := _mandatory_blocker(key, getattr(inputs, key))) is not None
+    )
+    if blockers:
+        return _unknown(
+            sources=sources,
+            observed_lux=_number(lux),
+            lux_trend=_number(trend),
+            reason="insufficient_mandatory_solar_evidence",
+            capabilities=capabilities,
+            missing_optional=missing_optional,
+            used=used,
+            derived=derived,
+            blockers=blockers,
+        )
+
+    if float(elevation.value) <= 0:
         return SolarExposure(
             state=SolarExposureState.NIGHT,
             confidence=0.98,
@@ -73,42 +92,6 @@ def calculate_solar_exposure(
             missing_optional_capabilities=missing_optional,
             used_evidence=used,
             derived_evidence=derived,
-        )
-
-    if not elevation.usable and lux.usable and float(lux.value) <= config.night_lux_threshold:
-        return SolarExposure(
-            state=SolarExposureState.NIGHT,
-            confidence=0.55,
-            incidence_factor=None,
-            expected_radiation_w_m2=0.0,
-            observed_lux=float(lux.value),
-            lux_trend=_number(trend),
-            cloud_shadow=False,
-            sources=sources,
-            reason="local_lux_night_hint_without_sufficient_geometry",
-            capabilities=capabilities,
-            missing_optional_capabilities=missing_optional,
-            used_evidence=used,
-            derived_evidence=derived,
-            quality_blockers=(_blocker("sun_elevation", elevation),),
-        )
-
-    blockers = tuple(
-        _blocker(key, getattr(inputs, key))
-        for key in ("sun_elevation", "sun_azimuth", "outdoor_lux")
-        if not getattr(inputs, key).usable
-    )
-    if blockers:
-        return _unknown(
-            sources=sources,
-            observed_lux=_number(lux),
-            lux_trend=_number(trend),
-            reason="insufficient_mandatory_solar_evidence",
-            capabilities=capabilities,
-            missing_optional=missing_optional,
-            used=used,
-            derived=derived,
-            blockers=blockers,
         )
 
     incidence = _incidence_factor(
@@ -151,8 +134,8 @@ def calculate_solar_exposure(
         reason = "geometry_and_bright_local_lux"
         cloud_shadow = False
     else:
-        state = SolarExposureState.UNKNOWN
-        reason = "insufficient_radiation_or_lux_evidence_with_known_geometry"
+        state = SolarExposureState.LOW_LIGHT
+        reason = "valid_geometry_and_low_observed_solar_energy"
         cloud_shadow = False
 
     return SolarExposure(
@@ -276,7 +259,11 @@ def _unknown(
 def _number(observation: InputObservation[object]) -> float | None:
     if not observation.usable:
         return None
-    return float(observation.value)
+    try:
+        value = float(observation.value)
+    except (TypeError, ValueError):
+        return None
+    return value if math.isfinite(value) and not isinstance(observation.value, bool) else None
 
 
 def _has_capability(observation: InputObservation[object]) -> bool:
@@ -285,3 +272,27 @@ def _has_capability(observation: InputObservation[object]) -> bool:
 
 def _blocker(key: str, observation: InputObservation[object]) -> QualityBlocker:
     return QualityBlocker(key=key, quality=observation.quality, reason=observation.reason)
+
+
+def _mandatory_blocker(key: str, observation: InputObservation[object]) -> QualityBlocker | None:
+    if not observation.usable:
+        return _blocker(key, observation)
+    lower, upper = {
+        "sun_elevation": (-90, 90),
+        "sun_azimuth": (0, 360),
+        "outdoor_lux": (0, math.inf),
+    }[key]
+    try:
+        value = float(observation.value)
+        valid = (
+            not isinstance(observation.value, bool)
+            and math.isfinite(value)
+            and lower <= value <= upper
+        )
+    except (ValueError, TypeError):
+        valid = False
+    if valid:
+        return None
+    return QualityBlocker(
+        key=key, quality=InputQuality.CONFLICT, reason="solar_value_outside_physical_range"
+    )

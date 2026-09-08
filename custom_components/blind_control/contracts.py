@@ -88,6 +88,7 @@ class SolarExposureState(StrEnum):
     DIFFUSE_BRIGHT = "diffuse_bright"
     SOLAR_NOT_ON_WINDOW = "solar_not_on_window"
     NIGHT = "night"
+    LOW_LIGHT = "low_light"
     UNKNOWN = "unknown"
 
 

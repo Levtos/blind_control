@@ -4191,7 +4191,7 @@ var root_3 = /* @__PURE__ */ from_html(`<div class="winner-tree"><span>Gewinner<
 var root_4 = /* @__PURE__ */ from_html(`<p class="empty-state">Keine fachlich belastbare Gewinneranforderung vorhanden.</p>`);
 var root_5 = /* @__PURE__ */ from_html(`<div><div class="candidate-top"><strong> </strong><span> </span></div> <p> </p> <small> </small></div>`);
 var root_6 = /* @__PURE__ */ from_html(`<div><div class="candidate-top"><strong> </strong><span>pausiert</span></div> <p> </p> <small> </small></div>`);
-var root_7 = /* @__PURE__ */ from_html(`<section class="content-grid" aria-label="Übersicht"><article class="hero-card card"><div class="card-heading"><div><p class="eyebrow">MASTERMODUS</p> <h2> </h2></div> <span> </span></div> <div class="target-row"><span class="target-value"> </span> <span class="muted">effektives beziehungsweise gehaltenes Ziel</span></div> <div class="metric-strip"><div><span>Gewinner</span><strong> </strong></div> <div><span>Fachliches Ziel</span><strong> </strong></div> <div><span>Safety</span><strong> </strong></div></div> <!></article> <article class="card status-card"><div class="card-heading"><div><p class="eyebrow">TECHNISCHE EBENE</p><h2>Safety & Apply</h2></div> <span> </span></div> <dl class="facts"><div><dt>Opening</dt><dd> </dd></div> <div><dt>Safety</dt><dd> </dd></div> <div><dt>Apply</dt><dd> </dd></div> <div><dt>Istposition (logisch)</dt><dd> </dd></div> <div><dt>Geräteziel</dt><dd> </dd></div> <div><dt>Bewegung</dt><dd> </dd></div> <div><dt>Letzter Bewegungsfehler</dt><dd> </dd></div> <div><dt>Cover bereit</dt><dd> </dd></div> <div><dt>Manual Override</dt><dd> </dd></div> <div><dt>Betriebsmodus</dt><dd> </dd></div> <div><dt>Apply-Owner</dt><dd> </dd></div></dl> <p class="eyebrow">HAUSHALT & KONTEXT</p> <dl class="facts"></dl> <p class="callout">Safety und Apply sind technisch getrennt; der Mastermodus bleibt fachlich lesbar.</p></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">FACHLICHER ENTSCHEIDUNGSBAUM</p><h2>Kategorie → Variante → Nebenäste</h2></div> <span class="muted"> </span></div> <!> <div class="candidate-grid"><!> <!></div></article></section>`);
+var root_7 = /* @__PURE__ */ from_html(`<section class="content-grid" aria-label="Übersicht"><article class="hero-card card"><div class="card-heading"><div><p class="eyebrow">MASTERMODUS</p> <h2> </h2></div> <span> </span></div> <div class="target-row"><span class="target-value"> </span> <span class="muted">effektives beziehungsweise gehaltenes Ziel</span></div> <div class="metric-strip"><div><span>Gewinner</span><strong> </strong></div> <div><span>Fachliches Ziel</span><strong> </strong></div> <div><span>Safety</span><strong> </strong></div></div> <!></article> <article class="card status-card"><div class="card-heading"><div><p class="eyebrow">TECHNISCHE EBENE</p><h2>Safety & Apply</h2></div> <span> </span></div> <dl class="facts"><div><dt>Opening</dt><dd> </dd></div> <div><dt>Safety</dt><dd> </dd></div> <div><dt>Apply</dt><dd> </dd></div> <div><dt>Istposition (logisch)</dt><dd> </dd></div> <div><dt>Geräteziel</dt><dd> </dd></div> <div><dt>Bewegung</dt><dd> </dd></div> <div><dt>Letzter Bewegungsfehler</dt><dd> </dd></div> <div><dt>Cover bereit</dt><dd> </dd></div> <div><dt>Manual Override</dt><dd> </dd></div> <div><dt>Betriebsmodus</dt><dd> </dd></div> <div><dt>Apply-Owner</dt><dd> </dd></div> <div><dt>Apply-Schalter</dt><dd> </dd></div> <div><dt>Ruhebaseline</dt><dd> </dd></div> <div><dt>Schreibpfad erreichbar</dt><dd> </dd></div> <div><dt>Apply-Grund</dt><dd> </dd></div></dl> <p class="eyebrow">HAUSHALT & KONTEXT</p> <dl class="facts"></dl> <p class="callout">Safety und Apply sind technisch getrennt; der Mastermodus bleibt fachlich lesbar.</p></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">FACHLICHER ENTSCHEIDUNGSBAUM</p><h2>Kategorie → Variante → Nebenäste</h2></div> <span class="muted"> </span></div> <!> <div class="candidate-grid"><!> <!></div></article></section>`);
 var root_8 = /* @__PURE__ */ from_html(`<li><strong> </strong><span> </span></li>`);
 var root_9 = /* @__PURE__ */ from_html(`<h3>Pausiert / unterdrückt</h3> <ul class="plain-list"></ul>`, 1);
 var root_10 = /* @__PURE__ */ from_html(`<div><span> </span><code> </code></div>`);
@@ -4203,7 +4203,7 @@ var root_15 = /* @__PURE__ */ from_html(`<label> <input type="number" step="any"
 var root_16 = /* @__PURE__ */ from_html(`<div class="binding-row"><strong> </strong> <span> </span> <small> </small></div>`);
 var root_17 = /* @__PURE__ */ from_html(`<p class="hint"> </p>`);
 var root_18 = /* @__PURE__ */ from_html(`<section class="binding-group"><h3> </h3> <!> <!></section>`);
-var root_19 = /* @__PURE__ */ from_html(`<section class="settings-layout" aria-label="Einstellungen"><article class="card"><div class="card-heading"><div><p class="eyebrow">GEOMETRIE & STATUS</p><h2>Fensterfläche</h2></div><span> </span></div> <div class="form-grid"><label>Azimut (°)<input type="number" min="0" max="360"/></label> <label>Neigung (°)<input type="number" min="0" max="180"/></label> <label class="toggle"><input type="checkbox"/> Achse invertiert</label> <label class="toggle"><input type="checkbox"/> Automatik aktiv</label> <label class="toggle"><input type="checkbox" disabled=""/> Apply-Gate aktiv (OptionsFlow)</label></div> <p class="hint">Betriebsmodus, Apply-Owner und Apply-Gate sind sicherheitskritisch und ausschließlich im nativen OptionsFlow änderbar.</p></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">PROFILE</p><h2>Logische Zielposition</h2></div><div class="button-row"><span class="muted"> </span><button class="quiet-button" type="button">Entwurf zurücksetzen</button><button class="primary-button" type="button"> </button></div></div> <!> <div class="profile-table" role="table" aria-label="Positionsprofile"><div class="profile-row profile-header" role="row"><span>Profil</span><span>Logisch</span><span>Invertiert (abgeleitet)</span></div> <!></div></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">KALIBRIERUNG</p><h2>Shadow-Defaults</h2></div><span class="muted">später trace-basiert kalibrieren</span></div> <p class="hint">Cold endet erst oberhalb der höheren Austrittsschwelle. Der Solar-Haltefaktor senkt die Austrittsschwellen für bestehenden Schutz. Eintritt und Entlastung müssen jeweils stabil bleiben; Safety reagiert sofort. Der Apply-Cooldown schützt den Motor unabhängig davon.</p> <div class="calibration-grid"></div></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">OWNER-BINDINGS</p><h2>Native Entity-Selectoren</h2></div><span class="muted">OptionsFlow</span></div> <p class="hint">Bearbeitung erfolgt ausschließlich über Blind Control → Konfigurieren im nativen Home-Assistant-OptionsFlow. Entity-IDs werden im Panel nicht angezeigt oder entgegengenommen.</p> <div class="binding-grid"></div></article></section>`);
+var root_19 = /* @__PURE__ */ from_html(`<section class="settings-layout" aria-label="Einstellungen"><article class="card"><div class="card-heading"><div><p class="eyebrow">GEOMETRIE & STATUS</p><h2>Fensterfläche</h2></div><span> </span></div> <div class="form-grid"><label>Azimut (°)<input type="number" min="0" max="360"/></label> <label>Neigung (°)<input type="number" min="0" max="180"/></label> <label class="toggle"><input type="checkbox"/> Achse invertiert</label> <label class="toggle"><input type="checkbox"/> Automatik aktiv</label> <label class="toggle"><input type="checkbox" disabled=""/> Apply-Gate aktiv (OptionsFlow)</label></div> <p class="hint">Betriebsmodus, Apply-Owner und Apply-Gate: HA Einstellungen → Geräte & Dienste → Blind Control → Konfigurieren. Vor live + blind_control Legacy deaktivieren, HA neu starten und Null-Writer bestätigen. Apply zunächst AUS speichern, geladene Runtime prüfen; erst danach bewusst AN.</p></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">PROFILE</p><h2>Logische Zielposition</h2></div><div class="button-row"><span class="muted"> </span><button class="quiet-button" type="button">Entwurf zurücksetzen</button><button class="primary-button" type="button"> </button></div></div> <!> <div class="profile-table" role="table" aria-label="Positionsprofile"><div class="profile-row profile-header" role="row"><span>Profil</span><span>Logisch</span><span>Invertiert (abgeleitet)</span></div> <!></div></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">KALIBRIERUNG</p><h2>Shadow-Defaults</h2></div><span class="muted">später trace-basiert kalibrieren</span></div> <p class="hint">Cold endet erst oberhalb der höheren Austrittsschwelle. Der Solar-Haltefaktor senkt die Austrittsschwellen für bestehenden Schutz. Eintritt und Entlastung müssen jeweils stabil bleiben; Safety reagiert sofort. Der Apply-Cooldown schützt den Motor unabhängig davon.</p> <div class="calibration-grid"></div></article> <article class="card span-2"><div class="card-heading"><div><p class="eyebrow">OWNER-BINDINGS</p><h2>Native Entity-Selectoren</h2></div><span class="muted">OptionsFlow</span></div> <p class="hint">Bearbeitung erfolgt ausschließlich über Blind Control → Konfigurieren im nativen Home-Assistant-OptionsFlow. Entity-IDs werden im Panel nicht angezeigt oder entgegengenommen.</p> <div class="binding-grid"></div></article></section>`);
 var root_20 = /* @__PURE__ */ from_html(`<div class="panel-root"><header class="app-header"><div><p class="eyebrow"> </p> <h1>Wohnzimmer-Rollo</h1> <p class="subtitle">Versionierter Entscheidungs-, Safety- und Shadow-Vertrag</p></div> <div class="header-status"><span></span> <span> </span></div></header> <div class="tabs" aria-label="Blind Control Bereiche" role="tablist"></div> <!></div>`);
 function App($$anchor, $$props) {
   push($$props, true);
@@ -4228,6 +4228,7 @@ function App($$anchor, $$props) {
   });
   const labels = {
     normal: "Regulär",
+    low_light: "Geringe Solarenergie",
     cold_lux_enter_threshold: "Cold: Eintritt unter (lx)",
     cold_lux_exit_threshold: "Cold: Austritt über (lx)",
     environment_hysteresis_ratio: "Solar/Confidence: Haltefaktor (0–1)",
@@ -4514,41 +4515,53 @@ function App($$anchor, $$props) {
       var div_22 = sibling(div_21, 2);
       var dd_10 = sibling(child(div_22));
       var text_22 = child(dd_10);
+      var div_23 = sibling(div_22, 2);
+      var dd_11 = sibling(child(div_23));
+      var text_23 = child(dd_11);
+      var div_24 = sibling(div_23, 2);
+      var dd_12 = sibling(child(div_24));
+      var text_24 = child(dd_12);
+      var div_25 = sibling(div_24, 2);
+      var dd_13 = sibling(child(div_25));
+      var text_25 = child(dd_13);
+      var div_26 = sibling(div_25, 2);
+      var dd_14 = sibling(child(div_26));
+      var text_26 = child(dd_14);
       var dl_1 = sibling(dl, 4);
       each(dl_1, 21, () => Object.entries($$props.snapshot.overview.household), index, ($$anchor3, $$item) => {
         var $$array_1 = /* @__PURE__ */ user_derived(() => to_array(get($$item), 2));
         let key = () => get($$array_1)[0];
         let value = () => get($$array_1)[1];
-        var div_23 = root_2();
-        var dt = child(div_23);
-        var text_23 = child(dt);
-        var dd_11 = sibling(dt);
-        var text_24 = child(dd_11);
+        var div_27 = root_2();
+        var dt = child(div_27);
+        var text_27 = child(dt);
+        var dd_15 = sibling(dt);
+        var text_28 = child(dd_15);
         template_effect(
           ($0, $1) => {
-            set_text(text_23, $0);
-            set_text(text_24, $1);
+            set_text(text_27, $0);
+            set_text(text_28, $1);
           },
           [() => labelFor(key()), () => contextValue(value())]
         );
-        append($$anchor3, div_23);
+        append($$anchor3, div_27);
       });
       var article_2 = sibling(article_1, 2);
-      var div_24 = child(article_2);
-      var span_5 = sibling(child(div_24), 2);
-      var text_25 = child(span_5);
-      var node_3 = sibling(div_24, 2);
+      var div_28 = child(article_2);
+      var span_5 = sibling(child(div_28), 2);
+      var text_29 = child(span_5);
+      var node_3 = sibling(div_28, 2);
       {
         var consequent_2 = ($$anchor3) => {
-          var div_25 = root_3();
-          var strong_3 = sibling(child(div_25), 2);
-          var text_26 = child(strong_3);
+          var div_29 = root_3();
+          var strong_3 = sibling(child(div_29), 2);
+          var text_30 = child(strong_3);
           var span_6 = sibling(strong_3, 2);
-          var text_27 = child(span_6);
+          var text_31 = child(span_6);
           template_effect(
             ($0, $1, $2) => {
-              set_text(text_26, `${$0 ?? ""} → ${$1 ?? ""}`);
-              set_text(text_27, $2);
+              set_text(text_30, `${$0 ?? ""} → ${$1 ?? ""}`);
+              set_text(text_31, $2);
             },
             [
               () => labelFor($$props.snapshot.overview.master_mode),
@@ -4556,7 +4569,7 @@ function App($$anchor, $$props) {
               () => positionLabel($$props.snapshot.overview.winner.target_position)
             ]
           );
-          append($$anchor3, div_25);
+          append($$anchor3, div_29);
         };
         var alternate = ($$anchor3) => {
           var p_2 = root_4();
@@ -4567,26 +4580,26 @@ function App($$anchor, $$props) {
           else $$render(alternate, -1);
         });
       }
-      var div_26 = sibling(node_3, 2);
-      var node_4 = child(div_26);
+      var div_30 = sibling(node_3, 2);
+      var node_4 = child(div_30);
       each(node_4, 17, () => get(supportingBranches), index, ($$anchor3, branch2) => {
-        var div_27 = root_5();
-        var div_28 = child(div_27);
-        var strong_4 = child(div_28);
-        var text_28 = child(strong_4);
+        var div_31 = root_5();
+        var div_32 = child(div_31);
+        var strong_4 = child(div_32);
+        var text_32 = child(strong_4);
         var span_7 = sibling(strong_4);
-        var text_29 = child(span_7);
-        var p_3 = sibling(div_28, 2);
-        var text_30 = child(p_3);
+        var text_33 = child(span_7);
+        var p_3 = sibling(div_32, 2);
+        var text_34 = child(p_3);
         var small = sibling(p_3, 2);
-        var text_31 = child(small);
+        var text_35 = child(small);
         template_effect(
           ($0, $1, $2, $3) => {
-            set_class(div_27, 1, $0);
-            set_text(text_28, $1);
-            set_text(text_29, $2);
-            set_text(text_30, `Aktiver Nebenast · ${$3 ?? ""}`);
-            set_text(text_31, `${get(branch2).quality ?? ""} · ${get(branch2).source ?? ""}`);
+            set_class(div_31, 1, $0);
+            set_text(text_32, $1);
+            set_text(text_33, $2);
+            set_text(text_34, `Aktiver Nebenast · ${$3 ?? ""}`);
+            set_text(text_35, `${get(branch2).quality ?? ""} · ${get(branch2).source ?? ""}`);
           },
           [
             () => clsx(candidateClass(get(branch2))),
@@ -4595,24 +4608,24 @@ function App($$anchor, $$props) {
             () => get(branch2).reason.replaceAll("_", " ")
           ]
         );
-        append($$anchor3, div_27);
+        append($$anchor3, div_31);
       });
       var node_5 = sibling(node_4, 2);
       each(node_5, 17, () => get(pausedBranches), index, ($$anchor3, branch2) => {
-        var div_29 = root_6();
-        var div_30 = child(div_29);
-        var strong_5 = child(div_30);
-        var text_32 = child(strong_5);
-        var p_4 = sibling(div_30, 2);
-        var text_33 = child(p_4);
+        var div_33 = root_6();
+        var div_34 = child(div_33);
+        var strong_5 = child(div_34);
+        var text_36 = child(strong_5);
+        var p_4 = sibling(div_34, 2);
+        var text_37 = child(p_4);
         var small_1 = sibling(p_4, 2);
-        var text_34 = child(small_1);
+        var text_38 = child(small_1);
         template_effect(
           ($0, $1, $2) => {
-            set_class(div_29, 1, $0);
-            set_text(text_32, $1);
-            set_text(text_33, $2);
-            set_text(text_34, `${get(branch2).quality ?? ""} · ${get(branch2).source ?? ""}`);
+            set_class(div_33, 1, $0);
+            set_text(text_36, $1);
+            set_text(text_37, $2);
+            set_text(text_38, `${get(branch2).quality ?? ""} · ${get(branch2).source ?? ""}`);
           },
           [
             () => clsx(candidateClass(get(branch2))),
@@ -4620,10 +4633,10 @@ function App($$anchor, $$props) {
             () => get(branch2).suppressed_by ? `unterdrückt durch ${labelFor(get(branch2).suppressed_by)}` : get(branch2).reason.replaceAll("_", " ")
           ]
         );
-        append($$anchor3, div_29);
+        append($$anchor3, div_33);
       });
       template_effect(
-        ($0, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) => {
+        ($0, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22) => {
           set_text(text_3, $0);
           set_class(span_2, 1, $1);
           set_text(text_4, $2);
@@ -4646,7 +4659,11 @@ function App($$anchor, $$props) {
           set_text(text_20, $$props.snapshot.overview.override.active ? "aktiv" : "inaktiv");
           set_text(text_21, $$props.snapshot.settings.runtime_mode);
           set_text(text_22, $$props.snapshot.settings.apply_owner);
-          set_text(text_25, `${get(activeBranches).length ?? ""} aktiv oder pausiert`);
+          set_text(text_23, $$props.snapshot.settings.apply_enabled ? "AN" : "AUS");
+          set_text(text_24, $20);
+          set_text(text_25, $21);
+          set_text(text_26, $22);
+          set_text(text_29, `${get(activeBranches).length ?? ""} aktiv oder pausiert`);
         },
         [
           () => labelFor($$props.snapshot.overview.master_mode),
@@ -4668,7 +4685,10 @@ function App($$anchor, $$props) {
           () => statusLabel($$props.snapshot.overview.movement_status),
           () => statusLabel($$props.snapshot.overview.movement_error ?? "none"),
           () => statusLabel($$props.snapshot.overview.recovery_status ?? "none"),
-          () => householdLabel($$props.snapshot.overview.technical.cover_ready)
+          () => householdLabel($$props.snapshot.overview.technical.cover_ready),
+          () => $$props.snapshot.overview.baseline_ready ? positionLabel($$props.snapshot.overview.baseline_position) : "noch nicht bestätigt",
+          () => householdLabel($$props.snapshot.overview.write_path_reachable),
+          () => recordValue($$props.snapshot.overview.technical.apply, "reason")
         ]
       );
       append($$anchor2, section);
@@ -4676,33 +4696,33 @@ function App($$anchor, $$props) {
     var consequent_5 = ($$anchor2) => {
       var section_1 = root_12();
       var article_3 = child(section_1);
-      var div_31 = child(article_3);
-      var span_8 = sibling(child(div_31));
-      var text_35 = child(span_8);
-      var div_32 = sibling(div_31, 2);
-      var strong_6 = sibling(child(div_32), 2);
-      var text_36 = child(strong_6);
+      var div_35 = child(article_3);
+      var span_8 = sibling(child(div_35));
+      var text_39 = child(span_8);
+      var div_36 = sibling(div_35, 2);
+      var strong_6 = sibling(child(div_36), 2);
+      var text_40 = child(strong_6);
       var span_9 = sibling(strong_6, 2);
-      var text_37 = child(span_9);
-      var div_33 = sibling(div_32, 4);
-      each(div_33, 21, () => $$props.snapshot.diagnosis.candidates, index, ($$anchor3, candidate) => {
-        var div_34 = root_5();
-        var div_35 = child(div_34);
-        var strong_7 = child(div_35);
-        var text_38 = child(strong_7);
+      var text_41 = child(span_9);
+      var div_37 = sibling(div_36, 4);
+      each(div_37, 21, () => $$props.snapshot.diagnosis.candidates, index, ($$anchor3, candidate) => {
+        var div_38 = root_5();
+        var div_39 = child(div_38);
+        var strong_7 = child(div_39);
+        var text_42 = child(strong_7);
         var span_10 = sibling(strong_7);
-        var text_39 = child(span_10);
-        var p_5 = sibling(div_35, 2);
-        var text_40 = child(p_5);
+        var text_43 = child(span_10);
+        var p_5 = sibling(div_39, 2);
+        var text_44 = child(p_5);
         var small_2 = sibling(p_5, 2);
-        var text_41 = child(small_2);
+        var text_45 = child(small_2);
         template_effect(
           ($0, $1, $2, $3) => {
-            set_class(div_34, 1, $0);
-            set_text(text_38, $1);
-            set_text(text_39, $2);
-            set_text(text_40, $3);
-            set_text(text_41, `${(get(candidate).paused ? `pausiert durch ${get(candidate).suppressed_by}` : get(candidate).quality) ?? ""} · ${get(candidate).source ?? ""}`);
+            set_class(div_38, 1, $0);
+            set_text(text_42, $1);
+            set_text(text_43, $2);
+            set_text(text_44, $3);
+            set_text(text_45, `${(get(candidate).paused ? `pausiert durch ${get(candidate).suppressed_by}` : get(candidate).quality) ?? ""} · ${get(candidate).source ?? ""}`);
           },
           [
             () => clsx(candidateClass(get(candidate))),
@@ -4711,9 +4731,9 @@ function App($$anchor, $$props) {
             () => get(candidate).reason.replaceAll("_", " ")
           ]
         );
-        append($$anchor3, div_34);
+        append($$anchor3, div_38);
       });
-      var node_6 = sibling(div_33, 2);
+      var node_6 = sibling(div_37, 2);
       {
         var consequent_4 = ($$anchor3) => {
           var fragment_1 = root_9();
@@ -4721,13 +4741,13 @@ function App($$anchor, $$props) {
           each(ul, 21, () => $$props.snapshot.diagnosis.paused_requirements, index, ($$anchor4, item) => {
             var li = root_8();
             var strong_8 = child(li);
-            var text_42 = child(strong_8);
+            var text_46 = child(strong_8);
             var span_11 = sibling(strong_8);
-            var text_43 = child(span_11);
+            var text_47 = child(span_11);
             template_effect(
               ($0, $1) => {
-                set_text(text_42, $0);
-                set_text(text_43, $1);
+                set_text(text_46, $0);
+                set_text(text_47, $1);
               },
               [
                 () => labelFor(get(item).key),
@@ -4742,28 +4762,16 @@ function App($$anchor, $$props) {
           if ($$props.snapshot.diagnosis.paused_requirements.length) $$render(consequent_4);
         });
       }
-      var div_36 = sibling(article_3, 2);
-      var article_4 = child(div_36);
-      var div_37 = child(article_4);
-      var div_38 = child(div_37);
-      var h2_1 = sibling(child(div_38));
-      var text_44 = child(h2_1);
-      var span_12 = sibling(div_38);
-      var text_45 = child(span_12);
-      var dl_2 = sibling(div_37, 2);
-      var div_39 = child(dl_2);
-      var dd_12 = sibling(child(div_39));
-      var text_46 = child(dd_12);
-      var div_40 = sibling(div_39, 2);
-      var dd_13 = sibling(child(div_40));
-      var text_47 = child(dd_13);
-      var div_41 = sibling(div_40, 2);
-      var dd_14 = sibling(child(div_41));
-      var text_48 = child(dd_14);
-      var div_42 = sibling(div_41, 2);
-      var dd_15 = sibling(child(div_42));
-      var text_49 = child(dd_15);
-      var div_43 = sibling(div_42, 2);
+      var div_40 = sibling(article_3, 2);
+      var article_4 = child(div_40);
+      var div_41 = child(article_4);
+      var div_42 = child(div_41);
+      var h2_1 = sibling(child(div_42));
+      var text_48 = child(h2_1);
+      var span_12 = sibling(div_42);
+      var text_49 = child(span_12);
+      var dl_2 = sibling(div_41, 2);
+      var div_43 = child(dl_2);
       var dd_16 = sibling(child(div_43));
       var text_50 = child(dd_16);
       var div_44 = sibling(div_43, 2);
@@ -4775,10 +4783,22 @@ function App($$anchor, $$props) {
       var div_46 = sibling(div_45, 2);
       var dd_19 = sibling(child(div_46));
       var text_53 = child(dd_19);
+      var div_47 = sibling(div_46, 2);
+      var dd_20 = sibling(child(div_47));
+      var text_54 = child(dd_20);
+      var div_48 = sibling(div_47, 2);
+      var dd_21 = sibling(child(div_48));
+      var text_55 = child(dd_21);
+      var div_49 = sibling(div_48, 2);
+      var dd_22 = sibling(child(div_49));
+      var text_56 = child(dd_22);
+      var div_50 = sibling(div_49, 2);
+      var dd_23 = sibling(child(div_50));
+      var text_57 = child(dd_23);
       var article_5 = sibling(article_4, 2);
-      var div_47 = sibling(child(article_5), 2);
+      var div_51 = sibling(child(article_5), 2);
       each(
-        div_47,
+        div_51,
         21,
         () => Object.entries($$props.snapshot.diagnosis.inputs),
         index,
@@ -4786,22 +4806,22 @@ function App($$anchor, $$props) {
           var $$array_2 = /* @__PURE__ */ user_derived(() => to_array(get($$item), 2));
           let key = () => get($$array_2)[0];
           let value = () => get($$array_2)[1];
-          var div_48 = root_10();
-          var span_13 = child(div_48);
-          var text_54 = child(span_13);
+          var div_52 = root_10();
+          var span_13 = child(div_52);
+          var text_58 = child(span_13);
           var code = sibling(span_13);
-          var text_55 = child(code);
+          var text_59 = child(code);
           template_effect(
             ($0, $1) => {
-              set_text(text_54, $0);
-              set_text(text_55, $1);
+              set_text(text_58, $0);
+              set_text(text_59, $1);
             },
             [
               () => labelFor(key()),
               () => typeof value() === "string" ? value() : JSON.stringify(value())
             ]
           );
-          append($$anchor3, div_48);
+          append($$anchor3, div_52);
         },
         ($$anchor3) => {
           var p_6 = root_11();
@@ -4809,29 +4829,29 @@ function App($$anchor, $$props) {
         }
       );
       var article_6 = sibling(article_5, 2);
-      var div_49 = child(article_6);
-      var button_1 = sibling(child(div_49));
-      var text_56 = child(button_1);
-      var details = sibling(div_49, 2);
+      var div_53 = child(article_6);
+      var button_1 = sibling(child(div_53));
+      var text_60 = child(button_1);
+      var details = sibling(div_53, 2);
       var pre = sibling(child(details), 2);
-      var text_57 = child(pre);
+      var text_61 = child(pre);
       template_effect(
         ($0, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10) => {
-          set_text(text_35, $$props.snapshot.version);
-          set_text(text_36, `${$0 ?? ""} → ${$1 ?? ""}`);
-          set_text(text_37, $$props.snapshot.diagnosis.hierarchy.failure.status === "none" ? "belastbar" : $$props.snapshot.diagnosis.hierarchy.failure.status);
-          set_text(text_44, $2);
-          set_text(text_45, `${$3 ?? ""} %`);
-          set_text(text_46, $4);
-          set_text(text_47, $$props.snapshot.diagnosis.solar.observed_lux ?? "—");
-          set_text(text_48, $$props.snapshot.diagnosis.solar.lux_trend ?? "—");
-          set_text(text_49, $5);
-          set_text(text_50, $6);
-          set_text(text_51, $7);
-          set_text(text_52, $8);
-          set_text(text_53, $9);
-          set_text(text_56, get(copyState) === "copied" ? "Kopiert" : get(copyState) === "failed" ? "Kopieren fehlgeschlagen" : "Evidence kopieren");
-          set_text(text_57, $10);
+          set_text(text_39, $$props.snapshot.version);
+          set_text(text_40, `${$0 ?? ""} → ${$1 ?? ""}`);
+          set_text(text_41, $$props.snapshot.diagnosis.hierarchy.failure.status === "none" ? "belastbar" : $$props.snapshot.diagnosis.hierarchy.failure.status);
+          set_text(text_48, $2);
+          set_text(text_49, `${$3 ?? ""} %`);
+          set_text(text_50, $4);
+          set_text(text_51, $$props.snapshot.diagnosis.solar.observed_lux ?? "—");
+          set_text(text_52, $$props.snapshot.diagnosis.solar.lux_trend ?? "—");
+          set_text(text_53, $5);
+          set_text(text_54, $6);
+          set_text(text_55, $7);
+          set_text(text_56, $8);
+          set_text(text_57, $9);
+          set_text(text_60, get(copyState) === "copied" ? "Kopiert" : get(copyState) === "failed" ? "Kopieren fehlgeschlagen" : "Evidence kopieren");
+          set_text(text_61, $10);
         },
         [
           () => labelFor($$props.snapshot.diagnosis.hierarchy.master_mode),
@@ -4856,11 +4876,11 @@ function App($$anchor, $$props) {
     var alternate_1 = ($$anchor2) => {
       var section_2 = root_19();
       var article_7 = child(section_2);
-      var div_50 = child(article_7);
-      var span_14 = sibling(child(div_50));
-      var text_58 = child(span_14);
-      var div_51 = sibling(div_50, 2);
-      var label_1 = child(div_51);
+      var div_54 = child(article_7);
+      var span_14 = sibling(child(div_54));
+      var text_62 = child(span_14);
+      var div_55 = sibling(div_54, 2);
+      var label_1 = child(div_55);
       var input = sibling(child(label_1));
       var label_2 = sibling(label_1, 2);
       var input_1 = sibling(child(label_2));
@@ -4871,61 +4891,61 @@ function App($$anchor, $$props) {
       var label_5 = sibling(label_4, 2);
       var input_4 = child(label_5);
       var article_8 = sibling(article_7, 2);
-      var div_52 = child(article_8);
-      var div_53 = sibling(child(div_52));
-      var span_15 = child(div_53);
-      var text_59 = child(span_15);
+      var div_56 = child(article_8);
+      var div_57 = sibling(child(div_56));
+      var span_15 = child(div_57);
+      var text_63 = child(span_15);
       var button_2 = sibling(span_15);
       var button_3 = sibling(button_2);
-      var text_60 = child(button_3);
-      var node_7 = sibling(div_52, 2);
+      var text_64 = child(button_3);
+      var node_7 = sibling(div_56, 2);
       {
         var consequent_6 = ($$anchor3) => {
           var p_7 = root_13();
-          var text_61 = child(p_7);
-          template_effect(() => set_text(text_61, get(saveError)));
+          var text_65 = child(p_7);
+          template_effect(() => set_text(text_65, get(saveError)));
           append($$anchor3, p_7);
         };
         if_block(node_7, ($$render) => {
           if (get(saveError)) $$render(consequent_6);
         });
       }
-      var div_54 = sibling(node_7, 2);
-      var node_8 = sibling(child(div_54), 2);
+      var div_58 = sibling(node_7, 2);
+      var node_8 = sibling(child(div_58), 2);
       each(node_8, 17, () => Object.entries(get(editableSettings).profiles), index, ($$anchor3, $$item) => {
         var $$array_3 = /* @__PURE__ */ user_derived(() => to_array(get($$item), 2));
         let key = () => get($$array_3)[0];
         let profile = () => get($$array_3)[1];
-        var div_55 = root_14();
-        var strong_9 = child(div_55);
-        var text_62 = child(strong_9);
+        var div_59 = root_14();
+        var strong_9 = child(div_59);
+        var text_66 = child(strong_9);
         var input_5 = sibling(strong_9, 2);
         var output = sibling(input_5, 2);
-        var text_63 = child(output);
+        var text_67 = child(output);
         template_effect(
           ($0) => {
-            set_text(text_62, $0);
+            set_text(text_66, $0);
             set_attribute(input_5, "aria-label", `${key()} logisch`);
             set_value(input_5, profile().logical);
-            set_text(text_63, `${100 - profile().logical} %`);
+            set_text(text_67, `${100 - profile().logical} %`);
           },
           [() => labelFor(key())]
         );
         delegated("change", input_5, (event) => updateProfile(key(), "logical", event.currentTarget.valueAsNumber));
-        append($$anchor3, div_55);
+        append($$anchor3, div_59);
       });
       var article_9 = sibling(article_8, 2);
-      var div_56 = sibling(child(article_9), 4);
-      each(div_56, 21, () => Object.entries(get(editableSettings).calibration_defaults), index, ($$anchor3, $$item) => {
+      var div_60 = sibling(child(article_9), 4);
+      each(div_60, 21, () => Object.entries(get(editableSettings).calibration_defaults), index, ($$anchor3, $$item) => {
         var $$array_4 = /* @__PURE__ */ user_derived(() => to_array(get($$item), 2));
         let key = () => get($$array_4)[0];
         let value = () => get($$array_4)[1];
         var label_6 = root_15();
-        var text_64 = child(label_6);
-        var input_6 = sibling(text_64);
+        var text_68 = child(label_6);
+        var input_6 = sibling(text_68);
         template_effect(
           ($0, $1) => {
-            set_text(text_64, $0);
+            set_text(text_68, $0);
             set_attribute(input_6, "min", $1);
             set_value(input_6, value());
           },
@@ -4942,26 +4962,26 @@ function App($$anchor, $$props) {
         append($$anchor3, label_6);
       });
       var article_10 = sibling(article_9, 2);
-      var div_57 = sibling(child(article_10), 4);
-      each(div_57, 21, () => get(editableSettings).binding_groups, index, ($$anchor3, group) => {
+      var div_61 = sibling(child(article_10), 4);
+      each(div_61, 21, () => get(editableSettings).binding_groups, index, ($$anchor3, group) => {
         var section_3 = root_18();
         var h3 = child(section_3);
-        var text_65 = child(h3);
+        var text_69 = child(h3);
         var node_9 = sibling(h3, 2);
         each(node_9, 17, () => get(group).fields, index, ($$anchor4, field) => {
-          var div_58 = root_16();
-          var strong_10 = child(div_58);
-          var text_66 = child(strong_10);
+          var div_62 = root_16();
+          var strong_10 = child(div_62);
+          var text_70 = child(strong_10);
           var span_16 = sibling(strong_10, 2);
-          var text_67 = child(span_16);
+          var text_71 = child(span_16);
           var small_3 = sibling(span_16, 2);
-          var text_68 = child(small_3);
+          var text_72 = child(small_3);
           template_effect(
             ($0, $1, $2) => {
-              set_text(text_66, $0);
+              set_text(text_70, $0);
               set_class(span_16, 1, $1);
-              set_text(text_67, $2);
-              set_text(text_68, `${get(field).requirement === "required" ? "Pflicht" : get(field).requirement === "conditional" ? "bedingt erforderlich" : "optional"} · ${get(field).owner ?? ""} · ${get(field).max_age_seconds === null ? "stateful" : `${get(field).max_age_seconds} s`} · ${get(field).require_timestamp ? "Zeitbeleg erforderlich" : "kein Zeitbeleg erforderlich"}`);
+              set_text(text_71, $2);
+              set_text(text_72, `${get(field).requirement === "required" ? "Pflicht" : get(field).requirement === "conditional" ? "bedingt erforderlich" : "optional"} · ${get(field).owner ?? ""} · ${get(field).max_age_seconds === null ? "stateful" : `${get(field).max_age_seconds} s`} · ${get(field).require_timestamp ? "Zeitbeleg erforderlich" : "kein Zeitbeleg erforderlich"}`);
             },
             [
               () => labelFor(get(field).key),
@@ -4969,14 +4989,14 @@ function App($$anchor, $$props) {
               () => labelFor(get(field).status)
             ]
           );
-          append($$anchor4, div_58);
+          append($$anchor4, div_62);
         });
         var node_10 = sibling(node_9, 2);
         {
           var consequent_7 = ($$anchor4) => {
             var p_8 = root_17();
-            var text_69 = child(p_8);
-            template_effect(($0) => set_text(text_69, `Opening-Safety-Polarität: ${$0 ?? ""}. Ohne explizite Polarität bleibt eine Kippfreigabe blockiert.`), [
+            var text_73 = child(p_8);
+            template_effect(($0) => set_text(text_73, `Opening-Safety-Polarität: ${$0 ?? ""}. Ohne explizite Polarität bleibt eine Kippfreigabe blockiert.`), [
               () => labelFor(get(editableSettings).opening_safety_polarity)
             ]);
             append($$anchor4, p_8);
@@ -4985,21 +5005,21 @@ function App($$anchor, $$props) {
             if (get(group).key === "opening_safety_cover_bindings") $$render(consequent_7);
           });
         }
-        template_effect(() => set_text(text_65, `${get(group).label ?? ""} · ${get(group).readiness === "ready" ? "bereit" : "Pflicht-Evidence fehlt"}`));
+        template_effect(() => set_text(text_69, `${get(group).label ?? ""} · ${get(group).readiness === "ready" ? "bereit" : "Pflicht-Evidence fehlt"}`));
         append($$anchor3, section_3);
       });
       template_effect(
         ($0, $1) => {
           set_class(span_14, 1, $0);
-          set_text(text_58, $1);
+          set_text(text_62, $1);
           set_value(input, get(editableSettings).window_azimuth);
           set_value(input_1, get(editableSettings).window_tilt);
           set_checked(input_2, get(editableSettings).axis_inverted);
           set_checked(input_3, get(editableSettings).automation_enabled);
           set_checked(input_4, get(editableSettings).apply_enabled);
-          set_text(text_59, get(draftDirty) ? "Ungespeicherter Entwurf" : "Serverstand bestätigt");
+          set_text(text_63, get(draftDirty) ? "Ungespeicherter Entwurf" : "Serverstand bestätigt");
           button_3.disabled = saving() || !$$props.onSaveSettings;
-          set_text(text_60, saving() ? "Speichere …" : "Konfiguration speichern");
+          set_text(text_64, saving() ? "Speichere …" : "Konfiguration speichern");
         },
         [
           () => `badge ${statusTone($$props.snapshot.overview.apply_status)}`,

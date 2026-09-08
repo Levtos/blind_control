@@ -152,7 +152,7 @@ def test_queued_callback_and_refresh_after_stop_are_permanently_dead():
 def test_solar_unknown_holds_but_positive_opening_safety_is_independent():
     inputs = ready_inputs(
         outdoor_lux=fresh(500),
-        sun_elevation=fresh(30),
+        sun_elevation=InputObservation(),
         expected_direct_radiation=InputObservation(),
         expected_diffuse_radiation=InputObservation(),
         cloud_cover=InputObservation(),

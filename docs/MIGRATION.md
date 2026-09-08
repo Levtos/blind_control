@@ -2,6 +2,22 @@
 
 **Stand:** Config v6 / AP3-Stabilisierung 2026-09-07. Testing / Shadow / Not Live.
 
+## v0.6.2 → v0.6.3: Solar und native Cutover-Optionen
+
+Config bleibt v6 ohne neue Felder oder automatische Gate-Änderung. Alle
+gespeicherten Bindings, Profile, Kalibrierwerte und Gates bleiben erhalten.
+`low_light` erweitert die Solar-Zustände; Consumers dürfen ihn nicht als unknown
+interpretieren. Runtime/UX ergänzen baseline_position/baseline_ready.
+Rollback mit denselben v6-Optionen ist möglich, stellt aber den alten
+Low-Light-Blocker und die bisherige Diagnose wieder her; zuerst Apply disarmen.
+
+HA Einstellungen → Geräte & Dienste → Blind Control → Konfigurieren:
+runtime_mode, apply_owner und apply_enabled sind native Optionsfelder.
+Nach Speichern Options-Reload und geladene Runtime prüfen. Ablauf und Rückweg:
+[AP3_CUTOVER.md](AP3_CUTOVER.md). Keine DevTools, .storage- oder YAML-Änderung
+für diese drei Optionen. Nächstes reales Gate ist Bennis kontrollierter
+Writer-Cutover nach Installation, keine automatische weitere Shadow-Runde.
+
 ## v0.6.1 → v0.6.2: Standard-Cover-Evidence
 
 Keine Config-/Options-Migration und keine neuen Felder. Gespeicherte v6-Werte,

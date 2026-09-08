@@ -211,7 +211,16 @@ Mindestens folgende Zustände werden ausgegeben:
 - `diffuse_bright`: relevantes Streulicht ohne starke direkte Sonne
 - `solar_not_on_window`: Sonne ist vorhanden, trifft die Fensterfläche aber geometrisch nicht relevant
 - `night`: keine solare Einstrahlung möglich
+- `low_light`: gültige Sonnengeometrie und lokale Lux-Evidence, aber keine relevante direkte oder diffuse Solarenergie nach den bestehenden Schwellen
 - `unknown`: Daten fehlen, sind stale oder widersprüchlich
+
+v0.6.3 trennt geringe Energie von fehlender Evidence. Alle drei Pflichtwerte
+(Sonnenhöhe, Sonnenazimut, Außenlux) müssen fresh und plausibel sein, auch für
+`night`. Ohne Sonnenhöhe wird aus niedrigen Lux keine Nacht erfunden.
+`low_light` ist kein Quality-Failure und kein eigenständiger Öffnungsbefehl:
+Personenmodi, Cold, Umweltstabilisierung und sämtliche Apply-/Safety-Gates gelten
+weiter. DNI, Diffus, Cloud und Trend bleiben optional; ihre Abwesenheit allein
+macht gültige lokale Pflicht-Evidence nicht unbekannt.
 
 ### 8.4 Diagnosewerte
 
