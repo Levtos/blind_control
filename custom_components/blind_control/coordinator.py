@@ -872,9 +872,8 @@ def _explicit_quality(
     if field_quality is not _MISSING:
         return _parse_quality(field_quality)
     if key == "cover_ready" and _weather_quality_is_unrelated(attributes):
-        for name in ("source_quality", "cover_ready_quality", "readiness_quality"):
-            if name in attributes:
-                return _parse_quality(attributes[name])
+        # This aggregate marker describes weather, not the readiness field.
+        # Field-specific quality has already been checked above.
         return None
     value = attributes.get("quality_status", attributes.get("quality"))
     decision = attributes.get("activity_decision")
@@ -992,8 +991,39 @@ def _field_quality_value(attributes: Mapping[str, object], key: str | None) -> o
 
 
 def _weather_quality_is_unrelated(attributes: Mapping[str, object]) -> bool:
+    """Recognize only a proven weather-only aggregate readiness projection."""
+    allowed = {"weather_contract_degraded", "weather_degraded"}
     marker = str(attributes.get("quality_status", attributes.get("quality", ""))).strip().lower()
-    return marker in {"weather_contract_degraded", "weather_degraded"}
+    reasons = attributes.get("degraded_reason", ())
+    if isinstance(reasons, str):
+        reasons = [reasons]
+    if not isinstance(reasons, (list, tuple)):
+        return False
+    if any(not isinstance(reason, str) for reason in reasons):
+        return False
+    if not (marker in allowed or (reasons and all(reason in allowed for reason in reasons))):
+        return False
+    for name in ("quality_status", "quality", "source_quality"):
+        if name in attributes and str(attributes[name]).strip().lower() not in {
+            *allowed,
+            "degraded",
+            "ok",
+            "fresh",
+        }:
+            return False
+    if any(reason not in allowed for reason in reasons):
+        return False
+    if attributes.get("missing_sources") or attributes.get("master_missing_sources"):
+        return False
+    position = attributes.get("current_position")
+    return (
+        attributes.get("cover_available") is True
+        and attributes.get("policy_context_ready") is True
+        and isinstance(position, (int, float))
+        and not isinstance(position, bool)
+        and math.isfinite(position)
+        and 0 <= position <= 100
+    )
 
 
 def _parse_quality(value: object) -> InputQuality:

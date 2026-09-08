@@ -4,7 +4,24 @@
 Diese Entscheidung ersetzt widersprechende ältere AP1/AP2/AP3-Texte.
 Historische GitHub-Kommentare bleiben unverändert.
 
-## Aktueller Nachtrag v0.7.0 – Operator und primäre Consumer API
+## Live-Readiness-Korrektur v0.7.1
+
+Die reale Readiness-Projektion lieferte `on`, positive Cover-Verfügbarkeit,
+Position und Policy-Context, aber allgemeines `source_quality=degraded` mit
+`degraded_reason=[weather_contract_degraded]`. Der bisherige Adapter erkannte
+nur einen Wettermarker in `quality_status`/`quality`. Die Regression mit dem
+tatsächlichen, redigierten Attributformat reproduziert die falsche Sperre.
+
+Der Adapter ordnet ausschließlich belegte Wetter-Aggregatqualität dem Wetter
+zu. Er benötigt positive technische Attribute, eine endliche Position 0–100,
+keine fehlenden Sources und ausschließlich bekannte Wetter-Degradierungsgründe.
+Feldspezifische Readiness-Quality hat weiterhin Vorrang. Stale, conflict,
+unavailable, restored, gemischte/unbekannte Fehlergründe oder ungültige technische
+Evidence bleiben blockierend. `off` wird niemals zu `true` umgedeutet.
+Timestamp-Prüfung und sämtliche Safety-/Writer-Gates bleiben erhalten.
+Kein neuer Readiness-Owner, kein manuelles Gesundsetzen des System-Helpers.
+
+## Nachtrag v0.7.0 – Operator und primäre Consumer API
 
 [AP3_OPERATOR.md](AP3_OPERATOR.md) ist der aktuelle verbindliche Vertrag:
 Core Contracts für vorhandene Schemas, sichtbare Fallback-Gaps und direktes

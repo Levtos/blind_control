@@ -256,6 +256,17 @@ Werte und Werte außerhalb 0–100 bleiben unbrauchbar; Bereichsfehler sind conf
 Axis Inversion transformiert nur Zahlen, niemals Motion-Strings.
 Keine Position wird aus `open` oder `closed` erfunden, kein neuer Device-Owner.
 
+Readiness ab v0.7.1: Ein positiver technischer Readiness-Owner darf seine
+allgemeine Wetter-Aggregatqualität projizieren, ohne damit Cover-Readiness
+zu entwerten. Die eng begrenzte Adaption verlangt `cover_available=true`,
+`policy_context_ready=true`, eine endliche numerische `current_position` in
+0–100, keine fehlenden Sources und ausschließlich explizite Wettergründe
+(`weather_contract_degraded`/`weather_degraded`). Feldspezifische
+`cover_ready_quality`/`readiness_quality` bleiben vorrangig; andere negative
+Quality oder gemischte Fehler werden nicht ignoriert. `off`, restored,
+unknown/unavailable und erforderliche Timestamp-Evidence bleiben unverändert.
+Die unabhängige aktuelle Cover-/Opening-/Baseline-Prüfung bleibt zwingend.
+
 ### 7.2 Kleine Automations-/Diagnoseprojektion
 
 `blind_control.automation_projection.v1` ist ein read-only, versioniertes
