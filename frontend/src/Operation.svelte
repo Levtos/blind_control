@@ -25,10 +25,10 @@
     <div><dt>Writer-Gates freigegeben</dt><dd>{snapshot.operation?.armed ? 'ja' : 'nein'}</dd></div>
     <div><dt>Betriebsmodus</dt><dd>{snapshot.settings.runtime_mode === 'shadow' ? 'Shadow' : 'Live'}</dd></div>
     <div><dt>Writer-Zuständigkeit</dt><dd>{snapshot.settings.apply_owner === 'legacy' ? 'Legacy' : 'Blind Control'}</dd></div>
-    <div><dt>Readiness / Ruhebaseline</dt><dd>{snapshot.overview.baseline_ready ? 'bestätigt' : 'wartet'} · {snapshot.overview.apply_status}</dd></div>
-    <div><dt>Opening Safety</dt><dd>{snapshot.overview.opening_state} · {snapshot.overview.safety_status}</dd></div>
+    <div><dt>Readiness / Ruhebaseline</dt><dd>{snapshot.overview.baseline_ready ? 'bestätigt' : 'wartet'}</dd></div>
+    <div><dt>Opening Safety</dt><dd>{snapshot.overview.opening_state} · {snapshot.overview.safety_status === 'ready' ? 'freigegeben' : snapshot.overview.safety_status}</dd></div>
     <div><dt>Schreibpfad erreichbar</dt><dd>{snapshot.overview.write_path_reachable ? 'ja' : 'nein'}</dd></div>
-    <div><dt>Apply-Grund</dt><dd>{String(snapshot.overview.technical.apply.reason ?? '—').replaceAll('_', ' ')}</dd></div>
+    <div><dt>Apply-Grund</dt><dd>{snapshot.overview.technical.apply.reason === 'no_effective_target' ? 'Bereit – aktuell kein Fahrziel' : String(snapshot.overview.technical.apply.reason ?? '—').replaceAll('_', ' ')}</dd></div>
   </dl>
   <div class="button-row">
     <p class="hint">Apply AUS verhindert neue Befehle, stoppt aber keine bereits angenommene physische Fahrt.</p>

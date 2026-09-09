@@ -95,8 +95,7 @@ def discover_binding_suggestions(hass: object, config: BlindControlConfig) -> Bi
     _suggest_state(input_suggestions, "day_context", day_context)
     _suggest_state(input_suggestions, "bio_state", bio)
 
-    privacy = _best(states, _is_privacy_contract, _privacy_rank)
-    _suggest_state(input_suggestions, "privacy", privacy)
+    # Privacy is derived from day_state; do not suggest retired Combined candidates.
 
     opening = _state_for_suggestion(input_suggestions.get("opening_state"), by_id) or _best(
         states, _is_opening_contract, _opening_rank

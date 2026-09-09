@@ -100,7 +100,7 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertIn("cover_position", projection["settings"]["binding_freshness"])
         self.assertEqual(
             projection["automation_projection"]["version"],
-            "blind_control.automation_projection.v4",
+            "blind_control.automation_projection.v5",
         )
         self.assertIn("binding_groups", projection["settings"])
         core_group = next(
@@ -214,7 +214,10 @@ class DecisionEngineTests(unittest.TestCase):
                     self.assertEqual(trace.master_mode.value, "normal")
                     self.assertFalse(trace.failure.active)
                     self.assertIn(trace.effective_target, (None, 42))
-                    self.assertIn(trace.apply.status, ("blocked", "stable"))
+                    self.assertEqual(
+                        trace.apply.status, "idle" if trace.effective_target is None else "stable"
+                    )
+                    self.assertFalse(trace.apply.write_path_reachable)
                     self.assertNotEqual(trace.effective_target, 100)
                     blocker = next(item for item in trace.decision.issues if item.evidence == key)
                     self.assertEqual(
@@ -325,8 +328,8 @@ class DecisionEngineTests(unittest.TestCase):
                     self.assertEqual(trace.fachlicher_target, 100)
                     self.assertIn("base_daylight", trace.winner_keys)
                 else:
-                    self.assertIsNone(trace.fachlicher_target)
-                    self.assertEqual(trace.winner.category, "neutral")
+                    self.assertEqual(trace.fachlicher_target, 40)
+                    self.assertEqual(trace.winner.category, "privacy")
 
     def test_daylight_phase_conflicting_with_sun_below_horizon_blocks_opening(self) -> None:
         inputs = replace(
@@ -477,6 +480,7 @@ class DecisionEngineTests(unittest.TestCase):
             bio_state=fresh("waking", "core_state.bio"),
             activity_state=fresh("pc", "core_state.activity"),
             privacy=fresh(True, "core_state.privacy"),
+            day_state=fresh("evening", "core_state.day"),
             outdoor_temperature=fresh(34.0, "weather_temperature"),
         )
         awake = replace(waking, bio_state=fresh("awake", "core_state.bio"))
@@ -704,7 +708,8 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertEqual(held.master_mode.value, "normal")
         self.assertFalse(held.failure.active)
         self.assertIsNone(held.effective_target)
-        self.assertEqual(held.apply.status, "blocked")
+        self.assertEqual(held.apply.status, "idle")
+        self.assertFalse(held.apply.write_path_reachable)
         self.assertNotEqual(held.effective_target, 100)
         self.assertEqual(blocked.safety.status, "blocked")
         self.assertIsNone(blocked.effective_target)
@@ -730,7 +735,7 @@ class DecisionEngineTests(unittest.TestCase):
     def test_storm_and_cool_air_are_separate_candidates(self) -> None:
         cool_air = replace(
             ready_inputs(),
-            day_state=fresh("night", "core_state.day"),
+            day_state=fresh("early_morning", "core_state.day"),
             sun_elevation=fresh(-5.0, "sun_contract"),
             outdoor_temperature=fresh(20.0, "weather_temperature"),
             indoor_temperature=fresh(24.0, "room_temperature"),
@@ -774,7 +779,7 @@ class DecisionEngineTests(unittest.TestCase):
     def test_cool_air_opens_only_when_no_closing_candidate_is_active(self) -> None:
         inputs = replace(
             ready_inputs(),
-            day_state=fresh("night", "core_state.day"),
+            day_state=fresh("early_morning", "core_state.day"),
             sun_elevation=fresh(-5.0, "sun_contract"),
             outdoor_temperature=fresh(20.0, "weather_temperature"),
             indoor_temperature=fresh(24.0, "room_temperature"),

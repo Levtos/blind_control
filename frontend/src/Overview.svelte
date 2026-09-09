@@ -13,8 +13,8 @@
     environment_exit_pending: 'Entlastung wird stabilisiert',
     cold_insulation_conditions_not_met: 'Kälte-/Dunkelheitsbedingungen nicht erfüllt',
     dark_cold_without_solar_gain: 'Dunkel und kalt, ohne relevanten Solargewinn',
-    privacy_not_active: 'Kanonischer Privacy-State nicht aktiv',
-    privacy_active: 'Kanonischer Privacy-State aktiv',
+    privacy_not_active: 'Core-State-Tagesphase erfordert keinen Sichtschutz',
+    privacy_active: 'Sichtschutz aus Core-State-Abend-/Nachtphase',
     private_time_active: 'Private Zeit aktiv',
     private_time_not_active: 'Private Zeit nicht aktiv',
   };
@@ -41,7 +41,7 @@
     <div><span>Solar</span><strong>{label(snapshot.diagnosis.solar.state)}</strong></div>
     <div><span>Außenhelligkeit</span><strong>{metric('outdoor_lux', 'lx')}</strong></div>
     <div><span>Außentemperatur</span><strong>{metric('outdoor_temperature', '°C')}</strong></div>
-    <div><span>Aktuelles Ziel</span><strong>{position(snapshot.overview.effective_target)}</strong></div>
+    <div><span>Aktuelles Ziel</span><strong>{snapshot.overview.apply_status === 'idle' ? 'kein Fahrziel' : position(snapshot.overview.effective_target)}</strong></div>
   </div>
   {#if snapshot.overview.failure.status !== 'none'}
     <p class="callout warning">Automatik blockiert: {snapshot.overview.failure.quality_blockers.map(item => `${label(item.key)} (${label(item.quality)})`).join(', ') || label(snapshot.overview.failure.reason)}. Kein normales Ziel freigegeben.</p>

@@ -165,6 +165,8 @@ def test_independent_closers_survive_feature_loss(context, bad_key):
     changes["bio_state" if context == "sleep" else context] = fresh(
         "sleep" if context == "sleep" else True
     )
+    if context == "privacy":
+        changes["day_state"] = fresh("evening")
     trace = DecisionEngine(config).evaluate(ready_inputs(cover_position=fresh(100), **changes))
     assert trace.effective_target == config.target(context)
     assert not trace.failure.active

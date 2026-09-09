@@ -62,7 +62,6 @@ MANDATORY_AUTOMATIC_BINDING_KEYS = frozenset(
         "day_context",
         "away",
         "private_time",
-        "privacy",
         "outdoor_lux",
         "sun_elevation",
         "sun_azimuth",
@@ -825,6 +824,8 @@ def binding_status(config: BlindControlConfig, key: str, *, legacy: bool = False
     configured = key in bindings
     if legacy:
         return "legacy_bound" if configured else "legacy_not_available"
+    if key == "privacy":
+        return "derived_from_day_state"
     if key in MANDATORY_AUTOMATIC_BINDING_KEYS | MANDATORY_TECHNICAL_BINDING_KEYS:
         return "required_resolved" if configured else "required_unresolved"
     if key in CONDITIONAL_BINDING_KEYS:

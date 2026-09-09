@@ -33,9 +33,10 @@ from .decision import (
     SafetyEnvelope,
 )
 from .environment import EnvironmentalState
+from .privacy import with_phase_privacy
 from .solar import calculate_solar_exposure
 
-DECISION_CONTRACT_VERSION = "blind_control.decision.v5"
+DECISION_CONTRACT_VERSION = "blind_control.decision.v6"
 DAYLIGHT_STATES = frozenset({"early_morning", "forenoon", "midday", "afternoon", "late_afternoon"})
 TRANSITION_STATES = frozenset({"evening", "late_evening"})
 NIGHT_STATES = frozenset({"early_night", "late_night"})
@@ -65,6 +66,7 @@ class DecisionEngine:
         own_target: float | None = None,
         environment_state: EnvironmentalState | None = None,
     ) -> DecisionTrace:
+        inputs = with_phase_privacy(inputs)
         override = override or ManualOverride.inactive()
         solar = calculate_solar_exposure(inputs, self.config)
         candidates: list[Candidate] = []
@@ -899,14 +901,6 @@ class DecisionEngine:
                 opening_state=opening.value,
                 source=inputs.opening_state.source,
             )
-        if fachlicher_target is None:
-            return SafetyDecision(
-                status="blocked",
-                reason="no_positive_open_or_protection_target",
-                approved_target=None,
-                opening_state=opening.value,
-                source=inputs.opening_state.source,
-            )
         if not inputs.cover_available.usable or not inputs.cover_available.value:
             return SafetyDecision(
                 status="blocked",
@@ -1005,7 +999,7 @@ class DecisionEngine:
             )
         if effective_target is None:
             return ApplyDecision(
-                status="blocked",
+                status="idle",
                 reason="no_effective_target",
                 requested_target=None,
                 approved_target=None,

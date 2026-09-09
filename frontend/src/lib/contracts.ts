@@ -106,7 +106,7 @@ export type UxSettings = {
 
 export type UxSnapshot = {
   operation?: { revision: string; pending: boolean; legacy_blocker: string | null; runtime_generation?: number; decision_generation?: number; lease_status?: string; armed?: boolean };
-  version: 'blind_control.ux.v5';
+  version: 'blind_control.ux.v6';
   evaluated_at: string;
   overview: {
     environment_values: Record<string, number | string | null>;
@@ -208,7 +208,7 @@ export type UxSnapshot = {
   };
   settings: UxSettings;
   automation_projection: {
-    version: 'blind_control.automation_projection.v4';
+    version: 'blind_control.automation_projection.v5';
     master_mode: MasterMode;
     winner_category: string | null;
     winner_variant: string | null;

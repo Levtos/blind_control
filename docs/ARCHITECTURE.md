@@ -1,5 +1,18 @@
 # Architektur – Blind Control AP1
 
+## v0.7.4: fachliche Privacy-Ableitung und unabhängige Safety
+
+`privacy.with_phase_privacy` projiziert den kanonischen Core-State-Day-State in
+den bestehenden Privacy-Demand. Adapter, Runtime-Snapshot und reine Engine
+verwenden dieselbe idempotente Projektion. Zeitbasis, Source und Revision des
+Day-State bleiben erhalten; die Evidence nennt `blind_control.privacy_phase.v1`.
+Das gespeicherte alte Privacy-Binding wird nicht gelesen. Discovery empfiehlt
+keine alten Combined-Privacy-Kandidaten mehr. Core Contracts wird nicht verändert.
+Safety prüft Opening, Position, Availability und Readiness auch ohne Fachziel.
+Positive Safety ohne Ziel bleibt ready; Apply ist idle und schreibt nichts.
+Runtime-/Generation-/Override-/Safety-/Single-Writer-Grenzen bleiben unverändert.
+
+
 ## Aktuell: dimensionsgetrennte Pipeline ab v0.7.3
 
 Verbindlich ist [Issue #3, Contract vom 09.09.2026](https://github.com/Levtos/blind_control/issues/3#issuecomment-5609119991).

@@ -22,6 +22,7 @@ from .engine import DecisionEngine
 from .environment import EnvironmentalState
 from .operation import revision
 from .override import OverrideTracker
+from .privacy import with_phase_privacy
 from .shadow_diff import ShadowDiff, compare_legacy_snapshot
 
 SHADOW_CONTRACT_VERSION = "blind_control.runtime.v4"
@@ -132,6 +133,7 @@ class ShadowRuntime:
     ) -> ShadowSnapshot:
         if not self.active:
             raise RuntimeError("runtime_stopped")
+        inputs = with_phase_privacy(inputs)
         self.revoke()
         evaluated_at = evaluated_at or datetime.now(UTC)
         self.cooldown_tracker.pending_target = None

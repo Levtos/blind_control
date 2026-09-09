@@ -301,7 +301,8 @@ class CoordinatorTests(unittest.TestCase):
 
         self.assertFalse(inputs.private_time.value)
         self.assertEqual(inputs.day_context.value, "weekday")
-        self.assertTrue(inputs.privacy.value)
+        self.assertIsNone(inputs.privacy.value)
+        self.assertEqual(inputs.privacy.reason, "privacy_day_phase_unusable")
         self.assertEqual(inputs.indoor_temperature.value, 23.4)
         self.assertEqual(inputs.outdoor_temperature.value, 14.2)
         self.assertEqual(inputs.cloud_cover.value, 56.0)
@@ -894,7 +895,7 @@ class CoordinatorTests(unittest.TestCase):
             registry.time_callbacks[0](None)
             await hass.tasks[-1]
             self.assertIs(entry.runtime_data.snapshot, coordinator.snapshot)
-            self.assertEqual(entry.runtime_data.ux_snapshot["version"], "blind_control.ux.v5")
+            self.assertEqual(entry.runtime_data.ux_snapshot["version"], "blind_control.ux.v6")
             self.assertEqual(len(published), 2)
             self.assertFalse(coordinator.snapshot.actuation_executed)
             self.assertFalse(coordinator.snapshot.write_path_reachable)

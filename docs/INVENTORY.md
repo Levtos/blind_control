@@ -1,5 +1,14 @@
 # Ist-/Soll-Inventar – Blind Control AP1
 
+## v0.7.4 delta
+
+Added `privacy.py` and `test_privacy_phase.py`: Core-State phase-to-profile
+mapping, evidence quality, Sleep/Waking and no-target writer regressions.
+Retired Privacy-Boolean consumption/discovery; preserved Config-v6 serialization.
+Updated backend status, native selector descriptions and generated Svelte bundle.
+No new provider, registry, dependency, service or Core-Contracts connection.
+
+
 ## Fortschreibung v0.7.3
 
 `decision.py` enthält die typed Dimensionen/Arbitration; `engine.py` komponiert

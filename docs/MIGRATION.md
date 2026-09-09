@@ -1,5 +1,22 @@
 # Konfiguration, Bindings und Cutover-Migration
 
+## v0.7.3 → v0.7.4
+
+Config bleibt v6. Profile, Kalibrierung, Bindings und Explicit-Empty-Intents
+roundtrippen unverändert; keine neue Dependency oder Core-Contracts-Anbindung.
+Privacy verwendet jetzt den vorhandenen Core-State-Day-State statt des alten
+booleschen Privacy-Bindings. Die vier aktiven Phasen sind evening, late_evening,
+early_night, late_night. Kein zusätzlicher Sensor und keine neue Optionsauswahl
+sind bei korrekt vorhandenem Day-State nötig. Die alte Privacy-Auswahl bleibt
+nur für Rollback erhalten und wird nicht konsumiert oder neu vorgeschlagen.
+Verhaltensänderung: In diesen Phasen kann nach Freigabe das bestehende Privacy-
+Ziel sofort wirksam werden. Betreiber prüft nach Installation zunächst Apply AUS.
+Rollback auf v0.7.3 lädt dieselbe v6-Konfiguration und verwendet wieder den alten
+Privacy-Boolean; der bekannte fehlende abendliche Sichtschutz kehrt damit zurück.
+Statusentity bleibt stabil; Consumer müssen neuen Apply-Status idle berücksichtigen.
+Keine HA-Live-Änderung durch Codex; reale Ausführung bleibt unbestätigtes Live-Gate.
+
+
 ## v0.7.2 → v0.7.3: additive Decision-Härtung
 
 Verbindlich: [Issue #3 Contract](https://github.com/Levtos/blind_control/issues/3#issuecomment-5609119991).

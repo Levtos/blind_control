@@ -1,5 +1,18 @@
 # AP3 Cutover- und Rollback-Runbook
 
+## Zusätzliches Betreiber-Gate für v0.7.4
+
+Nach Backup und Betreiber-Installation/Neustart zuerst Apply AUS prüfen:
+Core-State-Day-State korrekt angebunden; Abend-/Nachtphase ergibt Privacy mit
+dem bestehenden Profil (Default 40), Sleep/provisional_sleep ergibt 5 und Waking
+pausiert Privacy. Alte Privacy-Quelle darf das Ergebnis nicht beeinflussen.
+Ohne Fahrziel bei positiver Safety muss ready/idle erscheinen. Keine künstlichen
+Sensorzustände ohne separates Testfenster. Erst nach Safety-/Owner-/Null-Writer-
+Prüfung darf der Betreiber Apply freigeben. Ein aktiver Abendkontext kann dann
+unmittelbar eine Fahrt auslösen. Apply AUS stoppt keine bereits laufende Fahrt.
+Codex installiert, konfiguriert und bewegt nichts. Testing / Released / Not Live.
+
+
 ## Aktuell: manuelle Betreiberverifikation nach v0.7.3-Release
 
 Verbindlich: [Issue #3 Contract](https://github.com/Levtos/blind_control/issues/3#issuecomment-5609119991).

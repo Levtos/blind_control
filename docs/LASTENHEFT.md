@@ -1,5 +1,20 @@
 # Lastenheft Blind Control
 
+## Aktueller Vertrag v0.7.4 – Privacy aus Core State
+
+Benni hat die Privacy-Ableitung aus `day_state` ausdrücklich festgelegt:
+`evening`, `late_evening`, `early_night`, `late_night` aktivieren das bestehende
+Privacy-Profil (Default 40). Core State besitzt die Tagesphase; Blind Control
+ordnet ihr das Rolloprofil zu. Keine lokale Uhrzeit, keine Lux-/Horizontregel
+für Privacy und keine neue Core-Contracts-Anbindung. Auch ein heller Abend ist
+nach diesem Vertrag Privacy; Dunkelheit während einer Tagesphase genügt allein
+nicht. Diese Präzisierung supersediert den früher verlangten Privacy-Boolean.
+Waking pausiert Privacy, Sleep/provisional_sleep bleiben mit Ziel 5 restriktiver;
+private_time ist weiterhin ein separater kanonischer Core-State-Eingang.
+Negative/missing Phasenqualität erzeugt ein feature-lokales Privacy-Issue und
+verhindert unbewiesene Öffnung; unabhängiger Sleep darf weiterhin schließen.
+
+
 ## Aktueller verbindlicher Vertrag ab v0.7.3
 
 [Issue #3, 09.09.2026](https://github.com/Levtos/blind_control/issues/3#issuecomment-5609119991)

@@ -201,8 +201,7 @@ class BindingSuggestionTests(unittest.TestCase):
         )
 
         self.assertEqual(forward.input_bindings, reverse.input_bindings)
-        self.assertEqual(forward.input_bindings["privacy"], "sensor.contract_privacy")
-        self.assertNotEqual(forward.input_bindings["privacy"], "sensor.generic_blind_master")
+        self.assertNotIn("privacy", forward.input_bindings)
         self.assertEqual(
             forward.input_bindings["indoor_temperature"],
             "sensor.indoor_temperature_canonical",
@@ -229,7 +228,7 @@ class BindingSuggestionTests(unittest.TestCase):
 
         self.assertNotIn("indoor_temperature", suggestions.input_bindings)
 
-    def test_live_derived_privacy_candidate_beats_generic_blind_master(self) -> None:
+    def test_retired_privacy_candidates_are_not_suggested(self) -> None:
         states = [
             FakeState(
                 "sensor.generic_blind_master",
@@ -260,7 +259,7 @@ class BindingSuggestionTests(unittest.TestCase):
             FakeHass(list(reversed(states))), BlindControlConfig.defaults()
         )
 
-        self.assertEqual(forward.input_bindings["privacy"], "binary_sensor.living_privacy_signal")
+        self.assertNotIn("privacy", forward.input_bindings)
         self.assertEqual(forward.input_bindings, reverse.input_bindings)
 
     def test_existing_empty_intent_removes_a_stale_binding_from_prefill(self) -> None:
@@ -295,17 +294,18 @@ class BindingSuggestionTests(unittest.TestCase):
 
     def test_exact_binding_classification_and_status_vocabulary(self) -> None:
         self.assertEqual(len(INPUT_BINDING_KEYS), 28)
-        self.assertEqual(len(MANDATORY_AUTOMATIC_BINDING_KEYS), 12)
+        self.assertEqual(len(MANDATORY_AUTOMATIC_BINDING_KEYS), 11)
         self.assertEqual(len(MANDATORY_TECHNICAL_BINDING_KEYS), 4)
         self.assertEqual(len(CONDITIONAL_BINDING_KEYS), 1)
-        self.assertEqual(len(OPTIONAL_EVIDENCE_BINDING_KEYS), 11)
+        self.assertEqual(len(OPTIONAL_EVIDENCE_BINDING_KEYS), 12)
         self.assertEqual(len(LEGACY_BINDING_KEYS), 4)
 
         empty = BlindControlConfig.defaults()
         for key in MANDATORY_AUTOMATIC_BINDING_KEYS | MANDATORY_TECHNICAL_BINDING_KEYS:
             self.assertEqual(binding_status(empty, key), "required_unresolved")
         radiation_fields = {"expected_direct_radiation", "expected_diffuse_radiation"}
-        for key in OPTIONAL_EVIDENCE_BINDING_KEYS - radiation_fields:
+        self.assertEqual(binding_status(empty, "privacy"), "derived_from_day_state")
+        for key in OPTIONAL_EVIDENCE_BINDING_KEYS - radiation_fields - {"privacy"}:
             self.assertEqual(binding_status(empty, key), "optional_intentionally_empty")
         for key in radiation_fields:
             self.assertEqual(binding_status(empty, key), "provider_unavailable")

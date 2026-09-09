@@ -33,6 +33,23 @@ function snapshot() {
   };
 }
 
+test('no target is idle, not a baseline or safety failure', async () => {
+  const data = snapshot();
+  data.overview.apply_status = 'idle';
+  data.overview.technical.apply.reason = 'no_effective_target';
+  const html = await component('Operation', { snapshot: data });
+  assert.ok(html.includes('Bereit – aktuell kein Fahrziel'));
+  assert.ok(html.includes('freigegeben'));
+  assert.ok(!html.includes('bestätigt · idle'));
+});
+
+test('privacy explains the backend phase decision', async () => {
+  const data = snapshot();
+  data.diagnosis.candidates.push({ key: 'privacy', quality: 'fresh', active: true, reason: 'privacy_active' });
+  const html = await component('Overview', { snapshot: data });
+  assert.ok(html.includes('Sichtschutz aus Core-State-Abend-/Nachtphase'));
+});
+
 test('overview renders actual position separately from intent and explains inactive heat', async () => {
   const html = await component('Overview', { snapshot: snapshot() });
   for (const text of ['100 %', '80 %', 'Istposition', 'low_light', '299 lx', '12 °C', 'Temperaturschwelle nicht erreicht', 'Blind Control steuert die reale Position noch nicht']) assert.ok(html.includes(text), text);
