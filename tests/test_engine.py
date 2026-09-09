@@ -86,7 +86,7 @@ class DecisionEngineTests(unittest.TestCase):
         runtime = ShadowRuntime()
         snapshot = runtime.evaluate(ready_inputs(), evaluated_at=None, now=0)
 
-        self.assertEqual(snapshot.version, "blind_control.runtime.v3")
+        self.assertEqual(snapshot.version, "blind_control.runtime.v4")
         self.assertTrue(snapshot.shadow_only)
         self.assertFalse(snapshot.actuation_executed)
         self.assertFalse(snapshot.write_path_reachable)
@@ -100,7 +100,7 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertIn("cover_position", projection["settings"]["binding_freshness"])
         self.assertEqual(
             projection["automation_projection"]["version"],
-            "blind_control.automation_projection.v3",
+            "blind_control.automation_projection.v4",
         )
         self.assertIn("binding_groups", projection["settings"])
         core_group = next(
@@ -158,8 +158,8 @@ class DecisionEngineTests(unittest.TestCase):
 
         self.assertIsNone(trace.fachlicher_target)
         self.assertIsNone(trace.effective_target)
-        self.assertEqual(trace.master_mode.value, "failure")
-        self.assertEqual(trace.failure.status, "apply_blocked")
+        self.assertEqual(trace.master_mode.value, "normal")
+        self.assertTrue(trace.decision.issues)
         self.assertEqual(trace.safety.status, "blocked")
         self.assertIn("no_positive_open_reason_no_100_percent_fallback", trace.reasons)
         self.assertFalse(trace.apply.write_path_reachable)
@@ -210,17 +210,13 @@ class DecisionEngineTests(unittest.TestCase):
                         self.assertEqual(trace.effective_target, 100)
                         continue
 
-                    self.assertEqual(trace.fachlicher_target, 100)
-                    self.assertEqual(trace.master_mode.value, "failure")
-                    self.assertEqual(
-                        trace.failure.reason, "automatic_decision_quality_gate_blocked"
-                    )
-                    self.assertEqual(trace.effective_target, 42)
-                    self.assertEqual(trace.apply.status, "blocked")
+                    self.assertIn(trace.fachlicher_target, (None, 42))
+                    self.assertEqual(trace.master_mode.value, "normal")
+                    self.assertFalse(trace.failure.active)
+                    self.assertIn(trace.effective_target, (None, 42))
+                    self.assertIn(trace.apply.status, ("blocked", "stable"))
                     self.assertNotEqual(trace.effective_target, 100)
-                    blocker = next(
-                        item for item in trace.failure.quality_blockers if item.key == key
-                    )
+                    blocker = next(item for item in trace.decision.issues if item.evidence == key)
                     self.assertEqual(
                         blocker.reason, "matrix_missing" if case == "missing" else f"matrix_{case}"
                     )
@@ -301,7 +297,7 @@ class DecisionEngineTests(unittest.TestCase):
         self.assertIn("lux_trend", derived_trend.solar.derived_evidence)
         self.assertIn("expected_direct_radiation", model_without_trend.solar.used_evidence)
         self.assertIn("lux_trend", lux_geometry.solar.missing_optional_capabilities)
-        self.assertEqual(insufficient.master_mode.value, "failure")
+        self.assertEqual(insufficient.master_mode.value, "normal")
         self.assertEqual(insufficient.effective_target, 42.0)
         self.assertEqual(insufficient.apply.status, "blocked")
         self.assertNotEqual(insufficient.effective_target, 100)
@@ -340,12 +336,12 @@ class DecisionEngineTests(unittest.TestCase):
         )
         trace = DecisionEngine().evaluate(inputs, failure_hold_target=42.0)
 
-        self.assertEqual(trace.fachlicher_target, 100)
-        self.assertEqual(trace.master_mode.value, "failure")
-        self.assertEqual(trace.effective_target, 42.0)
+        self.assertIsNone(trace.fachlicher_target)
+        self.assertEqual(trace.master_mode.value, "normal")
+        self.assertIsNone(trace.effective_target)
         self.assertIn(
             "day_solar_consistency",
-            {blocker.key for blocker in trace.failure.quality_blockers},
+            {issue.reason for issue in trace.decision.issues},
         )
 
     def test_missing_cover_position_evidence_blocks_apply_without_inventing_position(self) -> None:
@@ -705,12 +701,12 @@ class DecisionEngineTests(unittest.TestCase):
             .trace
         )
 
-        self.assertEqual(held.master_mode.value, "failure")
-        self.assertEqual(held.failure.status, "holding_safe_position")
-        self.assertEqual(held.effective_target, 50)
+        self.assertEqual(held.master_mode.value, "normal")
+        self.assertFalse(held.failure.active)
+        self.assertIsNone(held.effective_target)
         self.assertEqual(held.apply.status, "blocked")
         self.assertNotEqual(held.effective_target, 100)
-        self.assertEqual(blocked.failure.status, "apply_blocked")
+        self.assertEqual(blocked.safety.status, "blocked")
         self.assertIsNone(blocked.effective_target)
         self.assertEqual(blocked.apply.status, "blocked")
 
@@ -852,7 +848,7 @@ class SolarAndLifecycleTests(unittest.TestCase):
 
         self.assertNotEqual(exposure.state, SolarExposureState.NIGHT)
         self.assertEqual(exposure.state, SolarExposureState.LOW_LIGHT)
-        self.assertEqual(exposure.reason, "valid_geometry_and_low_observed_solar_energy")
+        self.assertEqual(exposure.reason, "active_sun_with_low_observed_light")
 
     def test_override_lifecycle_distinguishes_owned_external_restart_and_config(self) -> None:
         runtime = ShadowRuntime()

@@ -59,11 +59,56 @@ def calculate_solar_exposure(
     diffuse = inputs.expected_diffuse_radiation
     cloud = inputs.cloud_cover
 
+    horizon = inputs.sun_horizon
+    explicit_horizon = horizon.source != "unbound" or horizon.reason != "missing"
+    valid_elevation = _mandatory_blocker("sun_elevation", elevation) is None
+    horizon_conflict = (
+        horizon.usable
+        and valid_elevation
+        and (horizon.value == "below_horizon") != (float(elevation.value) <= 0)
+    )
+    horizon_unknown = explicit_horizon and (
+        not horizon.usable
+        or horizon.value not in {"above_horizon", "below_horizon"}
+        or horizon_conflict
+    )
+    night = not horizon_unknown and (
+        horizon.usable
+        and horizon.value == "below_horizon"
+        or valid_elevation
+        and float(elevation.value) <= 0
+    )
+    if night:
+        return SolarExposure(
+            state=SolarExposureState.NIGHT,
+            lifecycle="INACTIVE",
+            confidence=0.98,
+            incidence_factor=0.0,
+            expected_radiation_w_m2=0.0,
+            observed_lux=_number(lux),
+            lux_trend=_number(trend),
+            cloud_shadow=False,
+            sources=sources,
+            reason="sun_below_horizon",
+            capabilities=capabilities,
+            missing_optional_capabilities=missing_optional,
+            used_evidence=("sun_horizon",) if horizon.usable else ("sun_elevation",),
+            derived_evidence=derived,
+        )
     blockers = tuple(
         blocker
         for key in ("sun_elevation", "sun_azimuth", "outdoor_lux")
         if (blocker := _mandatory_blocker(key, getattr(inputs, key))) is not None
     )
+    if horizon_unknown:
+        blockers = (
+            QualityBlocker(
+                key="sun_horizon",
+                quality=InputQuality.CONFLICT if horizon_conflict else horizon.quality,
+                reason="horizon_conflict" if horizon_conflict else "horizon_unknown",
+            ),
+            *blockers,
+        )
     if blockers:
         return _unknown(
             sources=sources,
@@ -75,23 +120,9 @@ def calculate_solar_exposure(
             used=used,
             derived=derived,
             blockers=blockers,
-        )
-
-    if float(elevation.value) <= 0:
-        return SolarExposure(
-            state=SolarExposureState.NIGHT,
-            confidence=0.98,
-            incidence_factor=0.0,
-            expected_radiation_w_m2=0.0,
-            observed_lux=_number(lux),
-            lux_trend=_number(trend),
-            cloud_shadow=False,
-            sources=sources,
-            reason="sun_below_horizon",
-            capabilities=capabilities,
-            missing_optional_capabilities=missing_optional,
-            used_evidence=used,
-            derived_evidence=derived,
+            lifecycle="UNKNOWN"
+            if horizon_unknown or not (horizon.usable or valid_elevation)
+            else "ACTIVE",
         )
 
     incidence = _incidence_factor(
@@ -110,7 +141,11 @@ def calculate_solar_exposure(
     cloud_value = _number(cloud)
     model_lux = expected * config.model_lux_per_watt if expected is not None else None
 
-    if incidence < config.minimum_incidence_factor:
+    if lux_value <= config.night_lux_threshold:
+        state = SolarExposureState.LOW_LIGHT
+        reason = "active_sun_with_low_observed_light"
+        cloud_shadow = False
+    elif incidence < config.minimum_incidence_factor:
         state = SolarExposureState.SOLAR_NOT_ON_WINDOW
         reason = "sun_geometry_does_not_hit_window"
         cloud_shadow = False
@@ -237,9 +272,11 @@ def _unknown(
     used: tuple[str, ...],
     derived: tuple[str, ...],
     blockers: tuple[QualityBlocker, ...],
+    lifecycle: str = "UNKNOWN",
 ) -> SolarExposure:
     return SolarExposure(
         state=SolarExposureState.UNKNOWN,
+        lifecycle=lifecycle,
         confidence=0.0,
         incidence_factor=None,
         expected_radiation_w_m2=None,

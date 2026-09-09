@@ -105,8 +105,8 @@ export type UxSettings = {
 };
 
 export type UxSnapshot = {
-  operation?: { revision: string; pending: boolean; legacy_blocker: string | null };
-  version: 'blind_control.ux.v4';
+  operation?: { revision: string; pending: boolean; legacy_blocker: string | null; runtime_generation?: number; decision_generation?: number; lease_status?: string; armed?: boolean };
+  version: 'blind_control.ux.v5';
   evaluated_at: string;
   overview: {
     environment_values: Record<string, number | string | null>;
@@ -163,6 +163,8 @@ export type UxSnapshot = {
     write_path_reachable: boolean;
   };
   diagnosis: {
+    decision: DimensionalDecision;
+    apply_off_effect: string;
     core_contracts?: Record<string, string>;
     environment?: Record<string, { active: boolean; pending: boolean | null; since: number | null }>;
     hierarchy: {
@@ -175,6 +177,7 @@ export type UxSnapshot = {
     candidates: Candidate[];
     paused_requirements: { key: string; reason: string; source: string }[];
     solar: {
+      lifecycle: 'ACTIVE' | 'INACTIVE' | 'UNKNOWN';
       state: string;
       confidence: number;
       incidence_factor: number | null;
@@ -205,7 +208,7 @@ export type UxSnapshot = {
   };
   settings: UxSettings;
   automation_projection: {
-    version: 'blind_control.automation_projection.v3';
+    version: 'blind_control.automation_projection.v4';
     master_mode: MasterMode;
     winner_category: string | null;
     winner_variant: string | null;
@@ -227,4 +230,24 @@ export type UxSnapshot = {
     apply_owner: 'legacy' | 'blind_control';
   };
   debug_payload: Record<string, unknown>;
+};
+
+export type DimensionalDecision = {
+  version: 'blind_control.dimensions.v1';
+  context: { mode: string; variant: string | null; base_target: number | null };
+  evidence: { key: string; value: unknown; details: [string, string | boolean][] }[];
+  contributions: { feature: string; variant: string | null; effect: string; value: number | null; status: string; reason: string; evidence: string[] }[];
+  issues: { feature: string; evidence: string; quality: string; owner: string; timestamp_basis: string; reason: string; fallback: string; severity: string }[];
+  safety: { min_open: number; block_direction: string | null; status: string; reason: string };
+  feasible_interval: [number, number];
+  target_position: number | null;
+  decision_id: string;
+  decision_generation: number;
+  runtime_generation: number;
+  config_revision: string;
+  snapshot_identity: string;
+  evaluated_at: string | null;
+  runtime_status: string;
+  apply_status: string;
+  lease_status: string;
 };

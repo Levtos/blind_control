@@ -1,6 +1,15 @@
 # Ist-/Soll-Inventar – Blind Control AP1
 
-**Dokumentversion:** 0.1.0
+## Fortschreibung v0.7.3
+
+`decision.py` enthält die typed Dimensionen/Arbitration; `engine.py` komponiert
+Context, Contributions und scoped Issues; `solar.py` trennt Horizon-Lifecycle
+von Exposure; der bestehende Coordinator adaptiert kanonische Screen-Evidence.
+Runtime/Apply prüfen Generationen und Config-Revision. Frontend `Dimensions.svelte`
+zeigt ausschließlich Backend-Contracts. Kein neuer Writer, Service oder Provider.
+Verbindlicher Stand: [Issue #3](https://github.com/Levtos/blind_control/issues/3#issuecomment-5609119991).
+
+**Historische Dokumentversion:** 0.1.0
 
 Die Bestandsaufnahme trennt den aktuellen/letzten Stand von
 `benni_blind_policy`, die lokalen Einhornzentrale-Referenzen und das

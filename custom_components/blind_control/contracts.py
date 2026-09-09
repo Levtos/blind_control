@@ -11,6 +11,8 @@ from dataclasses import dataclass, field, fields
 from datetime import datetime
 from enum import StrEnum
 
+from .decision import DimensionalDecision
+
 
 class InputQuality(StrEnum):
     """Quality states shared by all consumed observations."""
@@ -177,6 +179,10 @@ class InputObservation[T]:
     quality: InputQuality = InputQuality.UNKNOWN
     reason: str = "missing"
     updated_at: datetime | None = None
+    owner: str = "bound_owner"
+    timestamp_basis: str = "unspecified"
+    source_revision: str | None = None
+    evidence: tuple[tuple[str, str | bool], ...] = ()
 
     @property
     def usable(self) -> bool:
@@ -199,6 +205,10 @@ class InputObservation[T]:
             "quality": self.quality.value,
             "reason": self.reason,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "owner": self.owner,
+            "timestamp_basis": self.timestamp_basis,
+            "source_revision": self.source_revision,
+            "evidence": dict(self.evidence),
         }
 
 
@@ -233,6 +243,7 @@ class BlindControlInputs:
     outdoor_lux: InputObservation[float] = field(default_factory=_missing)
     lux_trend: InputObservation[float] = field(default_factory=_missing)
     sun_elevation: InputObservation[float] = field(default_factory=_missing)
+    sun_horizon: InputObservation[str] = field(default_factory=_missing)
     sun_azimuth: InputObservation[float] = field(default_factory=_missing)
     expected_direct_radiation: InputObservation[float] = field(default_factory=_missing)
     expected_diffuse_radiation: InputObservation[float] = field(default_factory=_missing)
@@ -504,10 +515,12 @@ class SolarExposure:
     used_evidence: tuple[str, ...] = ()
     derived_evidence: tuple[str, ...] = ()
     quality_blockers: tuple[QualityBlocker, ...] = ()
+    lifecycle: str = "ACTIVE"
 
     def as_dict(self) -> dict[str, object]:
         return {
             "state": self.state.value,
+            "lifecycle": self.lifecycle,
             "confidence": self.confidence,
             "incidence_factor": self.incidence_factor,
             "expected_radiation_w_m2": self.expected_radiation_w_m2,
@@ -592,6 +605,7 @@ class DecisionTrace:
     apply: ApplyDecision
     override: ManualOverride
     reasons: tuple[str, ...]
+    decision: DimensionalDecision | None = None
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -611,4 +625,5 @@ class DecisionTrace:
             "apply": self.apply.as_dict(),
             "override": self.override.as_dict(),
             "reasons": list(self.reasons),
+            "decision": self.decision.as_dict() if self.decision else None,
         }

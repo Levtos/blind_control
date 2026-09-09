@@ -8,7 +8,7 @@ from dataclasses import replace
 
 from .config import BlindControlConfig
 from .contracts import ApplyDecision
-from .operation import legacy_writer_blocker
+from .operation import legacy_writer_blocker, revision, runtime_matches
 from .shadow import ShadowRuntime, ShadowSnapshot
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,10 +33,12 @@ class CoverApplyExecutor:
         hass: object,
         config: BlindControlConfig,
         runtime: ShadowRuntime,
+        entry: object | None = None,
     ) -> None:
         self.hass = hass
         self.config = config
         self.runtime = runtime
+        self.entry = entry
 
     async def async_apply(
         self,
@@ -47,11 +49,7 @@ class CoverApplyExecutor:
         """Dispatch one target or return an unchanged/blocked snapshot."""
 
         decision = snapshot.trace.apply
-        if (
-            not self._armed
-            or snapshot is not self.runtime.latest_snapshot
-            or decision.status not in _READY_STATUSES
-        ):
+        if not self._valid_lease(snapshot) or decision.status not in _READY_STATUSES:
             return snapshot
         target = decision.approved_target
         blocker = legacy_writer_blocker(self.hass)
@@ -99,14 +97,11 @@ class CoverApplyExecutor:
             )
 
         monotonic_now = time.monotonic() if now is None else now
-        self.runtime.begin_own_write(
-            target,
-            now=monotonic_now,
-        )
         try:
             # No await between lifecycle validation and the service boundary.
-            if not self._armed or snapshot is not self.runtime.latest_snapshot:
+            if not self._valid_lease(snapshot) or legacy_writer_blocker(self.hass):
                 return snapshot
+            self.runtime.begin_own_write(target, now=monotonic_now)
             self.runtime.latest_snapshot = None  # Consume this approval exactly once.
             await async_call(
                 _COVER_DOMAIN,
@@ -171,6 +166,40 @@ class CoverApplyExecutor:
             and self.config.runtime_mode == "live"
             and self.config.apply_owner == "blind_control"
             and self.config.apply_enabled
+            and self.config.automation_enabled
+        )
+
+    def _valid_lease(self, snapshot: ShadowSnapshot) -> bool:
+        if self.entry is not None:
+            try:
+                persisted = BlindControlConfig.from_mapping(
+                    {
+                        **getattr(self.entry, "data", {}),
+                        **getattr(self.entry, "options", {}),
+                    }
+                )
+            except (TypeError, ValueError, KeyError):
+                return False
+            if not runtime_matches(persisted, self.config):
+                return False
+        dimensions = snapshot.trace.decision
+        safety = snapshot.trace.safety
+        return (
+            self._armed
+            and snapshot is self.runtime.latest_snapshot
+            and dimensions is not None
+            and dimensions.runtime_generation == self.runtime.runtime_generation
+            and dimensions.decision_generation == self.runtime.decision_generation
+            and dimensions.config_revision == revision(self.config)
+            and dimensions.snapshot_identity == dimensions.decision_id
+            and safety.status in {"ready", "safe_position"}
+            and all(
+                isinstance(snapshot.inputs.get(key), dict)
+                and snapshot.inputs[key].get("quality") == "fresh"
+                and snapshot.inputs[key].get("value") is True
+                for key in ("cover_available", "cover_ready")
+            )
+            and (not self.runtime.override.active or safety.status == "safe_position")
         )
 
 
@@ -181,7 +210,18 @@ def _replace_apply(
     actuation_executed: bool,
     write_path_reachable: bool,
 ) -> ShadowSnapshot:
-    trace = replace(snapshot.trace, apply=decision)
+    dimensions = snapshot.trace.decision
+    trace = replace(
+        snapshot.trace,
+        apply=decision,
+        decision=replace(
+            dimensions,
+            apply_status=decision.status,
+            lease_status="consumed" if actuation_executed else "blocked",
+        )
+        if dimensions
+        else None,
+    )
     return replace(
         snapshot,
         trace=trace,

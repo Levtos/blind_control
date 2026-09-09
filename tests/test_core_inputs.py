@@ -4,7 +4,7 @@ import importlib
 import os
 import sys
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
@@ -186,6 +186,15 @@ def test_real_registry_api_subscription_quality_unload_and_reconnect(upstream):
     hass.data["benni_core_contracts"]["_consumer_api"] = new_api
     ingest("closed")
     assert bridge.apply(inputs).opening_state.usable
+    previous = bridge.apply(inputs).opening_state
+    # Same value, new owner-valid device report: never age by last_real_change.
+    now += timedelta(hours=2)
+    ingest("closed")
+    repeated = bridge.apply(inputs).opening_state
+    assert repeated.usable and repeated.value == previous.value
+    assert repeated.source_revision != previous.source_revision
+    assert repeated.timestamp_basis == "owner_field_quality_no_consumer_reaging"
+    assert repeated.updated_at is None  # DTO does not expose an effective measurement time.
     bridge.stop()
     assert new_api.subscription_count("fixture-blind") == 0
     new_api.close()

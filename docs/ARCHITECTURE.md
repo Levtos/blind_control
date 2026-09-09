@@ -1,6 +1,61 @@
 # Architektur – Blind Control AP1
 
-**Dokumentversion:** 0.1.0
+## Aktuell: dimensionsgetrennte Pipeline ab v0.7.3
+
+Verbindlich ist [Issue #3, Contract vom 09.09.2026](https://github.com/Levtos/blind_control/issues/3#issuecomment-5609119991).
+Widersprechende AP1/AP2/v0.6.3-Beschreibungen weiter unten sind historische
+Audit-Evidence, insbesondere der globale automatische Quality-Failure.
+
+1. `InputObservation` und `CanonicalFact`: kanonischer Wert, Owner, feldbezogene
+   Quality, Zeitbasis, beobachteter Zeitpunkt und Source Revision. Der Consumer
+   erzeugt keine konkurrierende Activity-/Device-Wahrheit.
+2. `ContextIntent`: neutral/daylight, waking, sleep oder away mit Basisziel.
+   Provisional Sleep ist ausschließlich eine diagnostische Sleep-Variante.
+3. `Contribution` und `DecisionIssue`: unabhängige Heat-, Glare-, Cold-, Privacy-
+   und Private-Time-Beiträge; Storm/Cool Air sind Modifier bzw. positive
+   Öffnungsevidence. Fehler haben einen Feature-Scope.
+4. `SafetyEnvelope`: harte Untergrenze `min_open` oder Richtungssperre.
+5. Runtime und `CoverApplyExecutor`: nur die aktuelle, einmal konsumierbare
+   Entscheidung darf nach erneuter Prüfung der Writer-Gates dispatchen.
+
+`DimensionalDecision.arbitrate()` berechnet das Ziel, nicht das Frontend.
+Context liefert `base_target`, aktive schließende Beiträge `max_open`.
+`final = max(min_open, min(base_target, max_open))`. Ohne Context darf ein
+belegter Closer sein restriktivstes Ziel liefern; ohne belegtes Ziel bzw.
+positiven Öffnungsgrund bleibt das Ergebnis `None`/Hold. Bei widersprüchlichen
+Grenzen gewinnt Safety, verletzte Soft-Beiträge bleiben als `suppressed`
+sichtbar. 0 ist geschlossen, 100 offen; Invertierung bleibt allein am Adapter.
+Safety ist eine Untergrenze, kein ersetzendes Fachziel: Daylight 100 bei
+Safety-Minimum/aktueller Position 80 bleibt 100; Sleep 5 bei Minimum 30 wird 30.
+Die frühere exakte Safety-Zielersetzung wird durch diese Clamp-Semantik abgelöst;
+das No-Down-Invariant bleibt zusätzlich explizit regressiert.
+
+Bei fehlender Komfort-Evidence begrenzt ein feature-lokaler Guard auf die
+aktuelle Position. Er speichert keinen historischen Command und verhindert
+neue Öffnungslockerung; ein stärker schließender unabhängiger Context bleibt
+ausführbar. Ohne Position blockiert weiterhin die technische Safety. Waking
+pausiert Heat, Glare, Privacy und Cold ausdrücklich, aber niemals den separat
+kanonischen Private-Time-Input. Manual Override bleibt Control Lifecycle.
+
+Jeder Runtime-Start besitzt eine neue monotone `runtime_generation` innerhalb
+des HA-Prozesses. Jede Auswertung und jeder Widerruf erhöht
+`decision_generation`; ein HA-Prozessneustart kann keine alten Callbacks
+übernehmen. `decision_id`/`snapshot_identity`, vollständiger Config-Hash und
+Auswertungszeit binden die Freigabe an genau einen Snapshot. Input-/Timer-
+Callbacks widerrufen synchron vor Coalescing, Options-/Panel-Änderungen vor
+Persistenz und Reload, Unload vor dem ersten Await und HA-Stop vor weiteren
+Callbacks. Der Writer prüft zusätzlich die persistierte ConfigEntry-Revision.
+
+Direkt vor Consume/Dispatch gelten active Runtime, Automation AN, Apply AN,
+Live, Owner Blind Control, identische Config/Generation/Snapshot, aktuelle
+Override-/Safety-/Readiness-Evidence und Legacy-Null-Writer-Interlock. Es gibt
+weiter genau einen produktiven Cover-Servicecall mit `blocking=True`.
+Handlerannahme ist kein Beleg für reale Zielerreichung. Apply AUS verhindert
+neue Commands, stoppt aber keine bereits angenommene physische Fahrt.
+
+Die nachfolgenden AP1-Abschnitte bleiben historische Architektur-Evidence.
+
+**Historische Dokumentversion:** 0.1.0
 
 ## 1. Zielbild
 

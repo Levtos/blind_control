@@ -1,5 +1,15 @@
 # Blind Control
 
+Current contract for v0.7.3: [Issue #3](https://github.com/Levtos/blind_control/issues/3#issuecomment-5609119991).
+The dimensional pipeline separates context, protections, modifiers, hard safety
+and generation-bound writer gates. Horizon-first Night and canonical PC/TV
+specificity supersede the historical global quality failure. Config v6 and
+legacy status projections remain compatible. See [architecture](docs/ARCHITECTURE.md),
+[migration](docs/MIGRATION.md) and the [operator-only live gate](docs/AP3_CUTOVER.md).
+Apply OFF prevents new commands; it does not stop an already accepted physical
+move. This patch is **Testing / Released / Not Live** after technical release;
+the following older AP2/AP3 ownership statements are historical, not live evidence.
+
 `blind_control` is the native Home Assistant integration for the Blind Control
 rebuild. AP2 is live-verified in Shadow. AP3 adds an installable, guarded Apply
 adapter while retaining Shadow as the migration-safe default.

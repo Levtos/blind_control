@@ -66,11 +66,27 @@ def register_websocket_commands(hass: object) -> None:
             projection = build_ux_snapshot(snapshot, config)
         current = _entry_config(entry)
         loaded = getattr(runtime_data, "config", None)
-        active = getattr(getattr(runtime_data, "shadow", None), "active", False)
+        shadow = getattr(runtime_data, "shadow", None)
+        active = getattr(shadow, "active", False)
+        pending = not active or not runtime_matches(current, loaded)
+        blocker = legacy_writer_blocker(hass)
         operation = {
             "revision": revision(current),
-            "pending": not active or not runtime_matches(current, loaded),
-            "legacy_blocker": legacy_writer_blocker(hass),
+            "pending": pending,
+            "legacy_blocker": blocker,
+            "runtime_generation": getattr(shadow, "runtime_generation", None),
+            "decision_generation": getattr(shadow, "decision_generation", None),
+            "lease_status": "revoked"
+            if pending
+            else "latest"
+            if getattr(shadow, "latest_snapshot", None) is not None
+            else "consumed_or_invalidated",
+            "armed": not pending
+            and not blocker
+            and current.automation_enabled
+            and current.apply_enabled
+            and current.runtime_mode == "live"
+            and current.apply_owner == "blind_control",
         }
         connection.send_result(msg["id"], {**projection, "operation": operation})
 
@@ -92,7 +108,11 @@ def register_websocket_commands(hass: object) -> None:
         except (TypeError, ValueError, KeyError) as error:
             connection.send_error(msg["id"], "invalid_options", str(error))
             return
-        hass.config_entries.async_update_entry(entry, options=config.to_mapping())
+        from .operation import revoke_entry_runtime
+
+        if config.to_mapping() != current.to_mapping():
+            revoke_entry_runtime(entry)
+            hass.config_entries.async_update_entry(entry, options=config.to_mapping())
         connection.send_result(msg["id"], {"ok": True})
 
     @websocket_api.websocket_command(SET_OPERATION_SCHEMA)

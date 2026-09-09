@@ -12,8 +12,8 @@ from .open_meteo import (
 )
 from .shadow import ShadowSnapshot
 
-UX_CONTRACT_VERSION = "blind_control.ux.v4"
-AUTOMATION_PROJECTION_VERSION = "blind_control.automation_projection.v3"
+UX_CONTRACT_VERSION = "blind_control.ux.v5"
+AUTOMATION_PROJECTION_VERSION = "blind_control.automation_projection.v4"
 
 
 def build_ux_snapshot(
@@ -63,6 +63,7 @@ def build_ux_snapshot(
         "version": UX_CONTRACT_VERSION,
         "evaluated_at": snapshot.evaluated_at.isoformat(),
         "overview": {
+            "decision": trace_projection.get("decision"),
             "environment_values": {
                 key: input_value(key)
                 if input_values.get(key, {}).get("quality") == "fresh"
@@ -113,6 +114,8 @@ def build_ux_snapshot(
             "write_path_reachable": snapshot.write_path_reachable,
         },
         "diagnosis": {
+            "decision": trace_projection.get("decision"),
+            "apply_off_effect": "Prevents new commands; does not stop an already accepted physical move.",
             "environment": snapshot.environment,
             "hierarchy": {
                 "master_mode": trace.master_mode.value,
@@ -202,6 +205,7 @@ def build_automation_projection(snapshot: ShadowSnapshot) -> dict[str, object]:
     winner = trace.winner
     projection = {
         "version": AUTOMATION_PROJECTION_VERSION,
+        "decision": redact_diagnostic_value(trace.decision.as_dict()) if trace.decision else None,
         "master_mode": trace.master_mode.value,
         "active_category": winner.category if winner else None,
         "active_variant": winner.variant if winner else None,

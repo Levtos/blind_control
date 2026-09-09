@@ -50,6 +50,13 @@ def field_observation(field, *, opening=False):
         value=value if quality == InputQuality.FRESH else None,
         quality=quality,
         source="core_contracts",
+        owner="core_contracts",
+        timestamp_basis="owner_field_quality_no_consumer_reaging",
+        source_revision=(
+            f"{field.registry_revision}:{field.graph_revision}"
+            if hasattr(field, "registry_revision") and hasattr(field, "graph_revision")
+            else None
+        ),
         reason="core_consumer_api_field_contract",
     )
 

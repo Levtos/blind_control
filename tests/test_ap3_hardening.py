@@ -253,7 +253,8 @@ def test_invalid_lux_cannot_start_cold_or_complete_a_pending_transition(quality)
     bad = replace(cold, outdoor_lux=InputObservation(value=390, source="owner", quality=quality))
     result = runtime.evaluate(bad, now=10)
     assert not active(result, "cold_insulation")
-    assert result.trace.failure.active and not result.write_path_reachable
+    assert not result.trace.failure.active and not result.write_path_reachable
+    assert any(issue.feature == "cold" for issue in result.trace.decision.issues)
     assert not active(runtime.evaluate(cold, now=11), "cold_insulation")
     assert active(runtime.evaluate(cold, now=21), "cold_insulation")
 

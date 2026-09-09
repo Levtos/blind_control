@@ -374,6 +374,10 @@ class BlindControlOptionsFlow(OptionsFlow):
                     ),
                     errors={"base": "invalid_configuration"},
                 )
+            from .operation import revoke_entry_runtime
+
+            if config.to_mapping() != current.to_mapping():
+                revoke_entry_runtime(self._entry)
             return self.async_create_entry(title="", data=config.to_mapping())
         return self.async_show_form(
             step_id="init",

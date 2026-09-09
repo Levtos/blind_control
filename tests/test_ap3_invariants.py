@@ -76,7 +76,11 @@ def test_safety_never_lowers_position_even_with_lower_configured_safe_target():
     trace = DecisionEngine(config).evaluate(
         ready_inputs(opening_state=fresh("open"), cover_position=fresh(80))
     )
-    assert trace.effective_target == 80
+    # v0.7.3: Safety is a hard minimum, not a replacement context target.
+    # Positive daylight 100 clamped to [80, 100] remains exactly 100.
+    assert trace.effective_target == 100
+    assert trace.decision.safety.min_open == 80
+    assert trace.effective_target >= 80
 
 
 def test_open_and_tilted_are_distinct_and_owner_handover_keeps_safety():
@@ -134,7 +138,10 @@ def test_queued_callback_and_refresh_after_stop_are_permanently_dead():
         runtime = ShadowRuntime(config)
         hass = ThreadAwareFakeHass({}, asyncio.get_running_loop())
         hass.services = FakeHass().services
-        coordinator = ShadowCoordinator(hass, FakeEntry(), config, runtime)
+        entry = FakeEntry()
+        entry.data = config.to_mapping()
+        entry.options = {}
+        coordinator = ShadowCoordinator(hass, entry, config, runtime)
         coordinator._schedule_refresh()
         coordinator.stop()
         await asyncio.sleep(0)
@@ -161,7 +168,8 @@ def test_solar_unknown_holds_but_positive_opening_safety_is_independent():
     trace = DecisionEngine().evaluate(inputs)
     assert trace.solar.state.value == "unknown"
     assert trace.apply.approved_target is None
-    assert trace.failure.active
+    assert not trace.failure.active
+    assert any(issue.feature == "glare" for issue in trace.decision.issues)
     safety = DecisionEngine().evaluate(replace(inputs, opening_state=fresh("open")))
     assert safety.effective_target == 100
     assert safety.safety.status == "safe_position"
@@ -294,7 +302,10 @@ def test_coordinator_restart_during_motion_uses_quiet_actual_baseline():
         runtime = ShadowRuntime(config)
         hass = ThreadAwareFakeHass({}, asyncio.get_running_loop())
         hass.services = FakeHass().services
-        coordinator = ShadowCoordinator(hass, FakeEntry(), config, runtime)
+        entry = FakeEntry()
+        entry.data = config.to_mapping()
+        entry.options = {}
+        coordinator = ShadowCoordinator(hass, entry, config, runtime)
         current = ready_inputs(cover_position=fresh(40), cover_motion=fresh("closing"))
         with patch(
             "custom_components.blind_control.coordinator.build_inputs_from_states",

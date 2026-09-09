@@ -1,5 +1,44 @@
 # Lastenheft Blind Control
 
+## Aktueller verbindlicher Vertrag ab v0.7.3
+
+[Issue #3, 09.09.2026](https://github.com/Levtos/blind_control/issues/3#issuecomment-5609119991)
+supersediert widersprechende v0.6.3/AP2-Aussagen dieses Dokuments zum globalen
+Failure, zu mandatory Night-Solarevidence und zu TV-vor-PC. Historische
+Entscheidungen bleiben als Audit-Evidence erhalten.
+
+Die Ebenen sind Canonical Facts/Evidence → ContextIntent → feature-lokale
+ProtectionConstraints/Modifiers → Hard SafetyEnvelope → Runtime-/Writer-Gates;
+die konkrete [Pipeline und Arbitration](ARCHITECTURE.md) ist verbindlich.
+Sleep/provisional_sleep teilen ein Profil. Glare hat general/pc/tv, Heat und
+Cold sind eigene Constraints, Privacy und Private Time eigenständige Owner.
+Manual Override, Automation/Apply AUS und Runtime Owner sind keine Fachmodi.
+
+Solar bewertet zuerst Horizon: below_horizon oder valide elevation <= 0
+bedeutet INACTIVE/NIGHT. Lux, Azimut, Strahlung, Wolken und Trend können NIGHT
+weder reaktivieren noch ungültig machen. Unbekannte/unverfügbare/widersprüchliche
+Sun-Evidence ergibt UNKNOWN. Oberhalb des Horizonts bleibt Solar ACTIVE,
+auch bei 2 lx (`low_light`); erst dann bewertet Exposure Azimut/Lux. Day Phase
+ist keine Solar-Quality. Day/Solar-Widerspruch betrifft nur Daylight-Open.
+
+Activity/Device/Platform gehören Core State/Media Activity. Explizite
+screen_class/media_device/gaming_platform gehen generischen Booleans vor;
+PC plus entertainment bleibt PC. Konsolen bleiben TV; gleich spezifischer
+Widerspruch ist feature-local Conflict. Combined Mode/Target bleibt Vergleich.
+
+Soft-Schließer begrenzen `max_open`, Safety setzt `min_open`/Richtungssperre.
+Sleep 5 + Glare 60 bleibt 5; Sleep 5 + Safety 30 wird 30; Heat 15 + PC 75
+wird 15, beide Beiträge sichtbar. Storm darf Heat lockern, nicht Glare/Privacy;
+Cool Air öffnet nur ohne schließenden Bedarf. Waking pausiert Heat/Glare/Privacy/
+Cold, lässt kanonische Private Time ausdrücklich wirksam. Kein lokaler Zeitfilter.
+
+Solar-/Lux-/Temperaturausfall degradiert ausschließlich abhängige Features.
+Verlust restriktiver Evidence darf keine unbelegte neue Öffnung auslösen:
+feature-lokale Begrenzung auf aktuelle Position, stärkere unabhängige Schließung
+weiter möglich. Stateful Truths altern nicht wegen unverändertem Wert;
+feldbezogene Owner-Quality wird primär übernommen. Raw/time-critical Quellen
+behalten explizite Consumer-Timeliness. Technische Safety bleibt übergeordnet.
+
 **Dokumentstatus:** v0.3 – fachlich grundsätzlich abgenommen, Ergänzungen für frühen Produktstart
 **Stand:** 07. September 2026
 **Zielprodukt:** Home-Assistant-Integration `blind_control`  

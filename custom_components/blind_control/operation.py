@@ -6,6 +6,14 @@ import json
 from .config import BlindControlConfig
 
 
+def revoke_entry_runtime(entry):
+    """Revoke before persistence or the first asynchronous unload/reload step."""
+    runtime = getattr(entry, "runtime_data", None)
+    shadow = getattr(runtime, "shadow", None)
+    if shadow is not None:
+        shadow.stop()
+
+
 def legacy_writer_blocker(hass):
     """Fail closed if a Legacy entry can run or its service is still registered."""
     entries = getattr(getattr(hass, "config_entries", None), "async_entries", None)
@@ -24,7 +32,9 @@ def legacy_writer_blocker(hass):
 
 
 def revision(config):
-    return hashlib.sha256(json.dumps(config.to_mapping(), sort_keys=True).encode()).hexdigest()
+    # Normalize default integers and parsed floats through the persisted contract.
+    canonical = BlindControlConfig.from_mapping(config.to_mapping()).to_mapping()
+    return hashlib.sha256(json.dumps(canonical, sort_keys=True).encode()).hexdigest()
 
 
 def runtime_matches(current, loaded):

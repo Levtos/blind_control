@@ -868,13 +868,13 @@ class BootstrapTests(unittest.TestCase):
             registry_entry = hass.entity_registry.entries[sensor._attr_unique_id]
             self.assertEqual(registry_entry["unique_id"], "entry-1_shadow_status")
             self.assertEqual(registry_entry["translation_key"], "status")
-            self.assertEqual(sensor.native_value, "failure")
+            self.assertEqual(sensor.native_value, "normal")
             initial_attributes = sensor.extra_state_attributes
-            self.assertEqual(initial_attributes["failure_status"], "apply_blocked")
-            self.assertTrue(initial_attributes["failure_quality_blockers"])
+            self.assertEqual(initial_attributes["failure_status"], "none")
+            self.assertEqual(initial_attributes["safety_status"], "blocked")
             self.assertIn(
                 "bio_state",
-                {blocker["key"] for blocker in initial_attributes["failure_quality_blockers"]},
+                {issue["evidence"] for issue in initial_attributes["decision"]["issues"]},
             )
 
             def fresh(value, source):
@@ -935,15 +935,15 @@ class BootstrapTests(unittest.TestCase):
             )
             entry.runtime_data.snapshot = entry.runtime_data.shadow.evaluate(unresolved_inputs)
             entry.runtime_data.coordinator._notify_snapshot_listeners()
-            self.assertEqual(sensor.native_value, "failure")
+            self.assertEqual(sensor.native_value, "normal")
             failure_attributes = sensor.extra_state_attributes
             self.assertEqual(
                 failure_attributes["failure_reason"],
-                "automatic_decision_quality_gate_blocked",
+                None,
             )
             self.assertIn(
                 "indoor_temperature",
-                {blocker["key"] for blocker in failure_attributes["failure_quality_blockers"]},
+                {issue["evidence"] for issue in failure_attributes["decision"]["issues"]},
             )
             self.assertNotIn("sensor.fixture", json.dumps(failure_attributes))
 
@@ -1164,7 +1164,7 @@ class BootstrapTests(unittest.TestCase):
             asyncio.run(get_handler(hass, read_only, {"id": 6, "entry_id": "entry-1"}))
             self.assertEqual(read_only.results[0][0], 6)
             projection = read_only.results[0][1]
-            self.assertEqual(projection["version"], "blind_control.ux.v4")
+            self.assertEqual(projection["version"], "blind_control.ux.v5")
             serialized = json.dumps(projection)
             self.assertNotIn("sensor.fixture_bio", serialized)
             self.assertNotIn("sensor.fixture_legacy", serialized)
