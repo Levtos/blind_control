@@ -232,6 +232,8 @@ def test_hard_states_can_dispatch_during_environment_entry(hard_state):
             if hard_state in {"waking", "sleep", "provisional_sleep"}
             else {hard_state: fresh(True)}
         )
+        if hard_state == "privacy":
+            changes = {"day_state": fresh("evening")}
         hass = FakeHass()
         result = await CoverApplyExecutor(hass, config, runtime).async_apply(
             runtime.evaluate(replace(inputs, **changes), now=1), now=1

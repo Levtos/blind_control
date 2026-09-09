@@ -1164,7 +1164,7 @@ class BootstrapTests(unittest.TestCase):
             asyncio.run(get_handler(hass, read_only, {"id": 6, "entry_id": "entry-1"}))
             self.assertEqual(read_only.results[0][0], 6)
             projection = read_only.results[0][1]
-            self.assertEqual(projection["version"], "blind_control.ux.v5")
+            self.assertEqual(projection["version"], "blind_control.ux.v6")
             serialized = json.dumps(projection)
             self.assertNotIn("sensor.fixture_bio", serialized)
             self.assertNotIn("sensor.fixture_legacy", serialized)
@@ -1305,6 +1305,9 @@ class BootstrapTests(unittest.TestCase):
             for section, keys in prefill_sections.items():
                 section_schema = _schema_value(full_prefill_schema, section)
                 for key in keys:
+                    if key == "privacy":
+                        self.assertNotIn("default", _schema_key(section_schema.schema, key).options)
+                        continue
                     self.assertEqual(
                         _schema_key(section_schema.schema, key).options["default"],
                         required_defaults[key],

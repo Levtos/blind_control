@@ -106,7 +106,7 @@
               "day_context": "Canonical day context",
               "away": "Canonical away status",
               "private_time": "Private-time context",
-              "privacy": "Privacy context"
+              "privacy": "Privacy binding (retired, unused)"
             },
             "data_description": {
               "bio_state": "Required owner evidence for automatic decisions.",
@@ -115,7 +115,7 @@
               "day_context": "Required canonical day context.",
               "away": "Required presence evidence; true means away.",
               "private_time": "Required private-time context evidence.",
-              "privacy": "Required privacy context evidence."
+              "privacy": "Privacy follows Core-State day_state evening/late_evening/early_night/late_night. This old binding is retained only for rollback."
             }
           },
           "opening_safety_cover_bindings": {
@@ -320,7 +320,7 @@
               "day_context": "Canonical day context",
               "away": "Canonical away status",
               "private_time": "Private-time context",
-              "privacy": "Privacy context"
+              "privacy": "Privacy binding (retired, unused)"
             },
             "data_description": {
               "bio_state": "Required owner evidence for automatic decisions.",
@@ -329,7 +329,7 @@
               "day_context": "Required canonical day context.",
               "away": "Required presence evidence; true means away.",
               "private_time": "Required private-time context evidence.",
-              "privacy": "Required privacy context evidence."
+              "privacy": "Privacy follows Core-State day_state evening/late_evening/early_night/late_night. This old binding is retained only for rollback."
             }
           },
           "opening_safety_cover_bindings": {

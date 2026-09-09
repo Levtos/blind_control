@@ -345,7 +345,10 @@ def test_invalidated_tv_intent_is_not_replayed_after_cooldown():
     )
     assert tv.trace.apply.cooldown_pending_target == 60
     neutral = ready_inputs(
-        day_state=fresh("evening"), sun_azimuth=fresh(304), cover_position=fresh(100)
+        day_state=fresh("forenoon"),
+        sun_elevation=fresh(-2),
+        sun_azimuth=fresh(304),
+        cover_position=fresh(100),
     )
     runtime.evaluate(neutral, now=20)
     assert runtime.cooldown_tracker.pending_target is None

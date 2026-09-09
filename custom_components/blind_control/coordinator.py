@@ -14,6 +14,8 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from .privacy import with_phase_privacy
+
 try:
     from homeassistant.core import callback
 except ImportError:  # pragma: no cover - enables the HA-independent contract tests
@@ -110,6 +112,8 @@ def build_inputs_from_states(
     provider_observations = provider_observations or {}
     values = {}
     for key in INPUT_BINDING_KEYS:
+        if key == "privacy":
+            continue  # Retired binding is stored for rollback, never consumed.
         if key not in configured and key in provider_observations:
             values[key] = provider_observations[key]
             continue
@@ -177,7 +181,7 @@ def build_inputs_from_states(
             updated_at=_updated_at("sun_elevation", sun),
             timestamp_basis="stateful_last_updated",
         )
-    return BlindControlInputs(**values)
+    return with_phase_privacy(BlindControlInputs(**values))
 
 
 def build_legacy_evidence_from_states(

@@ -12,8 +12,8 @@ from .open_meteo import (
 )
 from .shadow import ShadowSnapshot
 
-UX_CONTRACT_VERSION = "blind_control.ux.v5"
-AUTOMATION_PROJECTION_VERSION = "blind_control.automation_projection.v4"
+UX_CONTRACT_VERSION = "blind_control.ux.v6"
+AUTOMATION_PROJECTION_VERSION = "blind_control.automation_projection.v5"
 
 
 def build_ux_snapshot(

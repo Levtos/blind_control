@@ -4358,15 +4358,15 @@ function Operation($$anchor, $$props) {
       set_text(text_2, ((_d = $$props.snapshot.operation) == null ? void 0 : _d.armed) ? "ja" : "nein");
       set_text(text_3, $$props.snapshot.settings.runtime_mode === "shadow" ? "Shadow" : "Live");
       set_text(text_4, $$props.snapshot.settings.apply_owner === "legacy" ? "Legacy" : "Blind Control");
-      set_text(text_5, `${$$props.snapshot.overview.baseline_ready ? "bestätigt" : "wartet"} · ${$$props.snapshot.overview.apply_status ?? ""}`);
-      set_text(text_6, `${$$props.snapshot.overview.opening_state ?? ""} · ${$$props.snapshot.overview.safety_status ?? ""}`);
+      set_text(text_5, $$props.snapshot.overview.baseline_ready ? "bestätigt" : "wartet");
+      set_text(text_6, `${$$props.snapshot.overview.opening_state ?? ""} · ${($$props.snapshot.overview.safety_status === "ready" ? "freigegeben" : $$props.snapshot.overview.safety_status) ?? ""}`);
       set_text(text_7, $$props.snapshot.overview.write_path_reachable ? "ja" : "nein");
       set_text(text_8, $0);
       button.disabled = get(blocked);
       button_1.disabled = get(blocked);
     },
     [
-      () => String($$props.snapshot.overview.technical.apply.reason ?? "—").replaceAll("_", " ")
+      () => $$props.snapshot.overview.technical.apply.reason === "no_effective_target" ? "Bereit – aktuell kein Fahrziel" : String($$props.snapshot.overview.technical.apply.reason ?? "—").replaceAll("_", " ")
     ]
   );
   delegated("click", button, () => change("shadow", "legacy", false));
@@ -4491,8 +4491,8 @@ function Overview($$anchor, $$props) {
     environment_exit_pending: "Entlastung wird stabilisiert",
     cold_insulation_conditions_not_met: "Kälte-/Dunkelheitsbedingungen nicht erfüllt",
     dark_cold_without_solar_gain: "Dunkel und kalt, ohne relevanten Solargewinn",
-    privacy_not_active: "Kanonischer Privacy-State nicht aktiv",
-    privacy_active: "Kanonischer Privacy-State aktiv",
+    privacy_not_active: "Core-State-Tagesphase erfordert keinen Sichtschutz",
+    privacy_active: "Sichtschutz aus Core-State-Abend-/Nachtphase",
     private_time_active: "Private Zeit aktiv",
     private_time_not_active: "Private Zeit nicht aktiv"
   };
@@ -4615,7 +4615,7 @@ function Overview($$anchor, $$props) {
       () => label($$props.snapshot.diagnosis.solar.state),
       () => metric("outdoor_lux", "lx"),
       () => metric("outdoor_temperature", "°C"),
-      () => position($$props.snapshot.overview.effective_target)
+      () => $$props.snapshot.overview.apply_status === "idle" ? "kein Fahrziel" : position($$props.snapshot.overview.effective_target)
     ]
   );
   append($$anchor, fragment);
@@ -4784,6 +4784,8 @@ function App($$anchor, $$props) {
     day_context: "Tageskontext",
     daylight: "Tageslicht",
     ready: "bereit",
+    idle: "bereit – kein Fahrziel",
+    derived_from_day_state: "Aus Core-State-Tagesphase; altes Binding ohne Wirkung",
     blocked: "blockiert",
     safe_position: "Safety-Position",
     safety_ready: "Safety bereit",
@@ -4894,7 +4896,7 @@ function App($$anchor, $$props) {
   var div = root_17();
   head("1n46o8q", ($$anchor2) => {
     deferred_template_effect(() => {
-      $document.title = `Blind Control · ${$$props.snapshot.settings.runtime_mode === "shadow" ? "Shadow" : "Live vorbereitet"}`;
+      $document.title = `Blind Control · ${$$props.snapshot.settings.runtime_mode === "shadow" ? "Shadow" : "Live"}`;
     });
   });
   var header = child(div);
@@ -5405,7 +5407,7 @@ function App($$anchor, $$props) {
     ($0, $1, $2) => {
       set_text(text, `BLIND CONTROL · ${$0 ?? ""} · ${$$props.snapshot.settings.apply_owner === "blind_control" ? "BLIND CONTROL" : "LEGACY"}`);
       set_class(span, 1, $1);
-      set_text(text_1, `${$$props.snapshot.settings.runtime_mode === "shadow" ? "Shadow" : "Live vorbereitet"} · ${$2 ?? ""}`);
+      set_text(text_1, `${$$props.snapshot.settings.runtime_mode === "shadow" ? "Shadow" : "Live"} · ${$2 ?? ""}`);
     },
     [
       () => $$props.snapshot.settings.runtime_mode.toUpperCase(),

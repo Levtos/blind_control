@@ -1,5 +1,16 @@
 # Blind Control Statusmodell und Live-Shadow-Contracts
 
+## Aktuell v0.7.4 – kein Ziel ist keine Safety-Sperre
+
+Ein positiver Opening-/Coverzustand bleibt Safety ready, auch wenn kein Ziel
+existiert. Nach den Runtime-Gates bedeutet Apply idle / no_effective_target:
+bereit, aktuell kein Fahrziel. Kein stilles Default-Open und kein Servicecall.
+Die UI koppelt die bestätigte Ruhebaseline nicht mehr an den Apply-Status.
+Tatsächliche Opening-, Readiness- und Runtime-Probleme bleiben separat blocked.
+Privacy folgt Core-State-Abend-/Nachtphasen; die Anzeige benennt diese Ableitung.
+LegacyProjection bleibt additiv erhalten (automation_projection.v5).
+
+
 ## Aktuell ab v0.7.3: dimensionsgetrennte Decision
 
 Verbindlich: [Issue #3 Contract](https://github.com/Levtos/blind_control/issues/3#issuecomment-5609119991).

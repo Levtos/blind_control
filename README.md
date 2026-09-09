@@ -1,5 +1,15 @@
 # Blind Control
 
+## v0.7.4 Privacy source
+
+Privacy follows the existing Core-State day_state: evening, late_evening,
+early_night and late_night select the configured Privacy profile. No local clock
+or new Core-Contracts connection is introduced. The former boolean Privacy
+binding is retained only for rollback and is no longer consumed or suggested.
+The older discovery description below is superseded for Privacy. Positive
+Safety without a target is ready; Apply is idle and does not send a command.
+
+
 Current contract for v0.7.3: [Issue #3](https://github.com/Levtos/blind_control/issues/3#issuecomment-5609119991).
 The dimensional pipeline separates context, protections, modifiers, hard safety
 and generation-bound writer gates. Horizon-first Night and canonical PC/TV

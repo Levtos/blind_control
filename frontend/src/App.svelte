@@ -109,6 +109,8 @@
     day_context: 'Tageskontext',
     daylight: 'Tageslicht',
     ready: 'bereit',
+    idle: 'bereit – kein Fahrziel',
+    derived_from_day_state: 'Aus Core-State-Tagesphase; altes Binding ohne Wirkung',
     blocked: 'blockiert',
     safe_position: 'Safety-Position',
     safety_ready: 'Safety bereit',
@@ -258,7 +260,7 @@
 </script>
 
 <svelte:head>
-  <title>Blind Control · {snapshot.settings.runtime_mode === 'shadow' ? 'Shadow' : 'Live vorbereitet'}</title>
+  <title>Blind Control · {snapshot.settings.runtime_mode === 'shadow' ? 'Shadow' : 'Live'}</title>
 </svelte:head>
 
 <div class="panel-root">
@@ -270,7 +272,7 @@
     </div>
     <div class="header-status">
       <span class={`status-dot ${statusTone(snapshot.overview.apply_status)}`}></span>
-      <span>{snapshot.settings.runtime_mode === 'shadow' ? 'Shadow' : 'Live vorbereitet'} · {statusLabel(snapshot.overview.apply_status)}</span>
+      <span>{snapshot.settings.runtime_mode === 'shadow' ? 'Shadow' : 'Live'} · {statusLabel(snapshot.overview.apply_status)}</span>
     </div>
   </header>
 

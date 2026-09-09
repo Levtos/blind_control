@@ -106,7 +106,7 @@
               "day_context": "Kanonischer Tageskontext",
               "away": "Kanonischer Abwesenheitsstatus",
               "private_time": "Private-Time-Kontext",
-              "privacy": "Privacy-Kontext"
+              "privacy": "Privacy-Binding (veraltet, ohne Wirkung)"
             },
             "data_description": {
               "bio_state": "Erforderliche Owner-Evidence für automatische Entscheidungen.",
@@ -115,7 +115,7 @@
               "day_context": "Erforderlicher kanonischer Tageskontext.",
               "away": "Erforderliche Presence-Evidence; true bedeutet abwesend.",
               "private_time": "Erforderliche Private-Time-Evidence.",
-              "privacy": "Erforderliche Privacy-Evidence."
+              "privacy": "Privacy folgt der Core-State-Tagesphase evening/late_evening/early_night/late_night. Dieses alte Binding bleibt nur für Rollback gespeichert."
             }
           },
           "opening_safety_cover_bindings": {
@@ -320,7 +320,7 @@
               "day_context": "Kanonischer Tageskontext",
               "away": "Kanonischer Abwesenheitsstatus",
               "private_time": "Private-Time-Kontext",
-              "privacy": "Privacy-Kontext"
+              "privacy": "Privacy-Binding (veraltet, ohne Wirkung)"
             },
             "data_description": {
               "bio_state": "Erforderliche Owner-Evidence für automatische Entscheidungen.",
@@ -329,7 +329,7 @@
               "day_context": "Erforderlicher kanonischer Tageskontext.",
               "away": "Erforderliche Presence-Evidence; true bedeutet abwesend.",
               "private_time": "Erforderliche Private-Time-Evidence.",
-              "privacy": "Erforderliche Privacy-Evidence."
+              "privacy": "Privacy folgt der Core-State-Tagesphase evening/late_evening/early_night/late_night. Dieses alte Binding bleibt nur für Rollback gespeichert."
             }
           },
           "opening_safety_cover_bindings": {

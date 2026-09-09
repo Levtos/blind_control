@@ -1,5 +1,25 @@
 # Owner- und Contract-Matrix – Blind Control AP1
 
+## Aktuell v0.7.4 – Privacy- und Idle-Vertrag
+
+`blind_control.decision.v6`, `blind_control.ux.v6` und
+`blind_control.automation_projection.v5` versionieren die geänderte Semantik;
+Feldformen und LegacyProjection bleiben erhalten. `blind_control.privacy_phase.v1`
+mappt Core-State-Phasen evening/late_evening/early_night/late_night auf Privacy.
+Andere kanonische Phasen liefern false; unbekannte Werte liefern conflict;
+negative Owner-Quality wird übernommen, niemals als false versteckt.
+Die alte `privacy`-Configbindung ist optional, retired und ohne Wirkung; sie
+roundtrippt ausschließlich für Rollback. `binding_status=derived_from_day_state`
+beschreibt die aktuelle Herkunft. Der abgeleitete Privacy-Demand nennt die
+Day-State-Quelle und Qualität; keine Behauptung eines vorgelagerten Privacy-Bools.
+Ein Combined mit `household_empty_privacy` ist kein abendlicher Sichtschutzvertrag.
+Frühere Abschnitte zur erforderlichen booleschen Privacy-Quelle und deren
+Discovery sind superseded. Keine neuen Core-Contracts-Schemas oder Anbindungen.
+`safety_status=ready` plus `apply_status=idle`, reason `no_effective_target`,
+bedeutet kein Fahrziel und keinen Writer-Aufruf. Echte Safety-/Runtime-Sperren
+bleiben blocked. Idle darf nicht als Safety-Failure interpretiert werden.
+
+
 ## Aktueller additiver Contract v0.7.3
 
 Verbindlich: [Issue #3](https://github.com/Levtos/blind_control/issues/3#issuecomment-5609119991)

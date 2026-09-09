@@ -1,5 +1,15 @@
 # AP3 Stabilisierung – Entscheidung vom 07.09.2026
 
+## Aktuelle Entscheidung v0.7.4 – Core-State-Privacy
+
+Benni bestätigt Privacy für evening/late_evening/early_night/late_night aus dem
+bestehenden Core-State-Day-State. Keine neue Core-Contracts-Anbindung, keine
+lokale Uhrzeit-/Dunkelheitsberechnung. Früherer Privacy-Boolean-/Combined-Vertrag
+ist superseded. Sleep 5, Waking-Pause, unabhängige private_time und alle
+technischen Safety-/Writer-/Generation-Gates bleiben. Positive Safety ohne
+Fachziel ist ready; Apply idle hält ohne Write. Historische Texte bleiben Evidence.
+
+
 ## Aktuelle Entscheidung: v0.7.3 / 09.09.2026
 
 [Aktueller verbindlicher Contract in Issue #3](https://github.com/Levtos/blind_control/issues/3#issuecomment-5609119991)

@@ -1,5 +1,16 @@
 # AP3 Operator- und Consumer-Vertrag v0.7.0
 
+## v0.7.4 Bedienhinweis
+
+Privacy benötigt keinen eigenen neuen Sensor: der bereits konfigurierte
+Core-State-Day-State aktiviert das bestehende Profil in evening, late_evening,
+early_night und late_night. Der alte Privacy-Selector ist als retired/ohne Wirkung
+gekennzeichnet und bleibt für Rollback gespeichert. Private Time bleibt separat.
+Bereit – aktuell kein Fahrziel ist keine Safety-Sperre. Eine bestätigte Baseline
+und positive Safety werden getrennt angezeigt. Apply AUS verhindert neue Befehle,
+stoppt aber keine bereits angenommene Fahrt. Installation/Neustart bleiben Betreiber-Gates.
+
+
 ## Aktueller Betreibervertrag ab v0.7.3
 
 [Issue #3, aktueller Vertrag](https://github.com/Levtos/blind_control/issues/3#issuecomment-5609119991)
