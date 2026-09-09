@@ -51,13 +51,20 @@ def test_complete_solar_evidence_has_valid_classification(changes, expected):
     "quality", [InputQuality.UNKNOWN, InputQuality.STALE, InputQuality.CONFLICT]
 )
 @pytest.mark.parametrize("elevation", [-2, 5.88])
-def test_unusable_mandatory_evidence_is_unknown_even_at_low_lux(key, quality, elevation):
+def test_horizon_first_replaces_v063_global_mandatory_contract(key, quality, elevation):
     inputs = ready_inputs(sun_elevation=fresh(elevation), outdoor_lux=fresh(1))
     inputs = replace(inputs, **{key: InputObservation(quality=quality, reason="fixture_rejected")})
     result = calculate_solar_exposure(inputs, BlindControlConfig.defaults())
-    assert result.state.value == "unknown"
-    assert any(item.key == key for item in result.quality_blockers)
-    assert DecisionEngine().evaluate(inputs).failure.active
+    if elevation <= 0 and key != "sun_elevation":
+        assert result.state.value == "night"
+        assert result.lifecycle == "INACTIVE"
+        assert not result.quality_blockers
+    else:
+        assert result.state.value == "unknown"
+        assert any(item.key == key for item in result.quality_blockers)
+    assert not DecisionEngine().evaluate(inputs).failure.active
+    sleep = DecisionEngine().evaluate(replace(inputs, bio_state=fresh("sleep")))
+    assert sleep.effective_target == 5
 
 
 def test_low_light_without_optional_model_is_valid_and_cold_remains_independent():

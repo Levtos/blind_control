@@ -243,7 +243,7 @@ class CoordinatorTests(unittest.TestCase):
                     "music",
                     attributes={"pc_active": True, "entertainment_active": True},
                 ),
-                "tv",
+                "pc",
             ),
         )
 
@@ -254,7 +254,10 @@ class CoordinatorTests(unittest.TestCase):
                 ).activity_state
                 self.assertTrue(observation.usable)
                 self.assertEqual(observation.value, expected)
-                self.assertIn("core_state_glare_adapter", observation.reason)
+                self.assertTrue(
+                    "core_state_glare_adapter" in observation.reason
+                    or "canonical_screen" in observation.reason
+                )
 
         conflict = build_inputs_from_states(
             {
@@ -891,7 +894,7 @@ class CoordinatorTests(unittest.TestCase):
             registry.time_callbacks[0](None)
             await hass.tasks[-1]
             self.assertIs(entry.runtime_data.snapshot, coordinator.snapshot)
-            self.assertEqual(entry.runtime_data.ux_snapshot["version"], "blind_control.ux.v4")
+            self.assertEqual(entry.runtime_data.ux_snapshot["version"], "blind_control.ux.v5")
             self.assertEqual(len(published), 2)
             self.assertFalse(coordinator.snapshot.actuation_executed)
             self.assertFalse(coordinator.snapshot.write_path_reachable)

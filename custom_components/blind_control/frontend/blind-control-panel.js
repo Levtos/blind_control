@@ -4227,12 +4227,12 @@ const PUBLIC_VERSION = "5";
 if (typeof window !== "undefined") {
   ((_c = window.__svelte ?? (window.__svelte = {})).v ?? (_c.v = /* @__PURE__ */ new Set())).add(PUBLIC_VERSION);
 }
-var root$3 = /* @__PURE__ */ from_html(`<button class="quiet-button stop-button">Apply ausschalten</button>`);
-var root_1$3 = /* @__PURE__ */ from_html(`<p class="hint">Apply AN kann unmittelbar eine Fahrt der aktuellen Entscheidung auslösen. Legacy zuerst deaktivieren, HA neu starten und Null-Writer bestätigen.</p> <label class="toggle"><input type="checkbox"/>Legacy ist deaktiviert, HA neu gestartet und Null-Writer geprüft. Ich gebe die kontrollierte Fahrt frei.</label> <button class="primary-button">Apply bewusst einschalten</button>`, 1);
-var root_2$3 = /* @__PURE__ */ from_html(`<p class="hint warning"> </p>`);
+var root$4 = /* @__PURE__ */ from_html(`<button class="quiet-button stop-button">Apply ausschalten</button>`);
+var root_1$4 = /* @__PURE__ */ from_html(`<p class="hint">Apply AN kann unmittelbar eine Fahrt der aktuellen Entscheidung auslösen. Legacy zuerst deaktivieren, HA neu starten und Null-Writer bestätigen.</p> <label class="toggle"><input type="checkbox"/>Legacy ist deaktiviert, HA neu gestartet und Null-Writer geprüft. Ich gebe die kontrollierte Fahrt frei.</label> <button class="primary-button">Apply bewusst einschalten</button>`, 1);
+var root_2$4 = /* @__PURE__ */ from_html(`<p class="hint warning"> </p>`);
 var root_3$3 = /* @__PURE__ */ from_html(`<p class="hint" role="status">Betriebswechsel wird geladen. Auf bestätigten Zustand warten.</p>`);
 var root_4$1 = /* @__PURE__ */ from_html(`<p class="error" role="alert"> </p>`);
-var root_5$1 = /* @__PURE__ */ from_html(`<article class="card operation-card" aria-label="Betrieb"><div class="card-heading"><div><p class="eyebrow">BETRIEB</p><h2>Writer kontrolliert freigeben</h2></div><span class="badge"> </span></div> <dl class="facts"><div><dt>Betriebsmodus</dt><dd> </dd></div> <div><dt>Writer-Zuständigkeit</dt><dd> </dd></div> <div><dt>Readiness / Ruhebaseline</dt><dd> </dd></div> <div><dt>Opening Safety</dt><dd> </dd></div> <div><dt>Schreibpfad erreichbar</dt><dd> </dd></div> <div><dt>Apply-Grund</dt><dd> </dd></div></dl> <div class="button-row"><button class="quiet-button">Shadow + Legacy · Apply AUS</button> <button class="quiet-button">Live + Blind Control · Apply AUS</button></div> <!> <!> <!> <!></article>`);
+var root_5$1 = /* @__PURE__ */ from_html(`<article class="card operation-card" aria-label="Betrieb"><div class="card-heading"><div><p class="eyebrow">BETRIEB</p><h2>Writer kontrolliert freigeben</h2></div><span class="badge"> </span></div> <dl class="facts"><div><dt>Aktuelle Generation / Lease</dt><dd> </dd></div> <div><dt>Writer-Gates freigegeben</dt><dd> </dd></div> <div><dt>Betriebsmodus</dt><dd> </dd></div> <div><dt>Writer-Zuständigkeit</dt><dd> </dd></div> <div><dt>Readiness / Ruhebaseline</dt><dd> </dd></div> <div><dt>Opening Safety</dt><dd> </dd></div> <div><dt>Schreibpfad erreichbar</dt><dd> </dd></div> <div><dt>Apply-Grund</dt><dd> </dd></div></dl> <div class="button-row"><p class="hint">Apply AUS verhindert neue Befehle, stoppt aber keine bereits angenommene physische Fahrt.</p> <button class="quiet-button">Shadow + Legacy · Apply AUS</button> <button class="quiet-button">Live + Blind Control · Apply AUS</button></div> <!> <!> <!> <!></article>`);
 function Operation($$anchor, $$props) {
   push($$props, true);
   let confirmed = /* @__PURE__ */ state(false);
@@ -4276,19 +4276,25 @@ function Operation($$anchor, $$props) {
   var div_6 = sibling(div_5, 2);
   var dd_5 = sibling(child(div_6));
   var text_6 = child(dd_5);
-  var div_7 = sibling(dl, 2);
-  var button = child(div_7);
+  var div_7 = sibling(div_6, 2);
+  var dd_6 = sibling(child(div_7));
+  var text_7 = child(dd_6);
+  var div_8 = sibling(div_7, 2);
+  var dd_7 = sibling(child(div_8));
+  var text_8 = child(dd_7);
+  var div_9 = sibling(dl, 2);
+  var button = sibling(child(div_9), 2);
   var button_1 = sibling(button, 2);
-  var node = sibling(div_7, 2);
+  var node = sibling(div_9, 2);
   {
     var consequent = ($$anchor2) => {
-      var button_2 = root$3();
+      var button_2 = root$4();
       template_effect(() => button_2.disabled = get(blocked));
       delegated("click", button_2, () => change($$props.snapshot.settings.runtime_mode, $$props.snapshot.settings.apply_owner, false));
       append($$anchor2, button_2);
     };
     var consequent_1 = ($$anchor2) => {
-      var fragment = root_1$3();
+      var fragment = root_1$4();
       var label = sibling(first_child(fragment), 2);
       var input = child(label);
       var button_3 = sibling(label, 2);
@@ -4309,9 +4315,9 @@ function Operation($$anchor, $$props) {
   var node_1 = sibling(node, 2);
   {
     var consequent_2 = ($$anchor2) => {
-      var p = root_2$3();
-      var text_7 = child(p);
-      template_effect(($0) => set_text(text_7, `Freigabe gesperrt: ${$0 ?? ""}`), [
+      var p = root_2$4();
+      var text_9 = child(p);
+      template_effect(($0) => set_text(text_9, `Freigabe gesperrt: ${$0 ?? ""}`), [
         () => $$props.snapshot.operation.legacy_blocker.replaceAll("_", " ")
       ]);
       append($$anchor2, p);
@@ -4336,8 +4342,8 @@ function Operation($$anchor, $$props) {
   {
     var consequent_4 = ($$anchor2) => {
       var p_2 = root_4$1();
-      var text_8 = child(p_2);
-      template_effect(() => set_text(text_8, get(error)));
+      var text_10 = child(p_2);
+      template_effect(() => set_text(text_10, get(error)));
       append($$anchor2, p_2);
     };
     if_block(node_3, ($$render) => {
@@ -4346,13 +4352,16 @@ function Operation($$anchor, $$props) {
   }
   template_effect(
     ($0) => {
+      var _a2, _b2, _c2, _d;
       set_text(text, `Apply ${$$props.snapshot.settings.apply_enabled ? "AN" : "AUS"}`);
-      set_text(text_1, $$props.snapshot.settings.runtime_mode === "shadow" ? "Shadow" : "Live");
-      set_text(text_2, $$props.snapshot.settings.apply_owner === "legacy" ? "Legacy" : "Blind Control");
-      set_text(text_3, `${$$props.snapshot.overview.baseline_ready ? "bestätigt" : "wartet"} · ${$$props.snapshot.overview.apply_status ?? ""}`);
-      set_text(text_4, `${$$props.snapshot.overview.opening_state ?? ""} · ${$$props.snapshot.overview.safety_status ?? ""}`);
-      set_text(text_5, $$props.snapshot.overview.write_path_reachable ? "ja" : "nein");
-      set_text(text_6, $0);
+      set_text(text_1, `${((_a2 = $$props.snapshot.operation) == null ? void 0 : _a2.runtime_generation) ?? "—" ?? ""} / ${((_b2 = $$props.snapshot.operation) == null ? void 0 : _b2.decision_generation) ?? "—" ?? ""} · ${((_c2 = $$props.snapshot.operation) == null ? void 0 : _c2.lease_status) ?? "unbekannt" ?? ""}`);
+      set_text(text_2, ((_d = $$props.snapshot.operation) == null ? void 0 : _d.armed) ? "ja" : "nein");
+      set_text(text_3, $$props.snapshot.settings.runtime_mode === "shadow" ? "Shadow" : "Live");
+      set_text(text_4, $$props.snapshot.settings.apply_owner === "legacy" ? "Legacy" : "Blind Control");
+      set_text(text_5, `${$$props.snapshot.overview.baseline_ready ? "bestätigt" : "wartet"} · ${$$props.snapshot.overview.apply_status ?? ""}`);
+      set_text(text_6, `${$$props.snapshot.overview.opening_state ?? ""} · ${$$props.snapshot.overview.safety_status ?? ""}`);
+      set_text(text_7, $$props.snapshot.overview.write_path_reachable ? "ja" : "nein");
+      set_text(text_8, $0);
       button.disabled = get(blocked);
       button_1.disabled = get(blocked);
     },
@@ -4366,6 +4375,92 @@ function Operation($$anchor, $$props) {
   pop();
 }
 delegate(["click"]);
+var root$3 = /* @__PURE__ */ from_html(`<p> </p>`);
+var root_1$3 = /* @__PURE__ */ from_html(`<p>Keine feature-lokalen Quality-Issues.</p>`);
+var root_2$3 = /* @__PURE__ */ from_html(`<section class="surface-card"><h2>Entscheidung nach Dimensionen</h2> <p> </p> <p> </p> <p> </p> <!> <p> </p> <p> </p> <h3>Protection und Modifier</h3> <!> <h3>Feature-lokale Quality</h3> <!> <details><summary>Generationen und Writer-Freigabe</summary> <p> </p> <p> </p> <p>Config-Revision: <code> </code></p></details> <p class="hint">Apply AUS verhindert neue Befehle. Eine bereits angenommene physische Fahrt wird dadurch nicht gestoppt.</p></section>`);
+function Dimensions($$anchor, $$props) {
+  push($$props, true);
+  const position = (value) => value === null ? "Halten / kein Ziel" : `${value} %`;
+  let activity = /* @__PURE__ */ user_derived(() => $$props.decision.evidence.find((item) => item.key === "activity_state"));
+  var section = root_2$3();
+  var p = sibling(child(section), 2);
+  var text = child(p);
+  var p_1 = sibling(p, 2);
+  var text_1 = child(p_1);
+  var p_2 = sibling(p_1, 2);
+  var text_2 = child(p_2);
+  var node = sibling(p_2, 2);
+  each(node, 17, () => {
+    var _a2;
+    return ((_a2 = get(activity)) == null ? void 0 : _a2.details) ?? [];
+  }, index, ($$anchor2, $$item) => {
+    var $$array = /* @__PURE__ */ user_derived(() => to_array(get($$item), 2));
+    let key = () => get($$array)[0];
+    let value = () => get($$array)[1];
+    var p_3 = root$3();
+    var text_3 = child(p_3);
+    template_effect(($0) => set_text(text_3, `Owner-Evidence ${key() ?? ""}: ${$0 ?? ""}`), [() => String(value())]);
+    append($$anchor2, p_3);
+  });
+  var p_4 = sibling(node, 2);
+  var text_4 = child(p_4);
+  var p_5 = sibling(p_4, 2);
+  var text_5 = child(p_5);
+  var node_1 = sibling(p_5, 4);
+  each(node_1, 17, () => $$props.decision.contributions, index, ($$anchor2, item) => {
+    var p_6 = root$3();
+    var text_6 = child(p_6);
+    template_effect(($0) => set_text(text_6, `${get(item).feature ?? ""} ${get(item).variant ?? "" ?? ""}: ${get(item).status ?? ""} · ${get(item).effect ?? ""} ${$0 ?? ""} · ${get(item).reason ?? ""}`), [() => position(get(item).value)]);
+    append($$anchor2, p_6);
+  });
+  var node_2 = sibling(node_1, 4);
+  each(
+    node_2,
+    17,
+    () => $$props.decision.issues,
+    index,
+    ($$anchor2, issue) => {
+      var p_7 = root$3();
+      var text_7 = child(p_7);
+      template_effect(() => set_text(text_7, `${get(issue).feature ?? ""}: ${get(issue).quality ?? ""} · ${get(issue).evidence ?? ""} · Owner: ${get(issue).owner ?? ""} · Zeitbasis: ${get(issue).timestamp_basis ?? ""} · Fallback: ${get(issue).fallback ?? ""} · ${get(issue).reason ?? ""}`));
+      append($$anchor2, p_7);
+    },
+    ($$anchor2) => {
+      var p_8 = root_1$3();
+      append($$anchor2, p_8);
+    }
+  );
+  var details = sibling(node_2, 2);
+  var p_9 = sibling(child(details), 2);
+  var text_8 = child(p_9);
+  var p_10 = sibling(p_9, 2);
+  var text_9 = child(p_10);
+  var p_11 = sibling(p_10, 2);
+  var code = sibling(child(p_11));
+  var text_10 = child(code);
+  template_effect(
+    ($0, $1, $2) => {
+      set_text(text, `Context: ${$$props.decision.context.mode ?? ""} ${$$props.decision.context.variant ?? "" ?? ""} · Basisziel: ${$0 ?? ""}`);
+      set_text(text_1, `Solar-Lifecycle: ${$$props.lifecycle ?? ""} · Exposure: ${$$props.exposure ?? ""}`);
+      set_text(text_2, `Gewählte Screen-Klasse: ${$1 ?? ""}`);
+      set_text(text_4, `Safety: ${$$props.decision.safety.status ?? ""} · min_open: ${$$props.decision.safety.min_open ?? ""} % · Richtungssperre: ${$$props.decision.safety.block_direction ?? "keine" ?? ""}`);
+      set_text(text_5, `Zulässiges Intervall: ${$$props.decision.feasible_interval[0] ?? ""}–${$$props.decision.feasible_interval[1] ?? ""} % · Finales Ziel: ${$2 ?? ""}`);
+      set_text(text_8, `Runtime ${$$props.decision.runtime_generation ?? ""}: ${$$props.decision.runtime_status ?? ""} · Decision ${$$props.decision.decision_generation ?? ""} · Lease: ${$$props.decision.lease_status ?? ""} · Apply: ${$$props.decision.apply_status ?? ""}`);
+      set_text(text_9, `Snapshot: ${$$props.decision.snapshot_identity ?? ""}`);
+      set_text(text_10, $$props.decision.config_revision);
+    },
+    [
+      () => position($$props.decision.context.base_target),
+      () => {
+        var _a2;
+        return String(((_a2 = get(activity)) == null ? void 0 : _a2.value) ?? "unbekannt");
+      },
+      () => position($$props.decision.target_position)
+    ]
+  );
+  append($$anchor, section);
+  pop();
+}
 var root$2 = /* @__PURE__ */ from_html(`<p class="callout warning"> </p>`);
 var root_1$2 = /* @__PURE__ */ from_html(`<p class="hint">Shadow berechnet dieses Ziel. Blind Control steuert die reale Position noch nicht.</p>`);
 var root_2$2 = /* @__PURE__ */ from_html(`<div class="rule"><strong> </strong><p> </p></div>`);
@@ -4613,7 +4708,7 @@ var root_4 = /* @__PURE__ */ from_html(`<li><strong> </strong><span> </span></li
 var root_5 = /* @__PURE__ */ from_html(`<h3>Pausiert / unterdrückt</h3> <ul class="plain-list"></ul>`, 1);
 var root_6 = /* @__PURE__ */ from_html(`<div><span> </span><code> </code></div>`);
 var root_7 = /* @__PURE__ */ from_html(`<p class="empty-state">Noch keine owner-bound Inputs gebunden.</p>`);
-var root_8 = /* @__PURE__ */ from_html(`<section class="diagnosis-layout" aria-label="Diagnose"><article class="card span-2"><p class="eyebrow">TECHNISCHE EBENE</p><h2>Baseline, Bewegung und Kontext</h2> <dl class="facts"><div><dt>Bewegung</dt><dd> </dd></div> <div><dt>Recovery</dt><dd> </dd></div> <div><dt>Ruhebaseline</dt><dd> </dd></div> <div><dt>Manual Override</dt><dd> </dd></div> <div><dt>Core Contracts</dt><dd> </dd></div></dl> <h3>HAUSHALT & KONTEXT</h3> <dl class="facts"></dl></article> <article class="card"><div class="card-heading"><div><p class="eyebrow">DECISION TRACE</p><h2>Hierarchie und flache Diagnose</h2></div><span class="badge"> </span></div> <div class="winner-tree"><span>Master</span> <strong> </strong> <span> </span></div> <h3>Flache Kandidatenliste (Diagnose)</h3> <div class="trace-list"></div> <!></article> <div class="side-stack"><article class="card"><div class="card-heading"><div><p class="eyebrow">SOLAR EXPOSURE</p><h2> </h2></div><span class="badge"> </span></div> <dl class="facts"><div><dt>Einfallsfaktor</dt><dd> </dd></div> <div><dt>Außen-Lux</dt><dd> </dd></div> <div><dt>Trend</dt><dd> </dd></div> <div><dt>Capabilities</dt><dd> </dd></div> <div><dt>Optionale Capabilities fehlen</dt><dd> </dd></div> <div><dt>Verwendete Evidence</dt><dd> </dd></div> <div><dt>Abgeleitet</dt><dd> </dd></div> <div><dt>Grund</dt><dd> </dd></div></dl></article> <article class="card"><div class="card-heading"><div><p class="eyebrow">INPUT QUALITY</p><h2>Owner-gebundene Inputs</h2></div></div> <div class="source-list"></div></article> <article class="card debug-card"><div class="card-heading"><div><p class="eyebrow">EXPORT</p><h2>Redigierte Debug-Evidence</h2></div><button class="quiet-button" type="button"> </button></div> <details><summary>Kopierbare Shadow-Evidence anzeigen</summary> <pre> </pre></details></article></div></section>`);
+var root_8 = /* @__PURE__ */ from_html(`<!> <section class="diagnosis-layout" aria-label="Diagnose"><article class="card span-2"><p class="eyebrow">TECHNISCHE EBENE</p><h2>Baseline, Bewegung und Kontext</h2> <dl class="facts"><div><dt>Bewegung</dt><dd> </dd></div> <div><dt>Recovery</dt><dd> </dd></div> <div><dt>Ruhebaseline</dt><dd> </dd></div> <div><dt>Manual Override</dt><dd> </dd></div> <div><dt>Core Contracts</dt><dd> </dd></div></dl> <h3>HAUSHALT & KONTEXT</h3> <dl class="facts"></dl></article> <article class="card"><div class="card-heading"><div><p class="eyebrow">DECISION TRACE</p><h2>Hierarchie und flache Diagnose</h2></div><span class="badge"> </span></div> <div class="winner-tree"><span>Master</span> <strong> </strong> <span> </span></div> <h3>Flache Kandidatenliste (Diagnose)</h3> <div class="trace-list"></div> <!></article> <div class="side-stack"><article class="card"><div class="card-heading"><div><p class="eyebrow">SOLAR EXPOSURE</p><h2> </h2></div><span class="badge"> </span></div> <dl class="facts"><div><dt>Einfallsfaktor</dt><dd> </dd></div> <div><dt>Außen-Lux</dt><dd> </dd></div> <div><dt>Trend</dt><dd> </dd></div> <div><dt>Capabilities</dt><dd> </dd></div> <div><dt>Optionale Capabilities fehlen</dt><dd> </dd></div> <div><dt>Verwendete Evidence</dt><dd> </dd></div> <div><dt>Abgeleitet</dt><dd> </dd></div> <div><dt>Grund</dt><dd> </dd></div></dl></article> <article class="card"><div class="card-heading"><div><p class="eyebrow">INPUT QUALITY</p><h2>Owner-gebundene Inputs</h2></div></div> <div class="source-list"></div></article> <article class="card debug-card"><div class="card-heading"><div><p class="eyebrow">EXPORT</p><h2>Redigierte Debug-Evidence</h2></div><button class="quiet-button" type="button"> </button></div> <details><summary>Kopierbare Shadow-Evidence anzeigen</summary> <pre> </pre></details></article></div></section>`, 1);
 var root_9 = /* @__PURE__ */ from_html(`<label> <input type="text"/></label> <p class="hint"> </p>`, 1);
 var root_10 = /* @__PURE__ */ from_html(`<p class="callout failure-callout"> </p>`);
 var root_11 = /* @__PURE__ */ from_html(`<div class="profile-row" role="row"><strong> </strong> <input type="number" min="0" max="100"/> <output> </output></div>`);
@@ -4859,7 +4954,20 @@ function App($$anchor, $$props) {
       append($$anchor2, section);
     };
     var consequent_2 = ($$anchor2) => {
-      var section_1 = root_8();
+      var fragment = root_8();
+      var node_3 = first_child(fragment);
+      Dimensions(node_3, {
+        get decision() {
+          return $$props.snapshot.diagnosis.decision;
+        },
+        get lifecycle() {
+          return $$props.snapshot.diagnosis.solar.lifecycle;
+        },
+        get exposure() {
+          return $$props.snapshot.diagnosis.solar.state;
+        }
+      });
+      var section_1 = sibling(node_3, 2);
       var article = child(section_1);
       var dl = sibling(child(article), 3);
       var div_5 = child(dl);
@@ -4934,11 +5042,11 @@ function App($$anchor, $$props) {
         );
         append($$anchor3, div_14);
       });
-      var node_3 = sibling(div_13, 2);
+      var node_4 = sibling(div_13, 2);
       {
         var consequent_1 = ($$anchor3) => {
-          var fragment = root_5();
-          var ul = sibling(first_child(fragment), 2);
+          var fragment_1 = root_5();
+          var ul = sibling(first_child(fragment_1), 2);
           each(ul, 21, () => $$props.snapshot.diagnosis.paused_requirements, index, ($$anchor4, item) => {
             var li = root_4();
             var strong_2 = child(li);
@@ -4957,9 +5065,9 @@ function App($$anchor, $$props) {
             );
             append($$anchor4, li);
           });
-          append($$anchor3, fragment);
+          append($$anchor3, fragment_1);
         };
-        if_block(node_3, ($$render) => {
+        if_block(node_4, ($$render) => {
           if ($$props.snapshot.diagnosis.paused_requirements.length) $$render(consequent_1);
         });
       }
@@ -5079,7 +5187,7 @@ function App($$anchor, $$props) {
         ]
       );
       delegated("click", button_1, copyDebugPayload);
-      append($$anchor2, section_1);
+      append($$anchor2, fragment);
     };
     var alternate = ($$anchor2) => {
       var section_2 = root_16();
@@ -5105,10 +5213,10 @@ function App($$anchor, $$props) {
       option_1.value = option_1.__value = "eltern";
       var select_value;
       init_select(select);
-      var node_4 = sibling(label_5, 2);
-      each(node_4, 16, () => ["opening", "room_climate", "weather_environment"], index, ($$anchor3, schema) => {
-        var fragment_1 = root_9();
-        var label_6 = first_child(fragment_1);
+      var node_5 = sibling(label_5, 2);
+      each(node_5, 16, () => ["opening", "room_climate", "weather_environment"], index, ($$anchor3, schema) => {
+        var fragment_2 = root_9();
+        var label_6 = first_child(fragment_2);
         var text_34 = child(label_6);
         var input_4 = sibling(text_34);
         var p_3 = sibling(label_6, 2);
@@ -5135,7 +5243,7 @@ function App($$anchor, $$props) {
             else delete get(draftSettings).core_contracts[schema];
           }
         });
-        append($$anchor3, fragment_1);
+        append($$anchor3, fragment_2);
       });
       var article_7 = sibling(article_6, 2);
       var div_32 = child(article_7);
@@ -5145,7 +5253,7 @@ function App($$anchor, $$props) {
       var button_2 = sibling(span_9);
       var button_3 = sibling(button_2);
       var text_37 = child(button_3);
-      var node_5 = sibling(div_32, 2);
+      var node_6 = sibling(div_32, 2);
       {
         var consequent_3 = ($$anchor3) => {
           var p_4 = root_10();
@@ -5153,13 +5261,13 @@ function App($$anchor, $$props) {
           template_effect(() => set_text(text_38, get(saveError)));
           append($$anchor3, p_4);
         };
-        if_block(node_5, ($$render) => {
+        if_block(node_6, ($$render) => {
           if (get(saveError)) $$render(consequent_3);
         });
       }
-      var div_34 = sibling(node_5, 2);
-      var node_6 = sibling(child(div_34), 2);
-      each(node_6, 17, () => Object.entries(get(editableSettings).profiles), index, ($$anchor3, $$item) => {
+      var div_34 = sibling(node_6, 2);
+      var node_7 = sibling(child(div_34), 2);
+      each(node_7, 17, () => Object.entries(get(editableSettings).profiles), index, ($$anchor3, $$item) => {
         var $$array_3 = /* @__PURE__ */ user_derived(() => to_array(get($$item), 2));
         let key = () => get($$array_3)[0];
         let profile = () => get($$array_3)[1];
@@ -5214,8 +5322,8 @@ function App($$anchor, $$props) {
         var section_3 = root_15();
         var h3 = child(section_3);
         var text_42 = child(h3);
-        var node_7 = sibling(h3, 2);
-        each(node_7, 17, () => get(group).fields, index, ($$anchor4, field) => {
+        var node_8 = sibling(h3, 2);
+        each(node_8, 17, () => get(group).fields, index, ($$anchor4, field) => {
           var div_38 = root_13();
           var strong_4 = child(div_38);
           var text_43 = child(strong_4);
@@ -5238,7 +5346,7 @@ function App($$anchor, $$props) {
           );
           append($$anchor4, div_38);
         });
-        var node_8 = sibling(node_7, 2);
+        var node_9 = sibling(node_8, 2);
         {
           var consequent_4 = ($$anchor4) => {
             var p_5 = root_14();
@@ -5248,7 +5356,7 @@ function App($$anchor, $$props) {
             ]);
             append($$anchor4, p_5);
           };
-          if_block(node_8, ($$render) => {
+          if_block(node_9, ($$render) => {
             if (get(group).key === "opening_safety_cover_bindings") $$render(consequent_4);
           });
         }

@@ -68,3 +68,23 @@ test('transport sends only the explicit staged operation and concurrency token',
   await transport.setOperation({ connection: { sendMessagePromise: async msg => calls.push(msg) } }, 'fresh-revision', 'live', 'blind_control', false, false);
   assert.deepEqual(calls, [{ type: 'blind_control/set_operation', expected_revision: 'fresh-revision', operation: { runtime_mode: 'live', apply_owner: 'blind_control', apply_enabled: false }, confirm_null_writer: false }]);
 });
+
+test('dimensions renders backend target, scoped quality and gates without another arbitration', async () => {
+  const html = await component('Dimensions', {
+    lifecycle: 'INACTIVE', exposure: 'night',
+    decision: {
+      context: { mode: 'sleep', variant: 'provisional_sleep', base_target: 5 },
+      evidence: [{ key: 'activity_state', value: 'pc', details: [['media_device', 'pc'], ['activity_state', 'gaming']] }],
+      contributions: [
+        { feature: 'glare', variant: 'pc', effect: 'max_open', value: 75, status: 'paused', reason: 'fixture_pause' },
+        { feature: 'private_time', variant: null, effect: 'max_open', value: 20, status: 'suppressed', reason: 'hard_safety_min_open' },
+      ],
+      issues: [{ feature: 'cold', quality: 'stale', evidence: 'outdoor_lux', owner: 'core_contracts', timestamp_basis: 'owner_field_quality_no_consumer_reaging', fallback: 'block_opening_direction', reason: 'fixture_loss' }],
+      safety: { min_open: 30, block_direction: null, status: 'safe_position' },
+      feasible_interval: [30, 100], target_position: 37,
+      runtime_generation: 4, decision_generation: 12, runtime_status: 'active',
+      lease_status: 'latest', apply_status: 'blocked', snapshot_identity: '4:12', config_revision: 'fixture-hash',
+    },
+  });
+  for (const text of ['provisional_sleep', '37 %', 'private_time', 'suppressed', 'paused', 'cold', 'owner_field_quality_no_consumer_reaging', '4:12', 'INACTIVE', 'night', 'nicht gestoppt']) assert.ok(html.includes(text), text);
+});

@@ -1,5 +1,6 @@
 <script lang="ts">
   import Operation from './Operation.svelte';
+  import Dimensions from './Dimensions.svelte';
   import Overview from './Overview.svelte';
   import type {
     Candidate,
@@ -298,6 +299,7 @@
       <div class="span-2"><Operation {snapshot} {onOperation} /></div>
     </section>
   {:else if activeTab === 'diagnosis'}
+    <Dimensions decision={snapshot.diagnosis.decision} lifecycle={snapshot.diagnosis.solar.lifecycle} exposure={snapshot.diagnosis.solar.state} />
     <section class="diagnosis-layout" aria-label="Diagnose">
       <article class="card span-2">
         <p class="eyebrow">TECHNISCHE EBENE</p><h2>Baseline, Bewegung und Kontext</h2>

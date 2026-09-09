@@ -1,5 +1,44 @@
 # AP3 Cutover- und Rollback-Runbook
 
+## Aktuell: manuelle Betreiberverifikation nach v0.7.3-Release
+
+Verbindlich: [Issue #3 Contract](https://github.com/Levtos/blind_control/issues/3#issuecomment-5609119991).
+Die historischen Installations-/Owner-Angaben weiter unten sind kein aktueller
+Betriebsstand. Ausgang dieses Auftrags ist produktives v0.7.2; das neue Release
+bleibt **Testing / Released / Not Live**. Keine Shadow-Instanz. Alle folgenden
+HA-Schritte führt ausschließlich der Betreiber aus, niemals Codex:
+
+1. Vollständiges HA-/ConfigEntry-Backup erstellen; Release, Manifest und
+   HACS-Version prüfen.
+2. Neue Version installieren und erforderlichen HA-Neustart durchführen.
+3. Zunächst Apply AUS; geladene Version, Config-Roundtrip, Runtime Generation,
+   Baseline, Motion, Opening, Owner und Diagnostics prüfen.
+4. Night natürlich/read-only beobachten: unter Horizont dürfen stale/unavailable
+   Lux/Azimut NIGHT nicht ungültig machen; Sleep bleibt 5. Keine künstliche
+   Sensormanipulation ohne separat genehmigtes Testfenster.
+5. PC-Fall: kanonisch PC/gaming zeigt Glare-PC/75; generisches Entertainment
+   darf daraus kein TV machen.
+6. TV-/Streaming-/Konsolenfall: Glare-TV/60 prüfen.
+7. PC↔TV wechseln: ausschließlich neueste Variante, kein altes Pending-Ziel.
+8. Sleep/Away/Privacy bei degraded Solar/Temperatur beobachten: nur abhängige
+   Features degraded; Context und unabhängige Schließanforderung bleiben wirksam.
+9. Opening-Safety mit sicher vorbereiteter realer Testprozedur prüfen: kein
+   Down-Move bei unsafe/open. Safety niemals lockern.
+10. Pending-Revalidation kontrolliert prüfen: Apply AUS, Automation AUS oder
+    Owner-Wechsel verhindern jeden neuen Write. **Eine bereits angenommene
+    physische Fahrt wird dadurch nicht gestoppt** und ist separat zu behandeln.
+11. Erst nach korrekter Ziel-/Richtungsprüfung, Null-Writer und sicherer
+    Fensterlage Apply bewusst freigeben; eine kontrollierte Fahrt beobachten.
+12. Tatsächliche Zielposition, stabile Ruhe, kein Self-Override, keine alte
+    Decision-Replay und plausible Diagnostics bestätigen.
+13. Erst danach setzt der Betreiber Live. Live Verified folgt erst nach
+    längerfristiger Beobachtung aller realen Pflichtszenarien.
+
+Rollback und Config-v6-Kompatibilität: [MIGRATION.md](MIGRATION.md).
+Keine HA-Live-Änderung durch Codex; technische Checks belegen keine reale Fahrt.
+
+## Historischer Cutover-Stand bis v0.7.2
+
 **Stand:** v0.7.0. **Status:** Testing / Not Live.
 Benni meldet v0.6.2 installiert im Shadow, Position 100 %, idle. Nach technischer
 v0.7.0-Lieferung ist das nächste reale Gate sein kontrollierter Writer-Cutover.

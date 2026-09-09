@@ -121,6 +121,17 @@ def build_inputs_from_states(
             now,
             opening_safety_polarity=config.opening_safety_polarity,
         )
+        observation = values[key]
+        bound_state = states.get(configured.get(key, ""))
+        values[key] = replace(
+            observation,
+            owner=config.binding_policy(key).owner,
+            timestamp_basis=_timestamp_basis(key, bound_state),
+            source_revision=observation.updated_at.isoformat() if observation.updated_at else None,
+            evidence=_activity_evidence(bound_state)
+            if key == "activity_state"
+            else observation.evidence,
+        )
     position = values["cover_position"]
     cover = states.get(configured.get("cover_position", ""))
     # HA motion states are semantic, not derivatives of the numeric device axis.
@@ -145,6 +156,26 @@ def build_inputs_from_states(
             value=None,
             quality=InputQuality.CONFLICT,
             reason="cloud_cover_outside_percent_range",
+        )
+    sun_id = configured.get("sun_elevation", "")
+    if sun_id.startswith("sun."):
+        sun = states.get(sun_id)
+        horizon = str(getattr(sun, "state", "unknown")).lower()
+        attributes = getattr(sun, "attributes", {}) or {}
+        quality = _explicit_quality(attributes, key="sun_elevation")
+        values["sun_horizon"] = InputObservation(
+            value=horizon if horizon in {"above_horizon", "below_horizon"} else None,
+            source=sun_id,
+            owner="ha_sun",
+            quality=quality
+            or (
+                InputQuality.FRESH
+                if horizon in {"above_horizon", "below_horizon"}
+                else InputQuality.UNKNOWN
+            ),
+            reason="stateful_horizon_truth",
+            updated_at=_updated_at("sun_elevation", sun),
+            timestamp_basis="stateful_last_updated",
         )
     return BlindControlInputs(**values)
 
@@ -196,7 +227,7 @@ class ShadowCoordinator:
         self.config = config
         self.shadow = shadow
         self.radiation_provider = radiation_provider
-        self.apply_executor = apply_executor or CoverApplyExecutor(hass, config, shadow)
+        self.apply_executor = apply_executor or CoverApplyExecutor(hass, config, shadow, entry)
         self.snapshot: ShadowSnapshot | None = None
         self.ux_snapshot: dict[str, object] | None = None
         self._unsubscribers: list[object] = []
@@ -315,6 +346,12 @@ class ShadowCoordinator:
             runtime_ready=runtime_ready,
         )
         snapshot = await self.apply_executor.async_apply(snapshot)
+        if (
+            not self.shadow.active
+            or snapshot.trace.decision is None
+            or snapshot.trace.decision.decision_generation != self.shadow.decision_generation
+        ):
+            return snapshot
         self.snapshot = snapshot
         self.ux_snapshot = build_ux_snapshot(
             snapshot,
@@ -410,6 +447,7 @@ class ShadowCoordinator:
 
         if not self.shadow.active:
             return
+        self.shadow.revoke()
         add_job = getattr(self.hass, "add_job", None)
         if callable(add_job):
             add_job(self._schedule_refresh_in_event_loop)
@@ -560,6 +598,14 @@ def _observation_for_entity(
             attributes=attributes,
             opening_safety_polarity=opening_safety_polarity,
         )
+    except ScreenEvidenceConflict:
+        return InputObservation(
+            source=entity_id,
+            owner="core_state",
+            quality=InputQuality.CONFLICT,
+            reason="canonical_screen_evidence_conflict",
+            updated_at=_updated_at(key, state),
+        )
     except (TypeError, ValueError):
         return InputObservation(
             source=entity_id,
@@ -612,6 +658,9 @@ def _observation_for_entity(
         quality=quality,
         reason=f"{adapter_reason};{_timestamp_reason(key, state)};{reason}",
         updated_at=updated_at,
+        owner=freshness.owner,
+        timestamp_basis=_timestamp_basis(key, state),
+        source_revision=updated_at.isoformat() if updated_at else None,
     )
 
 
@@ -777,6 +826,62 @@ def _convert_cover_availability(raw_state: object) -> tuple[bool, str]:
     return _canonical_bool(raw_state), "explicit_cover_availability_contract"
 
 
+class ScreenEvidenceConflict(ValueError):
+    """Equally specific owner facts disagree; never resolve by local TV priority."""
+
+
+def _activity_evidence(state: object) -> tuple[tuple[str, str | bool], ...]:
+    """Retain canonical owner facts without echoing arbitrary private attributes."""
+    attributes = getattr(state, "attributes", {}) or {}
+    allowed = {
+        "pc",
+        "gaming_pc",
+        "computer",
+        "workstation",
+        "tv",
+        "television",
+        "ps5",
+        "playstation",
+        "xbox",
+        "switch",
+        "console",
+        "streaming",
+        "screen",
+        "display",
+        "general_glare",
+        "gaming",
+        "entertainment",
+        "music",
+        "idle",
+        "none",
+        "sleep",
+        "waking",
+        "private_time",
+        "work_home",
+        "work_away",
+        "household",
+        "free_time",
+        "unknown",
+        "unavailable",
+    }
+    result = []
+    for key, value in (
+        ("activity_state", getattr(state, "state", "unknown")),
+        *(
+            (key, attributes[key])
+            for key in ("screen_class", "media_device", "gaming_platform")
+            if key in attributes
+        ),
+    ):
+        normalized = str(value).strip().lower()
+        result.append((key, normalized if normalized in allowed else "unmapped"))
+    for key in ("pc_active", "entertainment_active"):
+        value = _optional_bool_attribute(attributes, key)
+        if value is not None:
+            result.append((key, value))
+    return tuple(result)
+
+
 def _convert_activity(
     raw_state: object,
     attributes: Mapping[str, object],
@@ -799,6 +904,26 @@ def _convert_activity(
     pc_contexts = {"pc", "pc_active", "gaming_pc", "workstation"}
     general_contexts = {"screen", "display", "general_glare"}
 
+    explicit = set()
+    evidence_keys = []
+    for key in ("screen_class", "media_device", "gaming_platform"):
+        value = str(attributes.get(key, "")).strip().lower()
+        selected_class = (
+            "pc"
+            if value in pc_platforms | {"workstation"}
+            else "tv"
+            if value in tv_platforms | {"console", "streaming", "television"}
+            else None
+        )
+        if selected_class:
+            explicit.add(selected_class)
+            evidence_keys.append(key)
+    if len(explicit) > 1:
+        raise ScreenEvidenceConflict()
+    if explicit:
+        selected = explicit.pop()
+        return selected, f"canonical_screen_{selected}[{','.join(evidence_keys)}]"
+
     tv_active = (
         entertainment is True
         or platform in tv_platforms
@@ -817,10 +942,10 @@ def _convert_activity(
         or (entertainment is True and not tv_active)
     )
 
-    if tv_active:
-        selected = "tv"
-    elif pc_active:
+    if pc_active:
         selected = "pc"
+    elif tv_active:
+        selected = "tv"
     elif general_active:
         selected = "screen"
     elif state in {
@@ -1156,6 +1281,19 @@ def _timestamp_reason(key: str, state: object) -> str:
     if _ha_updated_at(state) is not None:
         return "standard_cover_ha_timestamp_contract"
     return "timestamp_contract_missing"
+
+
+def _timestamp_basis(key: str, state: object) -> str:
+    attributes = getattr(state, "attributes", {}) or {}
+    if key in {"cover_position", "cover_motion"}:
+        for name in _DEVICE_TIMESTAMP_KEYS:
+            if name in attributes:
+                return name
+    if getattr(state, "last_updated", None) is not None:
+        return "last_updated"
+    if getattr(state, "last_changed", None) is not None:
+        return "last_changed_fallback"
+    return "missing"
 
 
 def _as_utc_datetime(value: object) -> datetime | None:

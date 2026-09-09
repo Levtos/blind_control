@@ -1,5 +1,29 @@
 # AP3 Operator- und Consumer-Vertrag v0.7.0
 
+## Aktueller Betreibervertrag ab v0.7.3
+
+[Issue #3, aktueller Vertrag](https://github.com/Levtos/blind_control/issues/3#issuecomment-5609119991)
+ersetzt widersprechende historische Status-/Failure-Aussagen weiter unten.
+Der Betreiber hat v0.7.2 bereits produktiv; das neue Release erhält dadurch
+keinen automatischen Live-Nachweis. Status des Patches: Testing / Released /
+Not Live, nach technischer Veröffentlichung. Keine zusätzliche Shadow-Instanz.
+
+Diagnose getrennt lesen: Context/Basisziel, Glare-Variante und sämtliche
+Protections, Modifier, Safety-Minimum/Richtungssperre, Intervall/finales Ziel,
+aktive/pausierte/unterdrückte Beiträge, feature-lokale Quality mit Owner/Zeitbasis/
+Fallback, Solar-Lifecycle/Exposure und kanonische Activity-Evidence. Generation,
+Config-Revision, Snapshot und Lease beschreiben die aktuelle Writer-Prüfung.
+
+Automation AUS und Apply AUS widerrufen alte Freigaben vor dem Speichern bzw.
+Reload; das gilt für Panel und native Optionen. **Apply AUS verhindert neue
+Commands, stoppt aber keine bereits angenommene physische Fahrt.** Optionsänderung
+ist keine Bestätigung der realen Position. Null-Writer, Safety, Ruhebaseline,
+Owner und aktuelle Decision bleiben vor jeder Freigabe erforderlich.
+
+Die vollständige manuelle Verifikation und Rollback-Schritte stehen im
+[Cutover-Runbook](AP3_CUTOVER.md) und in [Migration](MIGRATION.md). Codex führt
+keinen dieser HA-Schritte aus.
+
 Entscheidung: [Issue #3, aktueller Vertrag](https://github.com/Levtos/blind_control/issues/3#issuecomment-5581296547).
 Diese Entscheidung ersetzt die frühere vollständige Verschiebung der
 Core-Contracts-Anbindung und den ausschließlich nativen Betriebswechsel.

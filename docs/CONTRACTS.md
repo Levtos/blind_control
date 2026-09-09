@@ -1,6 +1,47 @@
 # Owner- und Contract-Matrix – Blind Control AP1
 
-**Dokumentversion:** 0.1.0
+## Aktueller additiver Contract v0.7.3
+
+Verbindlich: [Issue #3](https://github.com/Levtos/blind_control/issues/3#issuecomment-5609119991)
+und [typed Pipeline](ARCHITECTURE.md). Widersprechende globale Failure-/Night-
+Pflichtbedingungen weiter unten sind superseded, historische IDs keine Defaults.
+
+Versionen: `blind_control.decision.v5`, `blind_control.dimensions.v1`,
+`blind_control.runtime.v4`, `blind_control.ux.v5`,
+`blind_control.automation_projection.v4`. `trace.decision` enthält Context und
+Basisziel, Contributions (active/inactive/paused/suppressed), effect/value,
+scoped Issues, CanonicalFact-Evidence, Safety Envelope, feasible interval,
+final target, evaluated_at, Runtime-/Decision-Generation, Config-Revision,
+Snapshot-Identity, Runtime-/Apply-/Lease-Status.
+
+Die bestehenden Felder `active_mode`, `winner_keys`, `winner`, `master_mode`,
+`fachlicher_target`, `effective_target` bleiben additive LegacyProjection.
+Sie sind für neue multidimensionale Automationen deprecated, werden nicht
+entfernt und fassen nicht jede aktive Protection in einem einzigen Modus zusammen.
+Config bleibt v6, Statusentity und Profile bleiben stabil.
+
+Evidence unterscheidet last_changed (Wertänderung), last_updated (HA-Update),
+last_reported (Bericht) und Owner-Messzeit. Ein Bericht wird nicht automatisch
+als Messung behandelt. Der gepinnte Core-Consumer-FieldSnapshot liefert
+feldbezogene Quality plus Registry-/Graph-Revision, aber keinen effektiven
+Messzeitpunkt: Zeitbasis `owner_field_quality_no_consumer_reaging`, Timestamp
+unbekannt. `last_real_change` ist keine Messzeit und wird nicht dafür umgedeutet.
+Frische Owner-Quality wird nicht durch lokales last_changed-Alter entwertet.
+Raw-Quellen behalten die benannten Binding-Freshness-Policies; stationäre Cover-
+und Sun-Horizon-Wahrheit bleiben stateful. Negative Owner-Evidence bleibt negativ.
+Ein ausgewählter defekter Core Contract fällt niemals auf direkte Bindings zurück.
+
+Core State publiziert media_device/gaming_platform aktuell als Media-Debug-Echo
+und Activity samt Feed-Quality als kanonischen Context. Blind Control konsumiert
+diese expliziten Geräteangaben minimal für die Screen-Variante und beachtet
+Owner-Quality. Ein eigener stabiler Screen-DTO im ausgewählten Core-Contracts-v1-
+Schema fehlt; kein neues Registry-Schema wird für diesen Patch erfunden.
+Ein späterer upstream Screen-Contract bleibt eine dokumentierte Contract-Lücke.
+
+Öffentliche Diagnose redigiert Quellen/Entity-IDs; Generationen und Hashes
+enthalten keine URLs, Koordinaten, Credentials oder private Topologie.
+
+**Historische Dokumentversion:** 0.1.0
 
 > Die Abschnitte 1 bis 5 konservieren die historische AP1-Inventur und ihre
 > damaligen offenen Punkte. Für AP2-Laufzeit und Installation ist ausschließlich

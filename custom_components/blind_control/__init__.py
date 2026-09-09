@@ -74,6 +74,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: BlindControlConfigEntry)
     await coordinator.async_start()
     if hasattr(entry, "async_on_unload"):
         entry.async_on_unload(coordinator.stop)
+        listen_once = getattr(getattr(hass, "bus", None), "async_listen_once", None)
+        if callable(listen_once):
+            entry.async_on_unload(
+                listen_once("homeassistant_stop", lambda _event: coordinator.stop())
+            )
     if hasattr(entry, "add_update_listener") and hasattr(entry, "async_on_unload"):
         entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -116,6 +121,9 @@ def _runtime_config_mapping(
 async def async_unload_entry(hass: HomeAssistant, entry: BlindControlConfigEntry) -> bool:
     """Unload one entry and remove runtime listeners and provider tasks."""
 
+    from .operation import revoke_entry_runtime
+
+    revoke_entry_runtime(entry)
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if not unloaded:
         return False
@@ -132,4 +140,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: BlindControlConfigEntry
 async def _async_options_updated(hass: HomeAssistant, entry: BlindControlConfigEntry) -> None:
     """Recreate the guarded runtime after an OptionsFlow change."""
 
+    from .operation import revoke_entry_runtime
+
+    revoke_entry_runtime(entry)
     await hass.config_entries.async_reload(entry.entry_id)

@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
+from itertools import count
 
 from .config import BlindControlConfig
 from .contracts import (
@@ -19,10 +20,12 @@ from .contracts import (
 from .cooldown import CooldownTracker
 from .engine import DecisionEngine
 from .environment import EnvironmentalState
+from .operation import revision
 from .override import OverrideTracker
 from .shadow_diff import ShadowDiff, compare_legacy_snapshot
 
-SHADOW_CONTRACT_VERSION = "blind_control.runtime.v3"
+SHADOW_CONTRACT_VERSION = "blind_control.runtime.v4"
+_RUNTIME_GENERATIONS = count(1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,10 +103,17 @@ class ShadowRuntime:
         self._override_context_key: OverrideContextKey | None = None
         self._last_safe_position: float | None = None
         self.active = True
+        self.runtime_generation = next(_RUNTIME_GENERATIONS)
+        self.decision_generation = 0
         self.latest_snapshot: ShadowSnapshot | None = None
 
     def stop(self) -> None:
         self.active = False
+        self.revoke()
+
+    def revoke(self) -> None:
+        """Synchronously invalidate leases before a queued refresh or mutation."""
+        self.decision_generation += 1
         self.latest_snapshot = None
         self.cooldown_tracker.pending_target = None
 
@@ -122,6 +132,8 @@ class ShadowRuntime:
     ) -> ShadowSnapshot:
         if not self.active:
             raise RuntimeError("runtime_stopped")
+        self.revoke()
+        evaluated_at = evaluated_at or datetime.now(UTC)
         self.cooldown_tracker.pending_target = None
         self._apply_override_context_lifecycle(OverrideContextKey.from_inputs(inputs))
         current_safe_position = _safe_hold_position(inputs)
@@ -141,6 +153,22 @@ class ShadowRuntime:
         )
         if current_safe_position is not None:
             self._last_safe_position = current_safe_position
+        if trace.decision is not None:
+            identity = f"{self.runtime_generation}:{self.decision_generation}"
+            trace = replace(
+                trace,
+                decision=replace(
+                    trace.decision,
+                    decision_id=identity,
+                    snapshot_identity=identity,
+                    decision_generation=self.decision_generation,
+                    runtime_generation=self.runtime_generation,
+                    config_revision=revision(self.config),
+                    evaluated_at=evaluated_at.isoformat(),
+                    runtime_status="active",
+                    lease_status="latest",
+                ),
+            )
         legacy_evidence = (
             legacy_snapshot
             if isinstance(legacy_snapshot, LegacyEvidence)
@@ -193,12 +221,15 @@ class ShadowRuntime:
         return self.evaluate(inputs, evaluated_at=evaluated_at, now=now)
 
     def on_restart(self, position: float | None) -> ManualOverride:
+        self.revoke()
+        self.runtime_generation = next(_RUNTIME_GENERATIONS)
         self.environment_state = EnvironmentalState()
         self._override_context_key = None
         self._last_safe_position = None
         return self.override_tracker.on_restart(position)
 
     def on_configuration_change(self, position: float | None = None) -> ManualOverride:
+        self.revoke()
         self._override_context_key = None
         return self.override_tracker.on_configuration_change(position)
 
@@ -220,6 +251,7 @@ class ShadowRuntime:
         observed_at: datetime | None = None,
         moving: bool = False,
     ) -> ManualOverride:
+        self.revoke()
         return self.override_tracker.observe_position(
             position,
             source=source,
@@ -229,6 +261,7 @@ class ShadowRuntime:
         )
 
     def clear_override(self) -> ManualOverride:
+        self.revoke()
         self._override_context_key = None
         return self.override_tracker.clear()
 

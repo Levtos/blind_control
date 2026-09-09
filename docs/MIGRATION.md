@@ -1,5 +1,30 @@
 # Konfiguration, Bindings und Cutover-Migration
 
+## v0.7.2 → v0.7.3: additive Decision-Härtung
+
+Verbindlich: [Issue #3 Contract](https://github.com/Levtos/blind_control/issues/3#issuecomment-5609119991).
+Config bleibt **v6**: Profile, Kalibrierwerte, Binding-Intents, bewusst leere
+Bindings, ausgewählte Core Contracts und Options roundtrippen unverändert.
+Keine automatische Änderung von Owner, Runtime Mode, Automation oder Apply.
+Sun-Horizon wird aus dem bereits gewählten Sun-Binding abgeleitet; kein neues
+Pflichtbinding, keine neue Registry oder erfundene Schema-ID.
+
+Decision/UX/Automation-Versionen sind additiv erhöht, siehe [Contracts](CONTRACTS.md).
+LegacyProjection und Statusentity bleiben bestehen; neue Verbraucher sollen
+die Dimensionen verwenden. Generationszähler sind flüchtige Runtime-Identitäten,
+keine persistierten Commands. Reload/Restart verwirft sämtliche alten Freigaben
+und verlangt erneut die bestehende ruhige Coverbaseline.
+
+Rollback durch Betreiber: vollständiges HA-/ConfigEntry-Backup sichern,
+Apply AUS und aktuelle Bewegung separat behandeln, technische Release-Version
+v0.7.2 wiederherstellen, erforderlichen HA-Neustart durchführen, Manifest,
+Config-Roundtrip, Owner, Safety und Null-Writer prüfen. Erst danach bewusst
+freigeben. Config-v6 benötigt keinen Down-Migrator. Rollback stellt jedoch auch
+die bekannten Solar-/PC-Contract-Fehler von v0.7.2 wieder her.
+
+Codex installiert, konfiguriert oder startet HA in diesem Auftrag nicht.
+Nachfolgende ältere Migrationsabschnitte bleiben historische Evidence.
+
 **Stand:** Config v6 / AP3-Stabilisierung 2026-09-07. Testing / Shadow / Not Live.
 
 ## v0.6.2 → v0.6.3: Solar und native Cutover-Optionen

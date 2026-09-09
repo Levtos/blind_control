@@ -1,5 +1,34 @@
 # Blind Control Statusmodell und Live-Shadow-Contracts
 
+## Aktuell ab v0.7.3: dimensionsgetrennte Decision
+
+Verbindlich: [Issue #3 Contract](https://github.com/Levtos/blind_control/issues/3#issuecomment-5609119991).
+Die nachfolgende v4-Beschreibung des globalen Master-Failure ist superseded.
+`decision.v5`/`dimensions.v1` zeigen Context/base_target, alle Contributions,
+scoped Issues, Safety, feasible interval/final clamp und Runtime-/Writer-Status
+getrennt. Solar zeigt Lifecycle ACTIVE/INACTIVE/UNKNOWN zusätzlich zu Exposure.
+
+Ein Comfort-Problem ist `feature_degraded`, optional fehlende Entlastung oder
+Night-Zusatzevidence `diagnostic_warning`. Eine notwendige Öffnungsbegrenzung
+ist als aktive feature-lokale Constraint sichtbar. Technische Safety bleibt
+`blocked`/`safe_position`/`ready`, Apply hat weiterhin eigene Gate-/Motion-/Error-
+Status. Nicht jedes Quality-Problem ist ein globaler Master-Failure.
+
+`master_mode`, `active_mode`, `winner_keys`, `winner` und bestehende Automation-
+Attribute bleiben LegacyProjection. `normal` kann feature-lokal degraded sein;
+es bedeutet weder vollständige Quality noch Writer-Freigabe. Für neue
+Automationen `decision.issues`, `decision.contributions`, `safety_status` und
+`apply_status` auswerten. Die Statusentity wird nicht umbenannt.
+
+Runtime-/Decision-Generation, Config-Revision und Snapshot-Identity identifizieren
+die Auswertung. `latest` ist nur ein Snapshot-Status, keine dauerhafte Freigabe;
+vor Dispatch wird erneut validiert, danach ist die Lease einmalig konsumiert.
+Apply AUS stoppt keine bereits angenommene physische Fahrt.
+
+Historischer Stand folgt; Release dieses Patches bleibt **Testing / Released /
+Not Live** bis zur gesonderten Betreiberverifikation, unabhängig vom bereits
+produktiven v0.7.2-Betrieb.
+
 **Contract:** `blind_control.decision.v4`
 **Status:** `Installed / Shadow / Not Live`
 

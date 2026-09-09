@@ -21,6 +21,8 @@
 <article class="card operation-card" aria-label="Betrieb">
   <div class="card-heading"><div><p class="eyebrow">BETRIEB</p><h2>Writer kontrolliert freigeben</h2></div><span class="badge">Apply {snapshot.settings.apply_enabled ? 'AN' : 'AUS'}</span></div>
   <dl class="facts">
+    <div><dt>Aktuelle Generation / Lease</dt><dd>{snapshot.operation?.runtime_generation ?? '—'} / {snapshot.operation?.decision_generation ?? '—'} · {snapshot.operation?.lease_status ?? 'unbekannt'}</dd></div>
+    <div><dt>Writer-Gates freigegeben</dt><dd>{snapshot.operation?.armed ? 'ja' : 'nein'}</dd></div>
     <div><dt>Betriebsmodus</dt><dd>{snapshot.settings.runtime_mode === 'shadow' ? 'Shadow' : 'Live'}</dd></div>
     <div><dt>Writer-Zuständigkeit</dt><dd>{snapshot.settings.apply_owner === 'legacy' ? 'Legacy' : 'Blind Control'}</dd></div>
     <div><dt>Readiness / Ruhebaseline</dt><dd>{snapshot.overview.baseline_ready ? 'bestätigt' : 'wartet'} · {snapshot.overview.apply_status}</dd></div>
@@ -29,6 +31,7 @@
     <div><dt>Apply-Grund</dt><dd>{String(snapshot.overview.technical.apply.reason ?? '—').replaceAll('_', ' ')}</dd></div>
   </dl>
   <div class="button-row">
+    <p class="hint">Apply AUS verhindert neue Befehle, stoppt aber keine bereits angenommene physische Fahrt.</p>
     <button class="quiet-button" disabled={blocked} onclick={() => change('shadow', 'legacy', false)}>Shadow + Legacy · Apply AUS</button>
     <button class="quiet-button" disabled={blocked} onclick={() => change('live', 'blind_control', false)}>Live + Blind Control · Apply AUS</button>
   </div>

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import fields, replace
 
 from .config import BlindControlConfig
 from .contracts import (
@@ -19,16 +19,23 @@ from .contracts import (
     MasterMode,
     OpeningState,
     PausedRequirement,
-    QualityBlocker,
     SafetyDecision,
     SolarExposure,
     SolarExposureState,
 )
 from .cooldown import CooldownTracker
+from .decision import (
+    CanonicalFact,
+    ContextIntent,
+    Contribution,
+    DecisionIssue,
+    DimensionalDecision,
+    SafetyEnvelope,
+)
 from .environment import EnvironmentalState
 from .solar import calculate_solar_exposure
 
-DECISION_CONTRACT_VERSION = "blind_control.decision.v4"
+DECISION_CONTRACT_VERSION = "blind_control.decision.v5"
 DAYLIGHT_STATES = frozenset({"early_morning", "forenoon", "midday", "afternoon", "late_afternoon"})
 TRANSITION_STATES = frozenset({"evening", "late_evening"})
 NIGHT_STATES = frozenset({"early_night", "late_night"})
@@ -37,17 +44,6 @@ TV_ACTIVITY = frozenset({"tv", "console", "streaming", "playstation", "xbox", "s
 PC_ACTIVITY = frozenset({"pc", "computer", "workstation"})
 EFFECTIVE_SLEEP_STATES = frozenset({"provisional_sleep", "sleep"})
 OPENING_CANDIDATES = frozenset({"base_daylight", "storm_approaching", "cool_air_available"})
-MANDATORY_AUTOMATIC_DECISION_INPUTS = (
-    "bio_state",
-    "activity_state",
-    "day_state",
-    "day_context",
-    "away",
-    "private_time",
-    "privacy",
-    "indoor_temperature",
-    "outdoor_temperature",
-)
 
 
 class DecisionEngine:
@@ -142,14 +138,8 @@ class DecisionEngine:
             candidate for candidate in active if candidate.key not in OPENING_CANDIDATES
         ]
         selected = closing_active or active
-        fachlicher_target = min(
-            (
-                candidate.target_position
-                for candidate in selected
-                if candidate.target_position is not None
-            ),
-            default=None,
-        )
+        decision = self._dimensional(inputs, solar, candidates, waking=waking, override=override)
+        fachlicher_target = decision.target_position
         winner_keys = tuple(
             candidate.key
             for candidate in selected
@@ -167,12 +157,23 @@ class DecisionEngine:
             for candidate in candidates
             if candidate.active
         )
-        failure = self._failure(inputs, solar, failure_hold_target)
+        # Compatibility projection: comfort issues no longer turn the entire
+        # automatic decision into a failure. Directional fallback lives above.
+        failure = FailureDecision()
         master_mode = self._master_mode(override=override, waking=waking, failure=failure)
         safety = self._safety(inputs, fachlicher_target)
-        effective_target = safety.approved_target
-        if safety.status == "ready":
-            effective_target = fachlicher_target
+        envelope = SafetyEnvelope(
+            min_open=safety.approved_target if safety.status == "safe_position" else 0.0,
+            block_direction="both" if safety.status == "blocked" else None,
+            status=safety.status,
+            reason=safety.reason,
+        )
+        decision = replace(decision, safety=envelope).arbitrate(
+            control_hold=override.observed_position if override.active and not waking else None
+        )
+        effective_target = decision.target_position if safety.status != "blocked" else None
+        if safety.status == "safe_position":
+            safety = replace(safety, approved_target=effective_target)
         if failure.active and safety.status == "safe_position":
             failure = replace(
                 failure,
@@ -201,6 +202,23 @@ class DecisionEngine:
             )
         )
         # Do not open before an entering protection has finished its dwell.
+        if (
+            safety.status == "ready"
+            and apply.status in {"live_ready", "shadow_ready"}
+            and inputs.cover_position.usable
+            and effective_target is not None
+            and effective_target >= float(inputs.cover_position.value)
+            and any(
+                item.reason == "quality_loss_blocks_only_opening" for item in decision.contributions
+            )
+        ):
+            apply = replace(
+                apply,
+                status="blocked",
+                reason="feature_opening_direction_blocked",
+                approved_target=None,
+                write_path_reachable=False,
+            )
         # Hard modes and technical gates are evaluated independently above.
         if (
             environment_state is not None
@@ -255,6 +273,180 @@ class DecisionEngine:
             apply=apply,
             override=override,
             reasons=tuple(reasons),
+            decision=replace(decision, target_position=effective_target, apply_status=apply.status),
+        )
+
+    def _dimensional(
+        self,
+        inputs: BlindControlInputs,
+        solar: SolarExposure,
+        candidates: list[Candidate],
+        *,
+        waking: bool,
+        override: ManualOverride,
+    ) -> DimensionalDecision:
+        """Compose independent contexts, restrictions and positive opening evidence."""
+        active = {item.key: item for item in candidates if item.active and not item.paused}
+        context = ContextIntent()
+        for key in ("waking", "sleep", "away", "base_daylight"):
+            if key in active:
+                item = active[key]
+                context = ContextIntent(
+                    mode="daylight" if key == "base_daylight" else key,
+                    variant=str(inputs.bio_state.value) if key == "sleep" else None,
+                    base_target=item.target_position,
+                )
+                break
+        issues: list[DecisionIssue] = []
+        contributions: list[Contribution] = []
+        dependencies = {
+            "glare": ("activity_state",),
+            "heat": ("indoor_temperature", "outdoor_temperature"),
+            "cold": ("outdoor_temperature", "outdoor_lux"),
+            "privacy": ("privacy",),
+            "private_time": ("private_time",),
+            "context": ("bio_state", "away"),
+        }
+        for feature, keys in dependencies.items():
+            if waking and feature in {"glare", "heat", "cold", "privacy", "context"}:
+                continue
+            for key in keys:
+                observation = getattr(inputs, key)
+                if not observation.usable:
+                    issues.append(
+                        DecisionIssue(
+                            feature,
+                            key,
+                            observation.quality.value,
+                            observation.owner,
+                            observation.timestamp_basis,
+                            observation.reason,
+                            fallback="block_opening_direction",
+                        )
+                    )
+        if solar.state == SolarExposureState.UNKNOWN and not waking:
+            for feature in ("glare", "heat"):
+                for blocker in solar.quality_blockers:
+                    observation = getattr(inputs, blocker.key)
+                    issues.append(
+                        DecisionIssue(
+                            feature,
+                            blocker.key,
+                            blocker.quality.value,
+                            observation.owner,
+                            observation.timestamp_basis,
+                            blocker.reason,
+                            "block_opening_direction",
+                        )
+                    )
+        if context.mode == "daylight" and solar.lifecycle != "ACTIVE":
+            context = replace(context, base_target=None)
+            issues.append(
+                DecisionIssue(
+                    "daylight",
+                    "sun_horizon",
+                    "unknown" if solar.lifecycle == "UNKNOWN" else "conflict",
+                    "ha_sun",
+                    "stateful_truth",
+                    "day_solar_consistency",
+                    "no_daylight_open",
+                )
+            )
+        for feature, keys in (
+            ("storm", ("weather_alert", "precipitation_trend", "wind_trend", "pressure_trend")),
+            ("cool_air", ("air_movement", "indoor_temperature", "outdoor_temperature")),
+            ("daylight", ("day_state", "day_context")),
+            (
+                "solar_diagnostic",
+                (
+                    "sun_azimuth",
+                    "outdoor_lux",
+                    "lux_trend",
+                    "expected_direct_radiation",
+                    "expected_diffuse_radiation",
+                    "cloud_cover",
+                ),
+            ),
+        ):
+            for key in keys:
+                observation = getattr(inputs, key)
+                if not observation.usable:
+                    issues.append(
+                        DecisionIssue(
+                            feature,
+                            key,
+                            observation.quality.value,
+                            observation.owner,
+                            observation.timestamp_basis,
+                            observation.reason,
+                            fallback="no_positive_evidence",
+                            severity="diagnostic_warning",
+                        )
+                    )
+        for item in candidates:
+            if item.key in {
+                "sleep",
+                "away",
+                "waking",
+                "base_daylight",
+                "neutral_context",
+                "manual_override",
+            }:
+                continue
+            feature = {
+                "heat_protection": "heat",
+                "cold_insulation": "cold",
+                "storm_approaching": "storm",
+                "cool_air_available": "cool_air",
+            }.get(item.key, item.category)
+            if item.key == "private_time":
+                feature = "private_time"
+            contributions.append(
+                Contribution(
+                    feature,
+                    item.variant,
+                    "open_reason" if item.key in OPENING_CANDIDATES else "max_open",
+                    item.target_position,
+                    "paused" if item.paused else "active" if item.active else "inactive",
+                    item.reason,
+                )
+            )
+        # No stale command is retained. A quality-loss guard uses the CURRENT
+        # position and permits every stronger independent closing requirement.
+        # Waking explicitly pauses comfort scopes; private_time remains separate.
+        if issues and not (override.active and not waking):
+            for feature in sorted(
+                {item.feature for item in issues if item.fallback == "block_opening_direction"}
+            ):
+                contributions.append(
+                    Contribution(
+                        feature,
+                        None,
+                        "max_open",
+                        float(inputs.cover_position.value) if inputs.cover_position.usable else 0.0,
+                        "active",
+                        "quality_loss_blocks_only_opening",
+                    )
+                )
+        evidence = tuple(
+            CanonicalFact(
+                field.name,
+                observation.value,
+                observation.quality.value,
+                observation.owner,
+                observation.timestamp_basis,
+                observation.updated_at.isoformat() if observation.updated_at else None,
+                observation.source_revision,
+                observation.reason,
+                observation.evidence,
+            )
+            for field in fields(inputs)
+            for observation in (getattr(inputs, field.name),)
+        )
+        return DimensionalDecision(
+            context, tuple(contributions), tuple(issues), evidence
+        ).arbitrate(
+            control_hold=override.observed_position if override.active and not waking else None
         )
 
     def _base_candidate(self, inputs: BlindControlInputs) -> Candidate:
@@ -884,32 +1076,6 @@ class DecisionEngine:
             **decision_context,
         )
 
-    def _failure(
-        self,
-        inputs: BlindControlInputs,
-        solar: SolarExposure,
-        failure_hold_target: float | None,
-    ) -> FailureDecision:
-        """Block automatic decisions until all closing-demand inputs are proven.
-
-        The gate deliberately runs even when the candidate composition already
-        yielded a target.  Otherwise a default daytime target could turn missing
-        temperature, activity, or solar evidence into a new opening movement.
-        A fully known neutral situation reaches this method with no blockers and
-        therefore remains ``normal``.
-        """
-
-        quality_blockers = _automatic_decision_quality_blockers(inputs, solar)
-        if quality_blockers:
-            hold_target = _valid_hold_target(failure_hold_target)
-            return FailureDecision(
-                status="holding_safe_position" if hold_target is not None else "apply_blocked",
-                reason="automatic_decision_quality_gate_blocked",
-                hold_target=hold_target,
-                quality_blockers=quality_blockers,
-            )
-        return FailureDecision()
-
     def _master_mode(
         self,
         *,
@@ -1064,60 +1230,3 @@ def _quality(*observations: InputObservation) -> InputQuality:
 def _source(*values) -> str:
     sources = [value.source for value in values if hasattr(value, "source")]
     return "+".join(dict.fromkeys(sources)) or "derived"
-
-
-def _valid_hold_target(value: float | None) -> float | None:
-    """Keep failure-hold evidence bounded without inventing a fallback target."""
-
-    if value is None or isinstance(value, bool):
-        return None
-    try:
-        target = float(value)
-    except (TypeError, ValueError):
-        return None
-    return target if 0 <= target <= 100 else None
-
-
-def _automatic_decision_quality_blockers(
-    inputs: BlindControlInputs,
-    solar: SolarExposure,
-) -> tuple[QualityBlocker, ...]:
-    """Return every unresolved input needed to rule out closing demands.
-
-    Core-state mode and thermal load are mandatory owner truths. Solar is a
-    capability-aware aggregate: geometry and local lux are mandatory for a
-    daylight decision, while trend/model/cloud fields are replaceable evidence.
-    """
-
-    mandatory = tuple(
-        QualityBlocker(
-            key=key,
-            quality=observation.quality,
-            reason=observation.reason,
-        )
-        for key in MANDATORY_AUTOMATIC_DECISION_INPUTS
-        if not (observation := getattr(inputs, key)).usable
-    )
-    consistency: tuple[QualityBlocker, ...] = ()
-    if (
-        inputs.day_state.usable
-        and str(inputs.day_state.value).lower() in DAYLIGHT_STATES
-        and solar.state is SolarExposureState.NIGHT
-    ):
-        consistency = (
-            QualityBlocker(
-                key="day_solar_consistency",
-                quality=InputQuality.CONFLICT,
-                reason="daylight_phase_conflicts_with_sun_below_horizon",
-            ),
-        )
-    aggregate = (
-        (
-            QualityBlocker(
-                key="solar_exposure", quality=InputQuality.UNKNOWN, reason="solar_aggregate_unknown"
-            ),
-        )
-        if solar.state is SolarExposureState.UNKNOWN
-        else ()
-    )
-    return tuple(dict.fromkeys((*mandatory, *solar.quality_blockers, *consistency, *aggregate)))

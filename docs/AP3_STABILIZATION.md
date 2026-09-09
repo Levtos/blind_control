@@ -1,5 +1,35 @@
 # AP3 Stabilisierung – Entscheidung vom 07.09.2026
 
+## Aktuelle Entscheidung: v0.7.3 / 09.09.2026
+
+[Aktueller verbindlicher Contract in Issue #3](https://github.com/Levtos/blind_control/issues/3#issuecomment-5609119991)
+supersediert alle widersprechenden historischen Aussagen zu globalem Failure,
+mandatory Night-Lux/Azimut und TV-vor-PC. Historische Abschnitte und Kommentare
+bleiben erhalten. Details: [Architektur](ARCHITECTURE.md), [Contracts](CONTRACTS.md).
+
+Repro A ist der belegte lokale Freshness-/Solar-Ordering-Konflikt der Nacht
+08./09.09.: sun_elevation/sun_azimuth stale und solar_aggregate_unknown trotz
+Night. Kein 10-Minuten-Rebound ist belegt; morgendliches Waking wurde durch
+day_solar_consistency verzögert. Horizon-first und feature-lokaler Scope lösen
+diesen Contract-Konflikt ohne neue lokale Uhrzeitlogik.
+
+Repro B ist die belegte PC→TV-Fehlklassifikation: generisches Entertainment wurde
+vor PC ausgewertet, media_device ignoriert; nach Wegfall eines Temperaturblockers
+wurde 60 statt des PC-Ziels 75 dispatcht. Explizite Owner-Device-Evidence hat nun
+Vorrang; gleich spezifische Konflikte werden nicht geraten.
+
+Context, Protection, Modifier, Safety und Runtime-Gates sind getrennte Ebenen.
+Waking pausiert Heat/Glare/Privacy/Cold. Der separat kanonische `private_time`
+bleibt auch während Waking sichtbar und wirksam; kein lokaler Sonderfilter.
+Feature-Ausfall verhindert nur unbelegte Öffnungslockerung, nicht unabhängiges
+stärkeres Schließen. Sicherheits-/Bewegungs-/Override-Grenzen bleiben erhalten.
+
+Der Bericht „Automation AUS fühlte sich nicht zuverlässig an“ ist kein belegter
+Live-Write-Bug. Generationen und synchrone Revocation werden regressionsgetrieben
+gehärtet; Live-Verifikation bleibt separat. Keine HA-Live-Änderung durch Codex.
+
+## Historische Entscheidungen bis v0.7.2
+
 **Verbindlicher Auftrag:** [blind_control#3](https://github.com/Levtos/blind_control/issues/3).
 Diese Entscheidung ersetzt widersprechende ältere AP1/AP2/AP3-Texte.
 Historische GitHub-Kommentare bleiben unverändert.
